@@ -3,220 +3,262 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Betz Heating & Air HVAC Pricing Calculator</title>
+<title>Betz Heating & Air HVAC Pricing</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="icon" type="image/png" href="logo.png"/> 
-  <link rel="apple-touch-icon" href="logo.png"/>
+<link rel="icon" type="image/png" href="logo.png"/>
+<link rel="apple-touch-icon" href="logo.png"/>
 <style>
-  :root {
-    --bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--border:#2e3350;
-    --accent:#f97316;--accent2:#3b82f6;--text:#e8eaf0;--muted:#7c849e;
-    --success:#22c55e;--danger:#ef4444;--radius:12px;
-  }
-  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-  html,body{background:var(--bg);color:var(--text);font-family:'Barlow',sans-serif;min-height:100vh;}
-
-  header{background:var(--surface);border-bottom:2px solid var(--accent);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
-  header h1{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;letter-spacing:1px;text-transform:uppercase;}
-  header h1 span{color:var(--accent);}
-  .icon-btn{background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:8px 14px;border-radius:8px;font-size:13px;font-family:'Barlow',sans-serif;cursor:pointer;}
-
-  .tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none;}
-  .tabs::-webkit-scrollbar{display:none;}
-  .tab{flex:0 0 auto;padding:12px 18px;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:14px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);border-bottom:3px solid transparent;cursor:pointer;white-space:nowrap;}
-  .tab.active{color:var(--accent);border-bottom-color:var(--accent);}
-
-  .section{display:none;padding:16px;max-width:600px;margin:0 auto;}
-  .section.active{display:block;}
-
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:14px;}
-  .card-title{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:12px;}
-
-  label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px;margin-top:10px;}
-  label:first-of-type{margin-top:0;}
-  select,input[type="text"],input[type="number"],input[type="url"]{
-    width:100%;background:var(--surface2);border:1px solid var(--border);
-    color:var(--text);border-radius:8px;padding:11px 12px;font-size:15px;
-    font-family:'Barlow',sans-serif;appearance:none;-webkit-appearance:none;outline:none;
-  }
-  select:focus,input:focus{border-color:var(--accent2);}
-  .select-wrap{position:relative;}
-  .select-wrap::after{content:'▾';position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none;}
-
-  .option-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);}
-  .option-row:last-child{border-bottom:none;padding-bottom:0;}
-  .option-left{display:flex;align-items:center;gap:10px;flex:1;}
-  .option-name{font-size:15px;}
-  .option-price{font-size:13px;color:var(--muted);}
-  .toggle{width:44px;height:26px;background:var(--surface2);border:2px solid var(--border);border-radius:13px;position:relative;cursor:pointer;flex-shrink:0;transition:background .2s,border-color .2s;}
-  .toggle.on{background:var(--accent);border-color:var(--accent);}
-  .toggle::after{content:'';width:18px;height:18px;background:#fff;border-radius:50%;position:absolute;top:2px;left:2px;transition:left .2s;}
-  .toggle.on::after{left:20px;}
-
-  /* PRICE SUMMARY */
-  .price-summary{background:linear-gradient(135deg,#1a1d27 0%,#1e2235 100%);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:14px;}
-  .price-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:14px;color:var(--muted);}
-  .price-row.total{border-top:2px solid var(--accent);margin-top:8px;padding-top:12px;}
-  .price-row.total .plabel{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text);}
-  .price-row.total .value{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:var(--accent);}
-  .price-row .value{font-weight:600;color:var(--text);}
-
-  /* QUOTE TEXT BOX */
-  .quote-box{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px;font-size:14px;line-height:1.7;color:var(--text);white-space:pre-wrap;font-family:'Barlow',sans-serif;}
-  .copy-btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:13px;width:100%;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:14px;}
-  .copy-btn.copied{background:var(--success);}
-  .copy-btn:active{opacity:.85;}
-
-  /* MODAL */
-  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;backdrop-filter:blur(4px);}
-  .modal-overlay.open{display:flex;align-items:flex-end;}
-  .modal{background:var(--surface);border-radius:20px 20px 0 0;border-top:2px solid var(--accent);width:100%;max-height:88vh;overflow-y:auto;padding:20px 16px 50px;}
-  .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
-  .modal-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;letter-spacing:1px;text-transform:uppercase;}
-  .modal-subtitle{font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.5;}
-  .close-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text);width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-
-  .url-section-title{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:10px;}
-  .url-row{margin-bottom:14px;}
-  .url-row label{color:var(--text);font-size:14px;margin-bottom:6px;}
-  .url-status{font-size:12px;margin-top:4px;padding-left:4px;min-height:16px;}
-
-  .save-btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:14px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;width:100%;margin-top:4px;}
-  .reload-btn{background:var(--accent2);color:#fff;border:none;border-radius:10px;padding:12px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;width:100%;margin-top:10px;}
-
-  .steps{background:var(--surface2);border-radius:10px;padding:14px;margin-bottom:18px;}
-  .step{display:flex;gap:10px;margin-bottom:10px;font-size:13px;line-height:1.5;}
-  .step:last-child{margin-bottom:0;}
-  .step-num{background:var(--accent);color:#fff;border-radius:50%;width:22px;height:22px;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
-  .step-text{color:var(--muted);}
-  .step-text b{color:var(--text);}
-
-  .install-type-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-  .install-chip{background:var(--surface2);border:2px solid var(--border);border-radius:10px;padding:12px 8px;text-align:center;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:14px;line-height:1.2;letter-spacing:.5px;color:var(--muted);transition:all .15s;}
-  .install-chip.selected{background:rgba(249,115,22,.15);border-color:var(--accent);color:var(--accent);}
-
-  .equip-group{margin-bottom:12px;}
-  .equip-label{font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;}
-
-  .empty-state{text-align:center;padding:40px 20px;color:var(--muted);}
-  .empty-state .icon{font-size:48px;margin-bottom:12px;}
-  .empty-state p{font-size:15px;}
-
-  .load-overlay{position:fixed;inset:0;background:var(--bg);z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
-  .load-overlay.hidden{display:none;}
-  .spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
-  @keyframes spin{to{transform:rotate(360deg);}}
-  .load-text{font-family:'Barlow Condensed',sans-serif;font-size:16px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
-
-  .data-status{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);padding:8px 16px;background:var(--surface);border-bottom:1px solid var(--border);}
-  .status-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0;}
-  .status-dot.live{background:var(--success);}
-  .status-dot.fallback{background:var(--accent);}
-
-  /* ── SERVICE REPAIR TAB ─────────────────────────────────────── */
-  .sr-input-row{display:flex;align-items:center;gap:10px;}
-  .sr-input-row .prefix{font-size:20px;font-weight:700;color:var(--muted);flex-shrink:0;}
-  .sr-input-row input{font-size:22px;font-weight:700;letter-spacing:.5px;}
-
-  .sr-price-badge{display:inline-block;background:rgba(249,115,22,.15);border:1px solid var(--accent);border-radius:8px;padding:6px 14px;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;color:var(--accent);margin-top:8px;}
-
-  /* Editable tables modal */
-  .repair-table{width:100%;border-collapse:collapse;margin-bottom:6px;}
-  .repair-table th{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);}
-  .repair-table td{padding:4px 4px;}
-  .repair-table td input{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:7px 8px;font-size:14px;font-family:'Barlow',sans-serif;width:100%;}
-  .repair-table td input:focus{border-color:var(--accent2);outline:none;}
-  .del-row-btn{background:none;border:none;color:var(--danger);font-size:18px;cursor:pointer;padding:4px 6px;border-radius:6px;line-height:1;}
-  .del-row-btn:hover{background:rgba(239,68,68,.12);}
-  .add-row-btn{background:var(--surface2);border:1px solid var(--border);color:var(--accent2);border-radius:8px;padding:9px 14px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;width:100%;margin-top:6px;}
-  .add-row-btn:hover{border-color:var(--accent2);}
-  .section-divider{border:none;border-top:1px solid var(--border);margin:20px 0;}
-  .edit-tables-btn{background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:10px 16px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;gap:7px;margin-bottom:14px;}
-  .edit-tables-btn:hover{border-color:var(--accent2);color:var(--text);}
-
-  .sr-work-chip-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px;}
-  .sr-work-chip{background:var(--surface2);border:2px solid var(--border);border-radius:10px;padding:12px 8px;text-align:center;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;line-height:1.3;letter-spacing:.3px;color:var(--muted);transition:all .15s;}
-  .sr-work-chip.selected{background:rgba(249,115,22,.15);border-color:var(--accent);color:var(--accent);}
-
-  .sr-breakdown{background:linear-gradient(135deg,#1a1d27 0%,#1e2235 100%);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:14px;}
+:root{--bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--border:#2e3350;--accent:#f97316;--accent2:#3b82f6;--text:#e8eaf0;--muted:#7c849e;--success:#22c55e;--danger:#ef4444;--radius:12px;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{background:var(--bg);color:var(--text);font-family:'Barlow',sans-serif;min-height:100vh;}
+header{background:var(--surface);border-bottom:2px solid var(--accent);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+header h1{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;letter-spacing:1px;text-transform:uppercase;}
+header h1 span{color:var(--accent);}
+.icon-btn{background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:8px 12px;border-radius:8px;font-size:12px;font-family:'Barlow',sans-serif;cursor:pointer;}
+.tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none;}
+.tabs::-webkit-scrollbar{display:none;}
+.tab{flex:0 0 auto;padding:12px 16px;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:13px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);border-bottom:3px solid transparent;cursor:pointer;white-space:nowrap;}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.section{display:none;padding:16px;max-width:600px;margin:0 auto;}
+.section.active{display:block;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:14px;}
+.card-title{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:12px;}
+label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px;margin-top:10px;}
+label:first-of-type{margin-top:0;}
+select,input[type="text"],input[type="number"],input[type="url"],input[type="password"]{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:11px 12px;font-size:15px;font-family:'Barlow',sans-serif;appearance:none;-webkit-appearance:none;outline:none;}
+select:focus,input:focus{border-color:var(--accent2);}
+.select-wrap{position:relative;}
+.select-wrap::after{content:'▾';position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none;}
+.install-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.install-chip{background:var(--surface2);border:2px solid var(--border);border-radius:10px;padding:12px 8px;text-align:center;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;line-height:1.2;letter-spacing:.3px;color:var(--muted);transition:all .15s;}
+.install-chip.selected{background:rgba(249,115,22,.15);border-color:var(--accent);color:var(--accent);}
+.install-chip .chip-sub{font-size:10px;font-weight:400;color:var(--muted);margin-top:3px;font-family:'Barlow',sans-serif;letter-spacing:0;}
+.install-chip.selected .chip-sub{color:var(--accent);opacity:.8;}
+.option-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);}
+.option-row:last-child{border-bottom:none;padding-bottom:0;}
+.option-left{flex:1;}
+.option-name{font-size:15px;}
+.option-price{font-size:13px;color:var(--muted);}
+.toggle{width:44px;height:26px;background:var(--surface2);border:2px solid var(--border);border-radius:13px;position:relative;cursor:pointer;flex-shrink:0;transition:background .2s,border-color .2s;}
+.toggle.on{background:var(--accent);border-color:var(--accent);}
+.toggle::after{content:'';width:18px;height:18px;background:#fff;border-radius:50%;position:absolute;top:2px;left:2px;transition:left .2s;}
+.toggle.on::after{left:20px;}
+.price-summary{background:linear-gradient(135deg,#1a1d27 0%,#1e2235 100%);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:14px;}
+.price-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:14px;color:var(--muted);}
+.price-row.total{border-top:2px solid var(--accent);margin-top:8px;padding-top:12px;}
+.price-row.total .plabel{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text);}
+.price-row.total .value{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:var(--accent);}
+.price-row .value{font-weight:600;color:var(--text);}
+.quote-box{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px;font-size:14px;line-height:1.7;color:var(--text);white-space:pre-wrap;font-family:'Barlow',sans-serif;}
+.copy-btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:13px;width:100%;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:14px;}
+.copy-btn.copied{background:var(--success);}
+.primary-btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:14px;width:100%;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-bottom:14px;}
+.secondary-btn{background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:10px 16px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;gap:7px;margin-bottom:14px;}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;backdrop-filter:blur(4px);}
+.modal-overlay.open{display:flex;align-items:flex-end;}
+.modal{background:var(--surface);border-radius:20px 20px 0 0;border-top:2px solid var(--accent);width:100%;max-height:88vh;overflow-y:auto;padding:20px 16px 50px;}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.modal-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;letter-spacing:1px;text-transform:uppercase;}
+.modal-subtitle{font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.5;}
+.close-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text);width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.save-btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:14px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;width:100%;margin-top:4px;}
+.reload-btn{background:var(--accent2);color:#fff;border:none;border-radius:10px;padding:12px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;width:100%;margin-top:10px;}
+.url-section-title{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:10px;margin-top:18px;}
+.url-row{margin-bottom:12px;}
+.url-row label{color:var(--text);font-size:14px;margin-bottom:6px;margin-top:0;}
+.url-status{font-size:12px;margin-top:4px;padding-left:4px;min-height:16px;}
+.load-overlay{position:fixed;inset:0;background:var(--bg);z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+.load-overlay.hidden{display:none;}
+.spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.load-text{font-family:'Barlow Condensed',sans-serif;font-size:16px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+.data-status{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);padding:8px 16px;background:var(--surface);border-bottom:1px solid var(--border);}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0;}
+.status-dot.live{background:var(--success);}
+.status-dot.err{background:var(--danger);}
+.empty-state{text-align:center;padding:40px 20px;color:var(--muted);}
+.empty-state .icon{font-size:48px;margin-bottom:12px;}
+.equip-group{margin-bottom:12px;}
+.equip-label{font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;}
+/* SR styles */
+.sr-input-row{display:flex;align-items:center;gap:10px;}
+.sr-input-row .prefix{font-size:20px;font-weight:700;color:var(--muted);flex-shrink:0;}
+.sr-breakdown{background:linear-gradient(135deg,#1a1d27 0%,#1e2235 100%);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:14px;}
+.sr-work-chip-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px;}
+.sr-work-chip{background:var(--surface2);border:2px solid var(--border);border-radius:10px;padding:10px 8px;text-align:center;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;line-height:1.3;letter-spacing:.3px;color:var(--muted);transition:all .15s;}
+.sr-work-chip.selected{background:rgba(249,115,22,.15);border-color:var(--accent);color:var(--accent);}
+.section-divider{border:none;border-top:1px solid var(--border);margin:18px 0;}
+.repair-table{width:100%;border-collapse:collapse;margin-bottom:6px;}
+.repair-table th{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);text-align:left;padding:6px 4px;border-bottom:1px solid var(--border);}
+.repair-table td{padding:3px 3px;}
+.repair-table td input,.repair-table td select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 6px;font-size:13px;font-family:'Barlow',sans-serif;width:100%;}
+.del-row-btn{background:none;border:none;color:var(--danger);font-size:16px;cursor:pointer;padding:3px 5px;border-radius:6px;line-height:1;}
+.add-row-btn{background:var(--surface2);border:1px solid var(--border);color:var(--accent2);border-radius:8px;padding:8px 14px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;width:100%;margin-top:6px;}
 </style>
 </head>
 <body>
 
 <div class="load-overlay" id="loadOverlay">
   <div class="spinner"></div>
-  <div class="load-text">Loading pricing data…</div>
+  <div class="load-text" id="loadText">Loading pricing data…</div>
 </div>
 
-<div id="dataErrorScreen" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:300;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;">
-  <div style="font-size:52px;margin-bottom:20px;">⚠️</div>
-  <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--accent);margin-bottom:16px;">Data Unavailable</div>
-  <div style="font-size:16px;color:var(--text);line-height:1.6;max-width:320px;">Pricing data could not be retrieved. Please contact the office for assistance.</div>
-  <button onclick="retryLoad()" style="margin-top:32px;background:var(--accent2);color:#fff;border:none;border-radius:10px;padding:14px 28px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;">↺ Try Again</button>
-  <button onclick="document.getElementById('dataErrorScreen').style.display='none';openSettings();" style="margin-top:12px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:10px;padding:14px 28px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;">⚙ Update Sheet URLs</button>
+<!-- PIN MODAL -->
+<div class="modal-overlay" id="pinModal">
+  <div class="modal" style="padding-bottom:30px;">
+    <div class="modal-header">
+      <div class="modal-title">Enter PIN</div>
+      <button class="close-btn" onclick="closePinModal()">×</button>
+    </div>
+    <p class="modal-subtitle">This area is restricted. Enter your PIN to continue.</p>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <input type="password" id="pinInput" inputmode="numeric" maxlength="10" style="flex:1;font-size:24px;letter-spacing:6px;text-align:center;" placeholder="••••" onkeydown="if(event.key==='Enter')submitPin()">
+      <button onclick="submitPin()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:12px 20px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;cursor:pointer;">Go</button>
+    </div>
+    <div id="pinError" style="color:var(--danger);font-size:13px;min-height:18px;padding-left:4px;"></div>
+  </div>
 </div>
 
+<!-- SETTINGS MODAL -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Sheet Setup</div>
+      <button class="close-btn" onclick="closeSettings()">×</button>
+    </div>
+    <p class="modal-subtitle">Configure your Google Apps Script URLs. All pricing data is loaded from these endpoints.</p>
+    <div class="url-section-title">Trane Catalog (Equipment & Split Systems)</div>
+    <div class="url-row"><label>Apps Script URL</label><input type="url" id="urlCatalog" placeholder="https://script.google.com/macros/s/…/exec"><div class="url-status" id="statusCatalog"></div></div>
+    <div class="url-section-title">Settings & Labor Data</div>
+    <div class="url-row"><label>Apps Script URL</label><input type="url" id="urlSettings" placeholder="https://script.google.com/macros/s/…/exec"><div class="url-status" id="statusSettings"></div></div>
+    <button class="save-btn" onclick="saveAndReload()">💾 Save &amp; Reload</button>
+    <button class="reload-btn" onclick="loadAllData(true)">🔄 Reload Now</button>
+  </div>
+</div>
+
+<!-- SR TABLES MODAL -->
+<div class="modal-overlay" id="srTablesModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Service Repair Pricing</div>
+      <button class="close-btn" onclick="closeSRTables()">×</button>
+    </div>
+    <p class="modal-subtitle">Edit markup tiers, labor rates, and work types. Changes save to this device.</p>
+
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:18px;">
+      <div style="font-size:13px;color:var(--muted);">💡 Pricing detail visibility is controlled by <strong style="color:var(--text);">Admin Mode</strong>. Techs always see final price only. Admins see full breakdown.</div>
+    </div>
+
+    <div class="url-section-title">Tax Rate</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+      <input type="number" id="rtTaxRate" min="0" max="30" step="0.01" style="max-width:100px;" placeholder="8.25">
+      <span style="color:var(--muted);font-size:14px;">%</span>
+    </div>
+
+    <div class="url-section-title">Labor Rates (per hour)</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:6px;">
+      <div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">Man 1 (Lead)</div>
+        <div style="display:flex;align-items:center;gap:4px;"><span style="color:var(--muted);">$</span><input type="number" id="rtMan1Rate" min="0" step="1" placeholder="135"></div>
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">Man 2 (Helper)</div>
+        <div style="display:flex;align-items:center;gap:4px;"><span style="color:var(--muted);">$</span><input type="number" id="rtMan2Rate" min="0" step="1" placeholder="85"></div>
+      </div>
+    </div>
+
+    <hr class="section-divider">
+    <div class="url-section-title">Markup Tiers</div>
+    <table class="repair-table">
+      <thead><tr><th>Min ($)</th><th>Max ($)</th><th>Mult</th><th>Floor ($)</th><th></th></tr></thead>
+      <tbody id="rtTiersTbody"></tbody>
+    </table>
+    <button class="add-row-btn" onclick="addSRTierRow()">+ Add Tier</button>
+
+    <hr class="section-divider">
+    <div class="url-section-title">Work Types</div>
+    <table class="repair-table">
+      <thead><tr><th>Work Type</th><th>Hrs</th><th>Men</th><th>Labor</th><th></th></tr></thead>
+      <tbody id="rtWorkTbody"></tbody>
+    </table>
+    <button class="add-row-btn" onclick="addSRWorkRow()">+ Add Work Type</button>
+
+    <hr class="section-divider">
+    <button class="save-btn" onclick="saveSRTables()">💾 Save Tables</button>
+  </div>
+</div>
 
 <header>
   <div style="display:flex;align-items:center;gap:10px;">
-    <img src="logo.png" style="height:36px;width:auto;" alt="Logo">
-    <h1>Betz Heating & Air <span>HVAC Pricing</span></h1>
+    <img src="logo.png" style="height:36px;width:auto;" alt="Logo" onerror="this.style.display='none'">
+    <h1>Betz Heating & Air <span>Pricing</span></h1>
   </div>
-  <button class="icon-btn" onclick="openSettings()">⚙ Sheet Setup</button>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <!-- Admin badge - shown when in admin mode -->
+    <div id="adminBadge" style="display:none;align-items:center;gap:6px;background:rgba(249,115,22,.15);border:1px solid var(--accent);border-radius:8px;padding:6px 10px;">
+      <span style="font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--accent);">Admin</span>
+      <button onclick="exitAdminMode()" style="background:none;border:none;color:var(--accent);font-size:16px;cursor:pointer;padding:0;line-height:1;" title="Exit Admin Mode">🔒</button>
+    </div>
+    <!-- Admin button - shown when NOT in admin mode -->
+    <button id="adminBtn" class="icon-btn" onclick="promptAdmin()">Admin</button>
+    <!-- Setup button - only shown in admin mode -->
+    <button id="setupBtn" class="icon-btn" onclick="openSettings()" style="display:none;">⚙ Setup</button>
+  </div>
 </header>
 
 <div class="data-status" id="dataStatus">
   <div class="status-dot" id="statusDot"></div>
-  <span id="statusText">Checking data source…</span>
+  <span id="statusText">Loading…</span>
 </div>
 
 <div class="tabs">
   <div class="tab active" onclick="switchTab('calculator')">Calculator</div>
-  <div class="tab" onclick="switchTab('summary')">Quote &amp; Price</div>
-  <div class="tab" onclick="switchTab('servicerepair')">Service Repair</div>
+  <div class="tab" onclick="switchTab('quote')">Quote & Price</div>
+  <div class="tab" onclick="switchTab('repair')">Service Repair</div>
 </div>
 
-<!-- CALCULATOR -->
+<!-- CALCULATOR TAB -->
 <div id="tab-calculator" class="section active">
   <div class="card">
     <div class="card-title">Install Type</div>
-    <div class="install-type-grid" id="installTypeGrid"></div>
+    <div class="install-grid" id="installTypeGrid"></div>
   </div>
-  <div id="equipmentSection" style="display:none">
-    <div class="card" id="locationDescCard">
-      <div class="card-title">Job Details</div>
-      <div id="locationDescFields"></div>
-    </div>
-    <div class="card">
-      <div class="card-title">Equipment Selection</div>
-      <div id="equipmentFields"></div>
-    </div>
-    <div class="card">
-      <div class="card-title">Options &amp; Add-ons</div>
-      <div id="optionsFields"></div>
-    </div>
-  </div>
-  <button id="quoteNavBtn" style="display:none;width:100%;padding:14px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-bottom:14px;" onclick="switchTab('summary')">View Quote &amp; Price →</button>
-  <div id="emptyState" class="empty-state">
+  <div id="calculatorFields" style="display:none;"></div>
+  <button id="viewQuoteBtn" style="display:none;" class="primary-btn" onclick="switchTab('quote')">View Quote & Price →</button>
+  <div id="calcEmptyState" class="empty-state">
     <div class="icon">🔧</div>
     <p>Select an install type to begin</p>
   </div>
 </div>
 
-<!-- QUOTE & PRICE -->
-<div id="tab-summary" class="section">
-  <div id="summaryContent">
-    <div class="empty-state"><div class="icon">📋</div><p>Complete a quote in the Calculator tab first</p></div>
+<!-- QUOTE & PRICE TAB -->
+<div id="tab-quote" class="section">
+  <div id="quoteContent">
+    <div class="empty-state"><div class="icon">📋</div><p>Complete the Calculator tab first</p></div>
   </div>
 </div>
 
-<!-- SERVICE REPAIR -->
-<div id="tab-servicerepair" class="section">
+<!-- SERVICE REPAIR TAB -->
+<div id="tab-repair" class="section">
   <div class="card">
     <div class="card-title">Part Cost</div>
     <div class="sr-input-row">
       <span class="prefix">$</span>
-      <input type="number" id="srPartCost" placeholder="0.00" min="0" step="0.01" oninput="renderServiceRepair()" style="font-size:22px;font-weight:700;">
+      <input type="number" id="srPartCost" placeholder="0.00" min="0" step="0.01" oninput="renderSR()" style="font-size:22px;font-weight:700;">
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+      <div>
+        <div style="font-size:14px;color:var(--text);font-weight:600;">Add Sales Tax (8.25%)</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px;">OFF if price is already "out the door"</div>
+      </div>
+      <div id="srTaxToggle" class="toggle on" onclick="toggleSRTax()"></div>
+    </div>
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+      <div style="font-size:14px;color:var(--text);font-weight:600;margin-bottom:6px;">Shipping Cost (optional)</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="color:var(--muted);font-size:15px;">$</span>
+        <input type="number" id="srShipping" placeholder="0.00" min="0" step="0.01" oninput="renderSR()" style="font-size:16px;">
+      </div>
     </div>
     <div id="srPartNote" style="font-size:12px;color:var(--muted);margin-top:8px;"></div>
   </div>
@@ -228,14 +270,15 @@
 
   <div id="srResultCard" style="display:none;">
     <div class="sr-breakdown">
-      <div class="card-title" style="color:var(--accent2);margin-bottom:8px" id="srBreakdownTitle">Repair Price Breakdown</div>
+      <div class="card-title" style="color:var(--accent2);margin-bottom:8px;" id="srBreakdownTitle">Repair Price Breakdown</div>
       <div id="srDetailRows">
-      <div class="price-row"><span>Part Cost</span><span class="value" id="srRowPartCost">—</span></div>
-      <div class="price-row"><span>Tax (<span id="srTaxRateLbl"></span>)</span><span class="value" id="srRowTax">—</span></div>
-      <div class="price-row"><span>Part w/ Tax</span><span class="value" id="srRowPartTaxed">—</span></div>
-      <div class="price-row"><span>Markup Tier</span><span class="value" id="srRowTier">—</span></div>
-      <div class="price-row"><span>Marked-Up Part Price</span><span class="value" id="srRowMarkedPart">—</span></div>
-      <div class="price-row"><span>Labor (<span id="srLaborTypeLbl"></span>)</span><span class="value" id="srRowLabor">—</span></div>
+        <div class="price-row"><span>Part Cost</span><span class="value" id="srRowPartCost">—</span></div>
+        <div class="price-row"><span>Tax (<span id="srTaxRateLbl"></span>)</span><span class="value" id="srRowTax">—</span></div>
+        <div class="price-row"><span>Shipping</span><span class="value" id="srRowShipping">—</span></div>
+        <div class="price-row"><span>Part w/ Tax & Shipping</span><span class="value" id="srRowPartTaxed">—</span></div>
+        <div class="price-row"><span>Markup Tier</span><span class="value" id="srRowTier">—</span></div>
+        <div class="price-row"><span>Marked-Up Part</span><span class="value" id="srRowMarkedPart">—</span></div>
+        <div class="price-row"><span>Labor (<span id="srLaborTypeLbl"></span>)</span><span class="value" id="srRowLabor">—</span></div>
       </div>
       <div class="price-row total">
         <span class="plabel">Total Price</span>
@@ -249,1102 +292,771 @@
     </div>
   </div>
 
-  <button class="edit-tables-btn" onclick="openRepairTables()">⚙ Edit Pricing Tables</button>
+  <button class="secondary-btn" onclick="openSRTables()">⚙ Edit Pricing Tables (PIN Required)</button>
 </div>
-
-<!-- SETTINGS MODAL (original) -->
-<div class="modal-overlay" id="settingsModal">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title">Google Sheet Setup</div>
-      <button class="close-btn" onclick="closeSettings()">×</button>
-    </div>
-    <p class="modal-subtitle">Paste the CSV publish links from your Google Sheet tabs below.</p>
-    <div class="steps">
-      <div class="step"><div class="step-num">1</div><div class="step-text">Open your Google Sheet → <b>File → Share → Publish to web</b></div></div>
-      <div class="step"><div class="step-num">2</div><div class="step-text">For each tab: select tab name → <b>Comma-separated values (.csv)</b> → Publish → Copy URL</div></div>
-      <div class="step"><div class="step-num">3</div><div class="step-text">Paste each URL below and tap <b>Save &amp; Reload</b></div></div>
-    </div>
-    <div class="url-section-title">CSV Sheet URLs</div>
-    <div class="url-row"><label>Equipment Tab</label><input type="url" id="urlEquipment" placeholder="…/pub?gid=…&output=csv"><div class="url-status" id="statusEquipment"></div></div>
-    <div class="url-row"><label>Labor &amp; Materials Tab</label><input type="url" id="urlLabor" placeholder="…/pub?gid=…&output=csv"><div class="url-status" id="statusLabor"></div></div>
-    <div class="url-row"><label>Thermostats Tab</label><input type="url" id="urlThermostats" placeholder="…/pub?gid=…&output=csv"><div class="url-status" id="statusThermostats"></div></div>
-    <div class="url-row"><label>Settings Tab</label><input type="url" id="urlSettings" placeholder="…/pub?gid=…&output=csv"><div class="url-status" id="statusSettings"></div></div>
-    <div class="url-row"><label>Quote Templates Tab</label><input type="url" id="urlTemplates" placeholder="…/pub?gid=…&output=csv"><div class="url-status" id="statusTemplates"></div></div>
-    <div class="url-row"><label>Locations &amp; Descriptions Tab</label><input type="url" id="urlLocations" placeholder="…/pub?gid=…&output=csv"><div class="url-status" id="statusLocations"></div></div>	
-    <button class="save-btn" onclick="saveAndReload()">💾 Save &amp; Reload Data</button>
-    <button class="reload-btn" onclick="loadAllData(true)">🔄 Reload from Sheet Now</button>
-  </div>
-</div>
-
-<!-- REPAIR TABLES MODAL -->
-<div class="modal-overlay" id="repairTablesModal">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title">Edit Pricing Tables</div>
-      <button class="close-btn" onclick="closeRepairTables()">×</button>
-    </div>
-    <p class="modal-subtitle">Changes are saved instantly to this device. Adjust tiers, multipliers, work types, and labor costs here.</p>
-
-    <!-- DETAIL TOGGLE -->
-    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:20px;">
-      <div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text);">Show Pricing Detail</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:2px;">When OFF, technicians only see the final price</div>
-      </div>
-      <div id="detailToggle" class="toggle" onclick="toggleDetailMode()"></div>
-    </div>
-
-    <!-- TAX RATE -->
-    <div class="url-section-title">Tax Rate</div>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
-      <input type="number" id="rtTaxRate" min="0" max="30" step="0.01" style="max-width:120px;" placeholder="8.25">
-      <span style="color:var(--muted);font-size:14px;">%</span>
-      <span style="color:var(--muted);font-size:13px;">(applied to part cost before markup)</span>
-    </div>
-
-    <hr class="section-divider">
-
-    <!-- MARKUP TIERS -->
-    <div class="url-section-title">Part Cost Markup Tiers</div>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">Set the cost range and multiplier for each tier. The app uses the tier where the part cost falls.</p>
-    <table class="repair-table" id="rtTiersTable">
-      <thead><tr>
-        <th>Min ($)</th>
-        <th>Max ($) <span style="font-weight:400;font-style:italic;">blank = no limit</span></th>
-        <th>Multiplier</th>
-        <th></th>
-      </tr></thead>
-      <tbody id="rtTiersTbody"></tbody>
-    </table>
-    <button class="add-row-btn" onclick="addTierRow()">+ Add Tier</button>
-
-    <hr class="section-divider">
-
-    <!-- WORK TYPES -->
-    <div class="url-section-title">Work Types &amp; Labor Costs</div>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">Each work type appears as a selectable option on the Service Repair tab.</p>
-    <table class="repair-table" id="rtWorkTable">
-      <thead><tr>
-        <th>Work Type</th>
-        <th>Labor ($)</th>
-        <th></th>
-      </tr></thead>
-      <tbody id="rtWorkTbody"></tbody>
-    </table>
-    <button class="add-row-btn" onclick="addWorkRow()">+ Add Work Type</button>
-
-    <hr class="section-divider">
-    <button class="save-btn" onclick="saveRepairTables()">💾 Save Tables</button>
-  </div>
-</div>
-
-<!-- PIN MODAL -->
-<div class="modal-overlay" id="pinModal">
-  <div class="modal" style="padding-bottom:30px;">
-    <div class="modal-header">
-      <div class="modal-title">Enter PIN</div>
-      <button class="close-btn" onclick="closePinModal()">×</button>
-    </div>
-    <p class="modal-subtitle">This area is restricted. Enter your PIN to continue.</p>
-    <div style="display:flex;gap:8px;margin-bottom:12px;">
-      <input type="password" id="pinInput" inputmode="numeric" maxlength="10"
-        style="flex:1;font-size:24px;letter-spacing:6px;text-align:center;"
-        placeholder="••••"
-        onkeydown="if(event.key==='Enter') submitPin()">
-      <button onclick="submitPin()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:12px 20px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;">Go</button>
-    </div>
-    <div id="pinError" style="color:var(--danger);font-size:13px;min-height:18px;padding-left:4px;"></div>
-  </div>
-</div>
-
 
 <script>
-// ─── INSTALL TYPE CONFIG ──────────────────────────────────────────────────────
+// ─── CONSTANTS ────────────────────────────────────────────────────────────────
+const CATALOG_URL = 'https://script.google.com/macros/s/AKfycbwlh5GIaBHzIASONBzVq2qfuYXXewa_23ofSqScE8Z-7FkRSTab0atXp2EesDHpwhbNRQ/exec';
+const SETTINGS_URL = 'https://script.google.com/macros/s/AKfycbxpZD3HYlZwdTqQ5CzW9dUdEeRr73rLIRl7lQwlmSYEp2BogM7sBeBf3CA6z3u68phX/exec';
+
 const INSTALL_TYPES = [
-  {name:"Complete A/C",      key:"Complete Air Conditioner",
-   equipment:[{label:"Condenser",types:["condenser"]},{label:"Evaporator Coil",types:["coil"]},{label:"Furnace",types:["furnace"]}],
-   options:["return_plenum","supply_plenum","thermostat","warranty_10yr"]},
-  {name:"Complete Heat Pump",key:"Complete Heat Pump",
-   equipment:[{label:"Heat Pump",types:["heatpump"]},{label:"Air Handler",types:["airhandler"]},{label:"Heat Kit",types:["heatkit"]}],
-   options:["return_plenum","supply_plenum","thermostat","warranty_10yr"]},
-  {name:"Evaporator Coil",   key:"Evaporator Coil",
-   equipment:[{label:"Evaporator Coil",types:["coil"]}],
-   options:["supply_plenum","thermostat"]},
-  {name:"Condenser",         key:"Condenser",
-   equipment:[{label:"Condenser",types:["condenser"]}],
-   options:["thermostat"]},
-  {name:"Condenser & Coil",  key:"Condenser and Coil",
-   equipment:[{label:"Condenser",types:["condenser"]},{label:"Evaporator Coil",types:["coil"]}],
-   options:["supply_plenum","thermostat"]},
-  {name:"Furnace",           key:"Furnace",
-   equipment:[{label:"Furnace",types:["furnace"]}],
-   options:["return_plenum","thermostat"]},
-  {name:"Air Handler",       key:"Air Handler",
-   equipment:[{label:"Air Handler",types:["airhandler"]},{label:"Heat Kit",types:["heatkit"]}],
-   options:["return_plenum","supply_plenum","thermostat"]},
-  {name:"RTU",               key:"RTU",
-   equipment:[{label:"RTU Unit",types:["rtu"]}],
-   options:["thermostat"]}
+  {key:'split-gac',    name:'Split Gas/AC',      sub:'Complete System', source:'split', filter:'Split Gas/AC Systems - R-454B',       templateKey:'Complete Air Conditioner', laborKey:'Complete Air Conditioner', showReturn:true,  showSupply:true,  showWarranty:true},
+  {key:'split-hp',     name:'Split Heat Pump',   sub:'Complete System', source:'split', filter:'Split Heat Pump Systems - R-454B',     templateKey:'Complete Heat Pump',        laborKey:'Complete Heat Pump',       showReturn:true,  showSupply:true,  showWarranty:true, hasHeatKit:true},
+  {key:'split-df',     name:'Split Dual Fuel',   sub:'Complete System', source:'split', filter:'Split Dual Fuel Systems - R-454B',     templateKey:'Complete Dual Fuel',        laborKey:'Complete Dual Fuel',       showReturn:true,  showSupply:true,  showWarranty:true},
+  {key:'split-cool',   name:'Split Cooling',     sub:'Complete System', source:'split', filter:'Split Cooling Only Systems - R-454B',  templateKey:'Complete Cooling',          laborKey:'Complete Cooling',         showReturn:true,  showSupply:true,  showWarranty:true},
+  {key:'condenser',    name:'Condenser',          sub:'Partial Install', source:'equip', categories:['Air Conditioners'],              templateKey:'Condenser',                 laborKey:'Condenser',                showReturn:false, showSupply:false, showWarranty:false},
+  {key:'cond-coil',    name:'Condenser & Coil',  sub:'Partial Install', source:'equip', categories:['Air Conditioners','Evaporator Coils'], templateKey:'Condenser and Coil',   laborKey:'Condenser and Coil',       showReturn:false, showSupply:true,  showWarranty:false},
+  {key:'evap-coil',    name:'Evaporator Coil',   sub:'Partial Install', source:'equip', categories:['Evaporator Coils'],              templateKey:'Evaporator Coil',           laborKey:'Evaporator Coil',          showReturn:false, showSupply:true,  showWarranty:false},
+  {key:'furnace',      name:'Furnace',            sub:'Partial Install', source:'equip', categories:['Furnaces'],                      templateKey:'Furnace',                   laborKey:'Furnace',                  showReturn:true,  showSupply:false, showWarranty:false},
+  {key:'air-handler',  name:'Air Handler',        sub:'Partial Install', source:'equip', categories:['Air Handlers','Heat Kits'],      templateKey:'Air Handler',               laborKey:'Air Handler',              showReturn:true,  showSupply:true,  showWarranty:false},
+  {key:'heat-pump',    name:'Heat Pump',          sub:'Partial Install', source:'equip', categories:['Heat Pumps'],                    templateKey:'Heat Pump',                 laborKey:'Heat Pump',                showReturn:false, showSupply:false, showWarranty:false},
 ];
 
-// ─── SERVICE REPAIR DEFAULTS ──────────────────────────────────────────────────
-const SR_DEFAULT_TAX_RATE = 8.25; // percent
+// ─── APP DATA ─────────────────────────────────────────────────────────────────
+let appData = {
+  splitSystems: [],
+  equipment: [],
+  labor: {},
+  materials: {},
+  thermostats: [],
+  settings: {equipMarkup:1.1, marginDivisor:0.55, returnPlenum:250, supplyPlenum:250, warranty10yr:750, completeCommission:0.05, partialCommission:0.03},
+  templates: {},
+  locations: [],
+  tonnageOptions: [],
+  seerOptions: [],
+};
 
-const SR_DEFAULT_TIERS = [
-  {min:0,     max:10,    mult:5.0},
-  {min:10.01, max:25,    mult:4.0},
-  {min:25.01, max:50,    mult:3.0},
-  {min:50.01, max:100,   mult:2.0},
-  {min:100.01,max:null,  mult:1.5},
-];
+// ─── CALCULATOR STATE ─────────────────────────────────────────────────────────
+let calcState = {
+  installKey: null,
+  // Split system selections
+  selectedTonnage: null,
+  selectedSeries: null,
+  selectedSystem: null,
+  // Equipment selections (partial installs)
+  selectedEquipment: {}, // {category: rowIndex}
+  // Options
+  options: {returnPlenum:false, supplyPlenum:false, warranty10yr:false},
+  thermostatIdx: 0,
+  // Location / job details
+  systemLocation: '',
+  systemLocationCustom: '',
+};
 
-const SR_DEFAULT_WORK_TYPES = [
-  {name:"Blower Motor Replacement",   labor:300},
-  {name:"Compressor Replacement",     labor:325},
-  {name:"Capacitor Replacement",      labor:125},
-  {name:"Contactor Replacement",      labor:125},
-  {name:"TXV / Metering Device",      labor:225},
-  {name:"Reversing Valve",            labor:275},
-  {name:"Evaporator Coil Leak Repair",labor:250},
-  {name:"Drain Pan / Line Repair",    labor:150},
-  {name:"Control Board Replacement",  labor:200},
-  {name:"Inducer Motor Replacement",  labor:250},
-  {name:"Heat Exchanger Replacement", labor:400},
-  {name:"Gas Valve Replacement",      labor:200},
-  {name:"Flame Sensor / Ignitor",     labor:150},
-  {name:"Refrigerant Leak Search",    labor:175},
-  {name:"Other / Miscellaneous",      labor:0},
-];
-
-// ─── SERVICE REPAIR STATE ─────────────────────────────────────────────────────
+// ─── SR STATE ─────────────────────────────────────────────────────────────────
 let srState = {
   selectedWorkIdx: null,
-  taxRate: SR_DEFAULT_TAX_RATE,
-  tiers: JSON.parse(JSON.stringify(SR_DEFAULT_TIERS)),
-  workTypes: JSON.parse(JSON.stringify(SR_DEFAULT_WORK_TYPES)),
+  taxEnabled: true,
+  taxRate: 8.25,
+  man1Rate: 135,
+  man2Rate: 85,
   showDetail: true,
-};
-
-function loadSRTables() {
-  try {
-    const saved = localStorage.getItem('hvacSRTables');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed.taxRate !== undefined) srState.taxRate = parsed.taxRate;
-      if (parsed.tiers && parsed.tiers.length) srState.tiers = parsed.tiers;
-      if (parsed.workTypes && parsed.workTypes.length) srState.workTypes = parsed.workTypes;
-      if (parsed.showDetail !== undefined) srState.showDetail = parsed.showDetail;
-    }
-  } catch(e) {}
-}
-
-function saveSRTablesToStorage() {
-  localStorage.setItem('hvacSRTables', JSON.stringify({
-    taxRate: srState.taxRate,
-    tiers: srState.tiers,
-    workTypes: srState.workTypes,
-    showDetail: srState.showDetail,
-  }));
-}
-
-// ─── SERVICE REPAIR CALC ──────────────────────────────────────────────────────
-function getSRTier(partCost) {
-  for (const tier of srState.tiers) {
-    const maxOk = tier.max === null || tier.max === '' || partCost <= parseFloat(tier.max);
-    if (partCost >= parseFloat(tier.min) && maxOk) return tier;
-  }
-  return srState.tiers[srState.tiers.length - 1];
-}
-
-function renderServiceRepair() {
-  // Render work type chips
-  const chipGrid = document.getElementById('srWorkChips');
-  if (chipGrid) {
-    chipGrid.innerHTML = '';
-    srState.workTypes.forEach((wt, i) => {
-      const chip = document.createElement('div');
-      chip.className = 'sr-work-chip' + (srState.selectedWorkIdx === i ? ' selected' : '');
-      chip.innerHTML = `<div>${wt.name}</div><div style="font-size:11px;color:var(--muted);margin-top:3px;font-family:'Barlow',sans-serif;font-weight:400;">Labor: $${wt.labor.toLocaleString()}</div>`;
-      chip.onclick = () => { srState.selectedWorkIdx = i; renderServiceRepair(); };
-      chipGrid.appendChild(chip);
-    });
-  }
-
-  const partCostRaw = parseFloat(document.getElementById('srPartCost').value);
-  const hasPartCost = !isNaN(partCostRaw) && partCostRaw > 0;
-  const hasWorkType = srState.selectedWorkIdx !== null;
-  const resultCard = document.getElementById('srResultCard');
-
-  if (!hasPartCost || !hasWorkType) {
-    if (resultCard) resultCard.style.display = 'none';
-    const note = document.getElementById('srPartNote');
-    if (note) note.textContent = hasPartCost ? `Tier: ${getSRTierLabel(partCostRaw)}` : '';
-    return;
-  }
-
-  const tier = getSRTier(partCostRaw);
-  const taxAmt = partCostRaw * (srState.taxRate / 100);
-  const partWithTax = partCostRaw + taxAmt;
-  const markedUpPart = partWithTax * parseFloat(tier.mult);
-  const wt = srState.workTypes[srState.selectedWorkIdx];
-  const labor = wt.labor;
-  const total = markedUpPart + labor;
-  const totalRounded = Math.round(total / 5) * 5;
-
-  const fmt = n => '$' + n.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
-  const fmtR = n => '$' + n.toLocaleString(undefined, {minimumFractionDigits:0, maximumFractionDigits:0});
-
-  document.getElementById('srTaxRateLbl').textContent = srState.taxRate + '%';
-  document.getElementById('srLaborTypeLbl').textContent = wt.name;
-  document.getElementById('srRowPartCost').textContent = fmt(partCostRaw);
-  document.getElementById('srRowTax').textContent = fmt(taxAmt);
-  document.getElementById('srRowPartTaxed').textContent = fmt(partWithTax);
-  document.getElementById('srRowTier').textContent = getSRTierLabel(partCostRaw) + '  ×' + parseFloat(tier.mult).toFixed(1);
-  document.getElementById('srRowMarkedPart').textContent = fmt(markedUpPart);
-  document.getElementById('srRowLabor').textContent = fmt(labor);
-  document.getElementById('srRowTotal').textContent = fmtR(totalRounded);
-
-  // Quote text
-  const quoteText =
-`Service Repair: ${wt.name}
-
-Part Cost: ${fmt(partCostRaw)}
-Tax (${srState.taxRate}%): ${fmt(taxAmt)}
-Labor: ${fmt(labor)}
-
-Total Price: ${fmtR(totalRounded)}`;
-
-  document.getElementById('srQuoteBox').textContent = quoteText;
-  resultCard.style.display = 'block';
-
-  // Show/hide detail rows based on toggle
-  const detailRows = document.getElementById('srDetailRows');
-  const breakdownTitle = document.getElementById('srBreakdownTitle');
-  if (detailRows) detailRows.style.display = srState.showDetail ? 'block' : 'none';
-  if (breakdownTitle) breakdownTitle.textContent = srState.showDetail ? 'Repair Price Breakdown' : 'Repair Price';
-
-  const note = document.getElementById('srPartNote');
-  if (note) note.textContent = srState.showDetail ? ('Markup tier: ' + getSRTierLabel(partCostRaw) + ' → ×' + parseFloat(tier.mult).toFixed(1)) : '';
-}
-
-function getSRTierLabel(cost) {
-  const tier = getSRTier(cost);
-  const minStr = '$' + parseFloat(tier.min).toLocaleString();
-  const maxStr = (tier.max === null || tier.max === '') ? '+' : ' – $' + parseFloat(tier.max).toLocaleString();
-  return minStr + maxStr;
-}
-
-function copySRQuote() {
-  const box = document.getElementById('srQuoteBox');
-  const btn = document.getElementById('srCopyBtn');
-  if (!box || !btn) return;
-  const text = box.innerText || box.textContent;
-  navigator.clipboard.writeText(text).then(() => {
-    btn.textContent = '✓ Copied!'; btn.classList.add('copied');
-    setTimeout(() => { btn.innerHTML = '📋 Copy Quote Text'; btn.classList.remove('copied'); }, 2000);
-  }).catch(() => {
-    const ta = document.createElement('textarea');
-    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
-    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
-    btn.textContent = '✓ Copied!'; btn.classList.add('copied');
-    setTimeout(() => { btn.innerHTML = '📋 Copy Quote Text'; btn.classList.remove('copied'); }, 2000);
-  });
-}
-
-// ─── REPAIR TABLES MODAL ──────────────────────────────────────────────────────
-function openRepairTables() {
-  window._pinTarget = 'repairs';
-  document.getElementById('pinInput').value = '';
-  document.getElementById('pinError').textContent = '';
-  document.getElementById('pinModal').classList.add('open');
-  setTimeout(() => document.getElementById('pinInput').focus(), 100);
-}
-
-function closePinModal() {
-  document.getElementById('pinModal').classList.remove('open');
-}
-
-function submitPin() {
-  const pin = document.getElementById('pinInput').value.trim();
-  if (pin !== '1225') {
-    document.getElementById('pinError').textContent = 'Incorrect PIN. Please try again.';
-    document.getElementById('pinInput').value = '';
-    document.getElementById('pinInput').focus();
-    return;
-  }
-  closePinModal();
-  if (window._pinTarget === 'settings') {
-    _openSettingsModal();
-  } else {
-    const tog = document.getElementById('detailToggle');
-    if (tog) tog.classList.toggle('on', srState.showDetail);
-    document.getElementById('rtTaxRate').value = srState.taxRate;
-    renderTierRows();
-    renderWorkRows();
-    document.getElementById('repairTablesModal').classList.add('open');
-  }
-  window._pinTarget = null;
-}
-
-function closeRepairTables() {
-  document.getElementById('repairTablesModal').classList.remove('open');
-}
-
-function toggleDetailMode() {
-  srState.showDetail = !srState.showDetail;
-  const tog = document.getElementById('detailToggle');
-  if (tog) tog.classList.toggle('on', srState.showDetail);
-  saveSRTablesToStorage();
-  renderServiceRepair();
-}
-
-function renderTierRows() {
-  const tbody = document.getElementById('rtTiersTbody');
-  tbody.innerHTML = '';
-  srState.tiers.forEach((tier, i) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><input type="number" value="${tier.min}" min="0" step="0.01" data-tier="${i}" data-field="min"></td>
-      <td><input type="number" value="${tier.max !== null ? tier.max : ''}" min="0" step="0.01" placeholder="∞" data-tier="${i}" data-field="max"></td>
-      <td><input type="number" value="${tier.mult}" min="0.1" step="0.1" data-tier="${i}" data-field="mult"></td>
-      <td><button class="del-row-btn" onclick="deleteTierRow(${i})">×</button></td>`;
-    tbody.appendChild(tr);
-  });
-}
-
-function addTierRow() {
-  const last = srState.tiers[srState.tiers.length - 1];
-  const newMin = last ? (parseFloat(last.max || 0) + 0.01) : 0;
-  srState.tiers.push({min: newMin, max: null, mult: 1.5});
-  renderTierRows();
-}
-
-function deleteTierRow(i) {
-  srState.tiers.splice(i, 1);
-  renderTierRows();
-}
-
-function renderWorkRows() {
-  const tbody = document.getElementById('rtWorkTbody');
-  tbody.innerHTML = '';
-  srState.workTypes.forEach((wt, i) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><input type="text" value="${wt.name}" data-work="${i}" data-field="name" placeholder="Work type name"></td>
-      <td><input type="number" value="${wt.labor}" min="0" step="1" data-work="${i}" data-field="labor" style="max-width:90px;"></td>
-      <td><button class="del-row-btn" onclick="deleteWorkRow(${i})">×</button></td>`;
-    tbody.appendChild(tr);
-  });
-}
-
-function addWorkRow() {
-  srState.workTypes.push({name:'New Work Type', labor:150});
-  renderWorkRows();
-}
-
-function deleteWorkRow(i) {
-  srState.workTypes.splice(i, 1);
-  if (srState.selectedWorkIdx === i) srState.selectedWorkIdx = null;
-  else if (srState.selectedWorkIdx > i) srState.selectedWorkIdx--;
-  renderWorkRows();
-}
-
-function saveRepairTables() {
-  // Read tax
-  const taxVal = parseFloat(document.getElementById('rtTaxRate').value);
-  if (!isNaN(taxVal)) srState.taxRate = taxVal;
-
-  // Read tiers from DOM
-  const tiers = [];
-  document.querySelectorAll('#rtTiersTbody tr').forEach((tr, i) => {
-    const inputs = tr.querySelectorAll('input');
-    const minV = parseFloat(inputs[0].value);
-    const maxRaw = inputs[1].value.trim();
-    const maxV = maxRaw === '' ? null : parseFloat(maxRaw);
-    const multV = parseFloat(inputs[2].value);
-    if (!isNaN(minV) && !isNaN(multV)) {
-      tiers.push({min: minV, max: maxV, mult: multV});
-    }
-  });
-  if (tiers.length) srState.tiers = tiers;
-
-  // Read work types from DOM
-  const workTypes = [];
-  document.querySelectorAll('#rtWorkTbody tr').forEach((tr, i) => {
-    const inputs = tr.querySelectorAll('input');
-    const name = inputs[0].value.trim();
-    const labor = parseFloat(inputs[1].value);
-    if (name) workTypes.push({name, labor: isNaN(labor) ? 0 : labor});
-  });
-  if (workTypes.length) srState.workTypes = workTypes;
-
-  saveSRTablesToStorage();
-  closeRepairTables();
-
-  // Reset selected work idx if out of bounds
-  if (srState.selectedWorkIdx >= srState.workTypes.length) srState.selectedWorkIdx = null;
-  renderServiceRepair();
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('repairTablesModal').addEventListener('click', e => {
-    if (e.target === document.getElementById('repairTablesModal')) closeRepairTables();
-  });
-  document.getElementById('pinModal').addEventListener('click', e => {
-    if (e.target === document.getElementById('pinModal')) closePinModal();
-  });
-});
-
-// ─── FALLBACK TEMPLATES ───────────────────────────────────────────────────────
-const FALLBACK_TEMPLATES = {
-  "Complete Air Conditioner":
-`Install new {system_description} Complete Air Conditioner for {system_location}. Installation includes new drain pan with float switch, gas/copper/drain line modifications as needed for a proper install, new condenser pad, whip and disconnect.{supply_plenum}{return_plenum}{thermostat_line}
-
-Equipment Model Numbers:
-- Condenser: {condenser_model}
-- Evaporator Coil: {coil_model}
-- Furnace: {furnace_model}
-
-Warranties:
-- {parts_warranty} Parts
-- {compressor_warranty} Compressor
-- {heat_exchanger_warranty} Heat Exchanger
-- {labor_warranty} Labor 
-- Lifetime Workmanship
-
-Price: {price}`,
-
-  "Complete Heat Pump":
-`Install new {heatpump_model} Complete Heat Pump System{supply_plenum}{return_plenum}. Installation includes new drain pan with float switch, copper/drain line modifications as needed for a proper install, new condenser pad, whip and disconnect.{thermostat_line}
-
-Equipment Model Numbers:
-- Heat Pump: {heatpump_model}
-- Air Handler: {airhandler_model}
-- Heat Kit: {heatkit_model}
-
-Warranties:
-- {parts_warranty} Parts
-- {compressor_warranty} Compressor
-- {labor_warranty} Labor 
-- Lifetime Workmanship
-
-Price: {price}`,
-
-  "Evaporator Coil":
-`Replace evaporator coil with new {coil_model}. Installation includes new drain pan with float switch and drain line modifications as needed.{supply_plenum}{thermostat_line}
-
-Equipment Model Numbers:
-- Evaporator Coil: {coil_model}
-
-Warranties:
-- {parts_warranty} Parts
-- {labor_warranty} Labor 
-- Lifetime Workmanship
-
-Price: {price}`,
-
-  "Condenser":
-`Replace condenser with new {condenser_model}. Installation includes new condenser pad, whip and disconnect, and refrigerant line modifications as needed.{thermostat_line}
-
-Equipment Model Numbers:
-- Condenser: {condenser_model}
-
-Warranties:
-- {parts_warranty} Parts
-- {compressor_warranty} Compressor
-- {labor_warranty} Labor 
-- Lifetime Workmanship
-
-Price: {price}`,
-
-  "Condenser and Coil":
-`Replace condenser and evaporator coil with new {condenser_model} system. Installation includes new drain pan with float switch, new condenser pad, whip and disconnect, and refrigerant/drain line modifications as needed.{supply_plenum}{thermostat_line}
-
-Equipment Model Numbers:
-- Condenser: {condenser_model}
-- Evaporator Coil: {coil_model}
-
-Warranties:
-- {parts_warranty} Parts
-- {compressor_warranty} Compressor
-- {labor_warranty} Labor 
-- Lifetime Workmanship
-
-Price: {price}`,
-
-  "Furnace":
-`Replace furnace with new {furnace_model}. Installation includes gas line, flue, and drain modifications as needed for a proper install.{return_plenum}{thermostat_line}
-
-Equipment Model Numbers:
-- Furnace: {furnace_model}
-
-Warranties:
-- {parts_warranty} Parts
-- {heat_exchanger_warranty} Heat Exchanger
-- {labor_warranty} Labor 
-- Lifetime Workmanship
-
-Price: {price}`,
-
-  "Air Handler":
-`Replace air handler with new {airhandler_model}. Installation includes new drain pan with float switch, electrical and drain line modifications as needed.{return_plenum}{supply_plenum}{thermostat_line}
-
-Equipment Model Numbers:
-- Air Handler: {airhandler_model}
-- Heat Kit: {heatkit_model}
-
-Warranties:
-- {parts_warranty} Parts
-- {labor_warranty} Labor 
-- Lifetime Workmanship
-
-Price: {price}`,
-
-  "RTU":
-`Replace rooftop unit with new {rtu_model}. Installation includes new curb adapter or roof curb as needed, electrical reconnection, and duct modifications for a proper install.{thermostat_line}
-
-Equipment Model Numbers:
-- RTU: {rtu_model}
-
-Warranties:
-- {parts_warranty} Parts
-- {compressor_warranty} Compressor
-- {labor_warranty} Labor 
-- Lifetime Workmanship
-
-Price: {price}`
-};
-
-// ─── DEFAULTS ────────────────────────────────────────────────────────────────
-const DEFAULTS = {
-  equipment:[
-    {model:"Trane XR15 2T Condenser",type:"condenser",cost:1200,parts_warranty:"10 Years",compressor_warranty:"10 Years",heat_exchanger_warranty:"N/A",other_warranty:""},
-    {model:"Trane XR15 3T Condenser",type:"condenser",cost:1450,parts_warranty:"10 Years",compressor_warranty:"10 Years",heat_exchanger_warranty:"N/A",other_warranty:""},
-    {model:"Trane XR15 4T Condenser",type:"condenser",cost:1700,parts_warranty:"10 Years",compressor_warranty:"10 Years",heat_exchanger_warranty:"N/A",other_warranty:""},
-    {model:"Carrier 24ACC636 3T Condenser",type:"condenser",cost:1380,parts_warranty:"10 Years",compressor_warranty:"10 Years",heat_exchanger_warranty:"N/A",other_warranty:""},
-    {model:"Trane 4TEE3 2T Evap Coil",type:"coil",cost:420,parts_warranty:"10 Years",compressor_warranty:"N/A",heat_exchanger_warranty:"N/A",other_warranty:""},
-    {model:"Trane 4TEE3 3T Evap Coil",type:"coil",cost:490,parts_warranty:"10 Years",compressor_warranty:"N/A",heat_exchanger_warranty:"N/A",other_warranty:""},
-    {model:"Trane 4TEE3 4T Evap Coil",type:"coil",cost:560,parts_warranty:"10 Years",compressor_warranty:"N/A",heat_exchanger_warranty:"N/A",other_warranty:""},
-    {model:"Carrier CNPVP3617 3T Evap Coil",type:"coil",cost:470,parts_warranty:"10 Years",compressor_warranty:"N/A",heat_exchanger_warranty:"N/A",other_warranty:""},
-    {model:"Trane S9V2 80K BTU Furnace",type:"furnace",cost:980,parts_warranty:"10 Years",compressor_warranty:"N/A",heat_exchanger_warranty:"20 Years",other_warranty:""},
-    {model:"Trane S9V2 100K BTU Furnace",type:"furnace",cost:1100,parts_warranty:"10 Years",compressor_warranty:"N/A",heat_exchanger_warranty:"20 Years",other_warranty:""},
-    {model:"Carrier 59SC5 80K BTU Furnace",type:"furnace",cost:950,parts_warranty:"10 Years",compressor_warranty:"N/A",heat_exchanger_warranty:"20 Years",other_warranty:""},
-    {model:"Trane XR15 3T Heat Pump",type:"heatpump",cost:1550,parts_warranty:"10 Years",compressor_warranty:"10 Years",heat_exchanger_warranty:"N/A",other_warranty:""},
-    {model:"Trane XR15 4T Heat Pump",type:"heatpump",cost:1820,parts_warranty:"10 Years",compressor_warranty:"10 Years",heat_exchanger_warranty:"N/A",other_warranty:""},
-    {model:"Carrier 38MGRQ36 3T Heat Pump",type:"heatpump",cost:1480,parts_warranty:"10 Years",compressor_warranty:"10 Years",heat_exchanger_warranty:"N/A",other_warranty:""},
-    {model:"Trane 4MXW6 3T Air Handler",type:"airhandler",cost:780,parts_warranty:"10 Years",compressor_warranty:"N/A",heat_exchanger_warranty:"N/A",other_warranty:""},
-    {model:"Trane 4MXW6 4T Air Handler",type:"airhandler",cost:920,parts_warranty:"10 Years",compressor_warranty:"N/A",heat_exchanger_warranty:"N/A",other_warranty:""},
-    {model:"Carrier FE4ANF003 Air Handler",type:"airhandler",cost:760,parts_warranty:"10 Years",compressor_warranty:"N/A",heat_exchanger_warranty:"N/A",other_warranty:""},
-    {model:"5kW Heat Kit",type:"heatkit",cost:180,parts_warranty:"1 Year",compressor_warranty:"N/A",heat_exchanger_warranty:"10 Years",other_warranty:""},
-    {model:"10kW Heat Kit",type:"heatkit",cost:240,parts_warranty:"1 Year",compressor_warranty:"N/A",heat_exchanger_warranty:"10 Years",other_warranty:""},
-    {model:"15kW Heat Kit",type:"heatkit",cost:310,parts_warranty:"1 Year",compressor_warranty:"N/A",heat_exchanger_warranty:"10 Years",other_warranty:""},
-    {model:"Trane YSC048 4T RTU",type:"rtu",cost:3200,parts_warranty:"10 Years",compressor_warranty:"10 Years",heat_exchanger_warranty:"N/A",other_warranty:""},
-    {model:"Carrier 48TCFD06 5T RTU",type:"rtu",cost:3800,parts_warranty:"10 Years",compressor_warranty:"10 Years",heat_exchanger_warranty:"N/A",other_warranty:""},
+  tiers: [
+    {min:0,     max:9.99,   mult:4.0,  floor:null},
+    {min:10,    max:49.99,  mult:3.25, floor:40},
+    {min:50,    max:99.99,  mult:2.75, floor:163},
+    {min:100,   max:199.99, mult:2.25, floor:275},
+    {min:200,   max:499.99, mult:1.75, floor:450},
+    {min:500,   max:999.99, mult:1.55, floor:875},
+    {min:1000,  max:2999.99,mult:1.45, floor:1550},
+    {min:3000,  max:null,   mult:1.35, floor:4350},
   ],
-  labor:{"Complete Air Conditioner":850,"Complete Heat Pump":950,"Evaporator Coil":350,"Condenser":400,"Condenser and Coil":550,"Furnace":380,"Air Handler":450,"RTU":750},
-  materials:{"Complete Air Conditioner":300,"Complete Heat Pump":350,"Evaporator Coil":100,"Condenser":120,"Condenser and Coil":200,"Furnace":130,"Air Handler":150,"RTU":400},
-  thermostats:[{model:"Honeywell T9",cost:350},{model:"Trane XL824",cost:300},{model:"None (Reuse Existing Thermostat)",cost:0}],
-  settings:{equipMarkup:1.10,marginDivisor:0.60,returnPlenum:250,supplyPlenum:250,warranty10yr:750},
-  templates: FALLBACK_TEMPLATES,
-  locations: ['Downstairs','Upstairs','Media Room','Guest Bedroom','Master Bedroom','Living Room','Garage'],
-  tonnageOptions: ['1.5 Ton','2 Ton','2.5 Ton','3 Ton','3.5 Ton','4 Ton','5 Ton'],
-  seerOptions: ['14 SEER2 Single Stage','15 SEER2 Single Stage','16 SEER2 Multi-Stage','18 SEER2 Variable Speed']
+  workTypes: [
+    {name:'Blower Motor Replacement',           hours:2, men:1},
+    {name:'Capacitor / Contactor Replacement',  hours:1, men:1},
+    {name:'Compressor Replacement',             hours:3, men:2},
+    {name:'Condenser Fan Motor Replacement',    hours:2, men:1},
+    {name:'Control Board Replacement',          hours:2, men:1},
+    {name:'Damper Motor Replacement',           hours:2, men:1},
+    {name:'Evaporator Coil Leak Repair',        hours:3, men:1},
+    {name:'Flame Sensor / Ignitor Replacement', hours:1, men:1},
+    {name:'Flue Pipe Repair / Replacement',     hours:2, men:2},
+    {name:'Gas Valve Replacement',              hours:2, men:1},
+    {name:'Heat Kit Replacement',               hours:3, men:1},
+    {name:'Inducer Fan Motor Replacement',      hours:2, men:1},
+    {name:'Minor Repair (Supply House Trip)',   hours:2, men:1},
+    {name:'Refrigerant Leak Search & Repair',  hours:3, men:1},
+    {name:'Reversing Valve Replacement',        hours:3, men:2},
+    {name:'TXV / Metering Device Replacement', hours:4, men:1},
+    {name:'Other / Miscellaneous',             hours:1, men:1},
+  ],
 };
 
-let pricingData = JSON.parse(JSON.stringify(DEFAULTS));
-let state = {selectedInstall:null,selectedEquipment:{},options:{},thermostatIndex:0,systemLocation:'',systemLocationCustom:'',systemTonnage:'',systemTonnageCustom:'',systemSeer:'',systemSeerCustom:''};
+// ─── STORAGE ──────────────────────────────────────────────────────────────────
+function getUrls(){try{const s=localStorage.getItem('hvacUrls2');return s?JSON.parse(s):{};}catch(e){return{};}}
+function saveUrls(u){localStorage.setItem('hvacUrls2',JSON.stringify(u));}
+// ─── ADMIN MODE ───────────────────────────────────────────────────────────────
+let adminMode = false;
 
-function getUrls(){try{return JSON.parse(localStorage.getItem('hvacUrls')||'{}');}catch(e){return {};}}
-function saveUrls(u){localStorage.setItem('hvacUrls',JSON.stringify(u));}
-
-function parseCSV(text){
-  const lines=text.trim().split('\n').filter(l=>l.trim());
-  if(lines.length<2) return [];
-  const headers=lines[0].split(',').map(h=>h.trim().replace(/^"|"$/g,'').toLowerCase());
-  return lines.slice(1).map(line=>{
-    const vals=[];let cur='',inQ=false;
-    for(let ch of line){if(ch==='"'){inQ=!inQ;}else if(ch===','&&!inQ){vals.push(cur.trim());cur='';}else cur+=ch;}
-    vals.push(cur.trim());
-    const obj={};
-    headers.forEach((h,i)=>{obj[h]=(vals[i]||'').replace(/^"|"$/g,'').trim();});
-    return obj;
-  });
+function loadAdminMode(){
+  try{ adminMode = localStorage.getItem('hvacAdminMode')==='true'; }catch(e){}
+}
+function saveAdminMode(){
+  try{ localStorage.setItem('hvacAdminMode', adminMode?'true':'false'); }catch(e){}
+}
+function enterAdminMode(){
+  adminMode=true;
+  saveAdminMode();
+  updateAdminUI();
+}
+function exitAdminMode(){
+  adminMode=false;
+  saveAdminMode();
+  updateAdminUI();
+  // Re-render current tab to hide details
+  const activeTab=document.querySelector('.tab.active');
+  if(activeTab){
+    const tabs=['calculator','quote','repair'];
+    const idx=[...document.querySelectorAll('.tab')].indexOf(activeTab);
+    if(idx===1) renderQuote();
+    if(idx===2) renderSR();
+  }
+}
+function updateAdminUI(){
+  try{
+    const setupBtn=document.getElementById('setupBtn');
+    if(setupBtn) setupBtn.style.display=adminMode?'block':'none';
+    const badge=document.getElementById('adminBadge');
+    if(badge) badge.style.display=adminMode?'flex':'none';
+    const adminBtn=document.getElementById('adminBtn');
+    if(adminBtn) adminBtn.style.display=adminMode?'none':'block';
+  }catch(e){console.warn('updateAdminUI header error:',e);}
+  try{ renderSRChips(); }catch(e){console.warn('renderSRChips error:',e);}
+  try{ renderQuote(); }catch(e){console.warn('renderQuote error:',e);}
+  try{ renderSR(); }catch(e){console.warn('renderSR error:',e);}
+  try{ if(calcState.installKey) renderCalculatorFields(); }catch(e){console.warn('renderCalculatorFields error:',e);}
 }
 
-async function fetchCSV(url){
-  // Try direct first, fall back to CORS proxy if blocked
-  const attempts = [
-    url,
-    'https://api.allorigins.win/raw?url=' + encodeURIComponent(url)
-  ];
-  let lastErr;
-  for (const attempt of attempts) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 10000);
-    try {
-      const res = await fetch(attempt, {cache:'no-cache', signal: controller.signal});
-      clearTimeout(timer);
-      if(!res.ok) throw new Error('HTTP '+res.status);
-      return await res.text();
-    } catch(e) {
-      clearTimeout(timer);
-      lastErr = e;
+function loadSRState(){
+  try{
+    const s=localStorage.getItem('hvacSRState');
+    if(s){
+      const p=JSON.parse(s);
+      ['taxEnabled','taxRate','man1Rate','man2Rate','showDetail'].forEach(k=>{if(p[k]!==undefined)srState[k]=p[k];});
+      if(p.tiers&&p.tiers.length) srState.tiers=p.tiers;
+      if(p.workTypes&&p.workTypes.length&&p.workTypes[0].hours!==undefined) srState.workTypes=p.workTypes;
     }
+  }catch(e){}
+}
+function saveSRState(){localStorage.setItem('hvacSRState',JSON.stringify(srState));}
+
+// ─── DATA LOADING ─────────────────────────────────────────────────────────────
+async function fetchTab(baseUrl, tabName){
+  const url = baseUrl + '?tab=' + encodeURIComponent(tabName);
+  const controller = new AbortController();
+  const timer = setTimeout(()=>controller.abort(), 12000);
+  try{
+    const res = await fetch(url, {signal:controller.signal});
+    clearTimeout(timer);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    return await res.json();
+  }catch(e){
+    clearTimeout(timer);
+    throw e;
   }
-  throw lastErr;
 }
 
 async function loadAllData(showFeedback=false){
-  const urls={
-    equipment:   "https://docs.google.com/spreadsheets/d/e/2PACX-1vSHdNceY_-MQ5-7kX8vBk1emZUmH1i4H8QJc3k5wVH97Pt6LHu8UfL0e0I2Wn5T4g/pub?gid=1802249193&single=true&output=csv",
-    labor:       "https://docs.google.com/spreadsheets/d/e/2PACX-1vSHdNceY_-MQ5-7kX8vBk1emZUmH1i4H8QJc3k5wVH97Pt6LHu8UfL0e0I2Wn5T4g/pub?gid=720488175&single=true&output=csv",
-    thermostats: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSHdNceY_-MQ5-7kX8vBk1emZUmH1i4H8QJc3k5wVH97Pt6LHu8UfL0e0I2Wn5T4g/pub?gid=1018408881&single=true&output=csv",
-    settings:    "https://docs.google.com/spreadsheets/d/e/2PACX-1vSHdNceY_-MQ5-7kX8vBk1emZUmH1i4H8QJc3k5wVH97Pt6LHu8UfL0e0I2Wn5T4g/pub?gid=1464269258&single=true&output=csv",
-    templates:   "https://docs.google.com/spreadsheets/d/e/2PACX-1vSHdNceY_-MQ5-7kX8vBk1emZUmH1i4H8QJc3k5wVH97Pt6LHu8UfL0e0I2Wn5T4g/pub?gid=1737665274&single=true&output=csv",
-    locations:   "https://docs.google.com/spreadsheets/d/e/2PACX-1vSHdNceY_-MQ5-7kX8vBk1emZUmH1i4H8QJc3k5wVH97Pt6LHu8UfL0e0I2Wn5T4g/pub?gid=902189022&single=true&output=csv"
-  };
-  // Also merge any user-saved URLs (allows override via Sheet Setup)
-  const saved=getUrls();
-  Object.keys(saved).forEach(k=>{ if(saved[k]) urls[k]=saved[k]; });
-  if(showFeedback) setStatus('loading','Fetching live data…');
-  let loadedAny=false,errors=[];
+  const saved = getUrls();
+  const catalogUrl = saved.catalog || CATALOG_URL;
+  const settingsUrl = saved.settings || SETTINGS_URL;
 
-  if(urls.equipment){
-    try{
-      const rows=parseCSV(await fetchCSV(urls.equipment));
-      pricingData.equipment=rows.map(r=>({
-        model:r['model / description']||r['model']||'',
-        type:(r['type']||'').toLowerCase().trim(),
-        cost:parseFloat(r['cost ($)']||r['cost']||0),
-        parts_warranty:r['parts warranty']||r['parts_warranty']||'',
-        compressor_warranty:r['compressor warranty']||r['compressor_warranty']||'',
-        heat_exchanger_warranty:r['heat exchanger warranty']||r['heat_exchanger_warranty']||'',
-        other_warranty:r['other warranty notes']||r['other_warranty']||''
-      })).filter(e=>e.model&&e.type);
-      if(showFeedback) setFieldStatus('statusEquipment',true,pricingData.equipment.length+' items');
-      loadedAny=true;
-    }catch(e){errors.push('Equipment');if(showFeedback)setFieldStatus('statusEquipment',false,e.message);}
-  }
+  if(showFeedback) setStatus('','Fetching data…');
 
-  if(urls.labor){
-    try{
-      const rows=parseCSV(await fetchCSV(urls.labor));
-      pricingData.labor={};pricingData.materials={};
-      rows.forEach(r=>{
-        const key=r['install type']||'';
-        if(key){
-          pricingData.labor[key]=parseFloat(r['labor ($)']||r['labor']||0);
-          pricingData.materials[key]=parseFloat(r['materials ($)']||r['materials']||0);
-        }
-      });
-      if(showFeedback) setFieldStatus('statusLabor',true,rows.length+' install types');
-      loadedAny=true;
-    }catch(e){errors.push('Labor');if(showFeedback)setFieldStatus('statusLabor',false,e.message);}
-  }
+  // Fetch all tabs in parallel
+  const [splitResult, equipResult, laborResult, thermResult, settingsResult, templatesResult, locResult] = await Promise.allSettled([
+    fetchTab(catalogUrl, 'Split Systems'),
+    fetchTab(catalogUrl, 'Equipment & Packaged'),
+    fetchTab(settingsUrl, 'Labor & Materials'),
+    fetchTab(settingsUrl, 'Thermostats'),
+    fetchTab(settingsUrl, 'Settings'),
+    fetchTab(settingsUrl, 'Quote Templates'),
+    fetchTab(settingsUrl, 'Locations & Descriptions'),
+  ]);
 
-  if(urls.thermostats){
-    try{
-      const rows=parseCSV(await fetchCSV(urls.thermostats));
-      pricingData.thermostats=rows.map(r=>({
-        model:r['model / description']||r['model']||'',
-        cost:parseFloat(r['cost ($)']||r['cost']||0)
-      })).filter(t=>t.model);
-      if(showFeedback) setFieldStatus('statusThermostats',true,pricingData.thermostats.length+' options');
-      loadedAny=true;
-    }catch(e){errors.push('Thermostats');if(showFeedback)setFieldStatus('statusThermostats',false,e.message);}
-  }
+  let errors = [];
 
-  if(urls.settings){
-    try{
-      const rows=parseCSV(await fetchCSV(urls.settings));
-      const s={};
-      rows.forEach(r=>{
-        const name=(r['setting']||'').toLowerCase();
-        const val=parseFloat(r['value']||0);
-        if(name.includes('markup')) s.equipMarkup=val;
-        else if(name.includes('divisor')) s.marginDivisor=val;
-        else if(name.includes('return')) s.returnPlenum=val;
-        else if(name.includes('supply')) s.supplyPlenum=val;
-        else if(name.includes('warranty')) s.warranty10yr=val;
-      });
-      pricingData.settings={...DEFAULTS.settings,...s};
-      if(showFeedback) setFieldStatus('statusSettings',true,'loaded');
-      loadedAny=true;
-    }catch(e){errors.push('Settings');if(showFeedback)setFieldStatus('statusSettings',false,e.message);}
-  }
-
-  if(urls.templates){
-    try{
-      const rows=parseCSV(await fetchCSV(urls.templates));
-      pricingData.templates={};
-      rows.forEach(r=>{
-        const key=r['install type']||'';
-        const tmpl=r['quote template text']||'';
-        if(key&&tmpl) pricingData.templates[key]=tmpl;
-      });
-      if(showFeedback) setFieldStatus('statusTemplates',true,Object.keys(pricingData.templates).length+' templates');
-      loadedAny=true;
-    }catch(e){errors.push('Templates');if(showFeedback)setFieldStatus('statusTemplates',false,e.message);}
-  }
-
-  if(urls.locations){
-    try{
-      const rows=parseCSV(await fetchCSV(urls.locations));
-      pricingData.locations      =rows.filter(r=>(r['type']||'').toLowerCase().trim()==='location').map(r=>r['value']||'').filter(Boolean);
-      pricingData.tonnageOptions =rows.filter(r=>(r['type']||'').toLowerCase().trim()==='tonnage').map(r=>r['value']||'').filter(Boolean);
-      pricingData.seerOptions    =rows.filter(r=>(r['type']||'').toLowerCase().trim()==='seer').map(r=>r['value']||'').filter(Boolean);
-      if(showFeedback) setFieldStatus('statusLocations',true,rows.length+' options loaded');
-      loadedAny=true;
-    }catch(e){errors.push('Locations');if(showFeedback)setFieldStatus('statusLocations',false,e.message);}
-  }
-
-  if(loadedAny&&errors.length===0){
-    setStatus('live','Live data from Google Sheet');
-    document.getElementById('loadOverlay').classList.add('hidden');
-    resetStateAndRender();
-  } else if(loadedAny){
-    setStatus('fallback','Partial data loaded ('+errors.join(', ')+' failed)');
-    document.getElementById('loadOverlay').classList.add('hidden');
-    resetStateAndRender();
+  if(splitResult.status==='fulfilled'){
+    appData.splitSystems = splitResult.value.filter(r=>r['System Type']&&r['System Total']);
+    if(showFeedback) setFieldStatus('statusCatalog', true, appData.splitSystems.length+' systems loaded');
   } else {
-    document.getElementById('loadOverlay').classList.add('hidden');
-    showDataError();
+    errors.push('Split Systems');
+    if(showFeedback) setFieldStatus('statusCatalog', false, splitResult.reason?.message||'Failed');
   }
-}
 
-function resetStateAndRender(){
-  state.thermostatIndex=Math.max(0,pricingData.thermostats.findIndex(t=>t.cost===0));
-  renderInstallChips();
-  if(state.selectedInstall!==null) renderEquipmentFields();
-}
+  if(equipResult.status==='fulfilled'){
+    appData.equipment = equipResult.value.filter(r=>r['Category']&&r['Price']);
+    if(showFeedback) setFieldStatus('statusCatalog', true, 'Catalog loaded');
+  } else {
+    errors.push('Equipment');
+  }
 
-function showDataError(){
+  if(laborResult.status==='fulfilled'){
+    appData.labor={};appData.materials={};
+    laborResult.value.forEach(r=>{
+      const k=r['Install Type']||r['install type']||r['Install type']||'';
+      if(k){
+        appData.labor[k]=parseFloat(r['Labor ($)']||r['labor ($)']||r['Labor']||r['labor']||0);
+        appData.materials[k]=parseFloat(r['Materials ($)']||r['materials ($)']||r['Materials']||r['materials']||0);
+      }
+    });
+  } else errors.push('Labor');
+
+  if(thermResult.status==='fulfilled'){
+    appData.thermostats = thermResult.value
+      .map(r=>({
+        model:r['Model / Description']||r['model / description']||r['Model']||r['model']||'',
+        cost:parseFloat(r['Cost ($)']||r['cost ($)']||r['Cost']||r['cost']||0)
+      }))
+      .filter(t=>t.model);
+  } else errors.push('Thermostats');
+
+  if(settingsResult.status==='fulfilled'){
+    settingsResult.value.forEach(r=>{
+      const name=(r['Setting']||r['setting']||'').toLowerCase();
+      const val=parseFloat(r['Value']||r['value']||0);
+      if(name.includes('equipment markup')) appData.settings.equipMarkup=val;
+      else if(name.includes('margin divisor')) appData.settings.marginDivisor=val;
+      else if(name.includes('return plenum')) appData.settings.returnPlenum=val;
+      else if(name.includes('supply plenum')) appData.settings.supplyPlenum=val;
+      else if(name.includes('10-year')||name.includes('10 year')) appData.settings.warranty10yr=val;
+    });
+  } else errors.push('Settings');
+
+  if(templatesResult.status==='fulfilled'){
+    appData.templates={};
+    templatesResult.value.forEach(r=>{
+      const k=(r['Install Type']||r['install type']||r['install Type']||'').trim();
+      const t=r['Quote Template Text']||r['quote template text']||r['Template']||r['template']||'';
+      if(k&&t) appData.templates[k]=t;
+    });
+  } else errors.push('Templates');
+
+  if(locResult.status==='fulfilled'){
+    const getVal=r=>r['Value']||r['value']||r['VALUE']||'';
+    const getType=r=>(r['Type']||r['type']||r['TYPE']||'').toString().toLowerCase().trim();
+    appData.locations=locResult.value.filter(r=>getType(r)==='location').map(r=>getVal(r)).filter(Boolean);
+    appData.tonnageOptions=locResult.value.filter(r=>getType(r)==='tonnage').map(r=>getVal(r)).filter(Boolean);
+    appData.seerOptions=locResult.value.filter(r=>getType(r)==='seer').map(r=>getVal(r)).filter(Boolean);
+  } else errors.push('Locations');
+
+  if(errors.length===0){
+    setStatus('live','Live data loaded');
+  } else if(appData.splitSystems.length>0||appData.equipment.length>0){
+    setStatus('live','Data loaded'+(errors.length?' (some tabs pending)':''));
+  } else {
+    setStatus('err','Could not load pricing data — check Setup');
+  }
+
   document.getElementById('loadOverlay').classList.add('hidden');
-  setStatus('fallback','Pricing data unavailable');
-  document.getElementById('dataErrorScreen').style.display='flex';
+
+  renderInstallChips();
+  renderSRChips();
+  updateAdminUI();
 }
 
-async function retryLoad(){
-  document.getElementById('dataErrorScreen').style.display='none';
-  document.getElementById('loadOverlay').classList.remove('hidden');
-  try {
-    await loadAllData(false);
-  } catch(e) {
-    document.getElementById('loadOverlay').classList.add('hidden');
-    showDataError();
-  }
-}
-
+// ─── STATUS ───────────────────────────────────────────────────────────────────
 function setStatus(type,text){
-  document.getElementById('statusDot').className='status-dot '+(type==='live'?'live':type==='fallback'?'fallback':'');
+  document.getElementById('statusDot').className='status-dot'+(type?' '+type:'');
   document.getElementById('statusText').textContent=text;
 }
 function setFieldStatus(id,ok,msg){
-  document.getElementById(id).innerHTML=`<span style="color:var(--${ok?'success':'danger'})">${ok?'✓':'✗'} ${msg}</span>`;
+  const el=document.getElementById(id);
+  if(el) el.innerHTML=`<span style="color:var(--${ok?'success':'danger'})">${ok?'✓':'✗'} ${msg}</span>`;
 }
 
+// ─── TABS ─────────────────────────────────────────────────────────────────────
 function switchTab(tab){
-  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['calculator','summary','servicerepair'][i]===tab));
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['calculator','quote','repair'][i]===tab));
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
-  if(tab==='summary') renderSummary();
-  if(tab==='servicerepair') renderServiceRepair();
+  if(tab==='quote') renderQuote();
+  if(tab==='repair') renderSR();
 }
 
+// ─── INSTALL CHIPS ────────────────────────────────────────────────────────────
 function renderInstallChips(){
   const grid=document.getElementById('installTypeGrid');
   grid.innerHTML='';
-  INSTALL_TYPES.forEach((it,i)=>{
+  INSTALL_TYPES.forEach(it=>{
     const d=document.createElement('div');
-    d.className='install-chip'+(state.selectedInstall===i?' selected':'');
-    d.textContent=it.name;
-    d.onclick=()=>selectInstall(i);
+    d.className='install-chip'+(calcState.installKey===it.key?' selected':'');
+    d.innerHTML=`<div>${it.name}</div><div class="chip-sub">${it.sub}</div>`;
+    d.onclick=()=>selectInstall(it.key);
     grid.appendChild(d);
   });
 }
 
-function selectInstall(idx){
-  const warrantyDefaultOn=['Complete Air Conditioner','Complete Heat Pump'];
-  state.options=warrantyDefaultOn.includes(INSTALL_TYPES[idx].key)?{'warranty_10yr':true}:{};
-  state.selectedInstall=idx;state.selectedEquipment={};
-  state.systemLocation='';state.systemLocationCustom='';
-  state.systemTonnage='';state.systemTonnageCustom='';
-  state.systemSeer='';state.systemSeerCustom='';
-  state.thermostatIndex=Math.max(0,pricingData.thermostats.findIndex(t=>t.cost===0));
-  renderInstallChips();renderEquipmentFields();
-  document.getElementById('equipmentSection').style.display='block';
-  document.getElementById('emptyState').style.display='none';
-  document.getElementById('quoteNavBtn').style.display='block';
+function selectInstall(key){
+  calcState.installKey=key;
+  calcState.selectedTonnage=null;
+  calcState.selectedSeries=null;
+  calcState.selectedSystem=null;
+  calcState.selectedEquipment={};
+  const newIt=INSTALL_TYPES.find(i=>i.key===key);
+  calcState.options={
+    returnPlenum:false,
+    supplyPlenum:false,
+    warranty10yr:false
+  };
+  calcState.thermostatIdx=appData.thermostats.findIndex(t=>t.cost===0);
+  if(calcState.thermostatIdx<0) calcState.thermostatIdx=0;
+  calcState.systemLocation='';
+  calcState.systemLocationCustom='';
+  renderInstallChips();
+  renderCalculatorFields();
+  document.getElementById('calculatorFields').style.display='block';
+  document.getElementById('calcEmptyState').style.display='none';
+  document.getElementById('viewQuoteBtn').style.display='none';
 }
 
-function renderEquipmentFields(){
-  const it=INSTALL_TYPES[state.selectedInstall];
-  const container=document.getElementById('equipmentFields');
-  container.innerHTML='';
-  it.equipment.forEach(slot=>{
-    const filtered=pricingData.equipment.filter(e=>slot.types.includes(e.type));
-    const g=document.createElement('div');g.className='equip-group';
-    g.innerHTML=`<div class="equip-label">${slot.label}</div>`;
-    const sw=document.createElement('div');sw.className='select-wrap';
-    const sel=document.createElement('select');
-    sel.innerHTML=`<option value="">— Select ${slot.label} —</option>`;
-    filtered.forEach(eq=>{
-      const orig=pricingData.equipment.indexOf(eq);
-      sel.innerHTML+=`<option value="${orig}">${eq.model}</option>`;
-    });
-    if(state.selectedEquipment[slot.label]!==undefined) sel.value=state.selectedEquipment[slot.label];
-    sel.onchange=()=>{state.selectedEquipment[slot.label]=sel.value!==''?parseInt(sel.value):undefined;};
-    sw.appendChild(sel);g.appendChild(sw);container.appendChild(g);
-  });
-  renderLocationDesc();
-  renderOptions();
-}
-
-function getOptionPrice(key){
-  const s=pricingData.settings;
-  if(key==='return_plenum') return s.returnPlenum||250;
-  if(key==='supply_plenum') return s.supplyPlenum||250;
-  if(key==='warranty_10yr') return s.warranty10yr||750;
-  return 0;
-}
-function getOptionLabel(key){
-  if(key==='return_plenum') return 'Return Plenum';
-  if(key==='supply_plenum') return 'Supply Plenum';
-  if(key==='warranty_10yr') return '10 year Labor';
-  return key;
-}
-
-function renderLocationDesc(){
-  const it=INSTALL_TYPES[state.selectedInstall];
-  const container=document.getElementById('locationDescFields');
+// ─── CALCULATOR FIELDS ────────────────────────────────────────────────────────
+function renderCalculatorFields(){
+  const it=INSTALL_TYPES.find(i=>i.key===calcState.installKey);
+  if(!it) return;
+  const container=document.getElementById('calculatorFields');
   container.innerHTML='';
 
-  const descTypes=['Complete Air Conditioner','Complete Heat Pump','Condenser','Condenser and Coil'];
-  if(descTypes.includes(it.key)){
-    const tonGroup=document.createElement('div');tonGroup.className='equip-group';
-    tonGroup.innerHTML=`<div class="equip-label">Tonnage</div>`;
-    const tnsw=document.createElement('div');tnsw.className='select-wrap';
-    const tnsel=document.createElement('select');tnsel.style.fontSize='15px';
-    tnsel.innerHTML=`<option value="">— Select Tonnage —</option>`;
-    (pricingData.tonnageOptions||[]).forEach(d=>{tnsel.innerHTML+=`<option value="${d}">${d}</option>`;});
-    tnsel.innerHTML+=`<option value="__custom__">Custom…</option>`;
-    tnsel.value=state.systemTonnage||'';
-    const tncustom=document.createElement('input');
-    tncustom.type='text';tncustom.placeholder='Type custom tonnage…';
-    tncustom.style.marginTop='8px';
-    tncustom.style.display=state.systemTonnage==='__custom__'?'block':'none';
-    tncustom.value=state.systemTonnageCustom||'';
-    tncustom.oninput=()=>{state.systemTonnageCustom=tncustom.value;};
-    tnsel.onchange=()=>{state.systemTonnage=tnsel.value;tncustom.style.display=tnsel.value==='__custom__'?'block':'none';};
-    tnsw.appendChild(tnsel);tonGroup.appendChild(tnsw);tonGroup.appendChild(tncustom);container.appendChild(tonGroup);
-
-    const seerGroup=document.createElement('div');seerGroup.className='equip-group';
-    seerGroup.innerHTML=`<div class="equip-label">SEER2 Rating &amp; Stage</div>`;
-    const ssw=document.createElement('div');ssw.className='select-wrap';
-    const ssel=document.createElement('select');ssel.style.fontSize='15px';
-    ssel.innerHTML=`<option value="">— Select SEER2 &amp; Stage —</option>`;
-    (pricingData.seerOptions||[]).forEach(d=>{ssel.innerHTML+=`<option value="${d}">${d}</option>`;});
-    ssel.innerHTML+=`<option value="__custom__">Custom…</option>`;
-    ssel.value=state.systemSeer||'';
-    const scustom=document.createElement('input');
-    scustom.type='text';scustom.placeholder='Type custom SEER2 & stage…';
-    scustom.style.marginTop='8px';
-    scustom.style.display=state.systemSeer==='__custom__'?'block':'none';
-    scustom.value=state.systemSeerCustom||'';
-    scustom.oninput=()=>{state.systemSeerCustom=scustom.value;};
-    ssel.onchange=()=>{state.systemSeer=ssel.value;scustom.style.display=ssel.value==='__custom__'?'block':'none';};
-    ssw.appendChild(ssel);seerGroup.appendChild(ssw);seerGroup.appendChild(scustom);container.appendChild(seerGroup);
+  if(it.source==='split'){
+    renderSplitFields(it, container);
+  } else {
+    renderEquipFields(it, container);
   }
 
-  const locGroup=document.createElement('div');locGroup.className='equip-group';
-  locGroup.innerHTML=`<div class="equip-label">System Location</div>`;
-  const lsw=document.createElement('div');lsw.className='select-wrap';
-  const lsel=document.createElement('select');lsel.style.fontSize='15px';
-  lsel.innerHTML=`<option value="">— Select location —</option>`;
-  (pricingData.locations||[]).forEach(l=>{lsel.innerHTML+=`<option value="${l}">${l}</option>`;});
-  lsel.innerHTML+=`<option value="__custom__">Custom…</option>`;
-  lsel.value=state.systemLocation||'';
-  const lcustom=document.createElement('input');
-  lcustom.type='text';lcustom.placeholder='Type custom location…';
-  lcustom.style.marginTop='8px';
-  lcustom.style.display=state.systemLocation==='__custom__'?'block':'none';
-  lcustom.value=state.systemLocationCustom||'';
-  lcustom.oninput=()=>{state.systemLocationCustom=lcustom.value;};
-  lsel.onchange=()=>{
-    state.systemLocation=lsel.value;
-    lcustom.style.display=lsel.value==='__custom__'?'block':'none';
-  };
-  lsw.appendChild(lsel);locGroup.appendChild(lsw);locGroup.appendChild(lcustom);container.appendChild(locGroup);
+  // Job Details
+  const jobCard=document.createElement('div');
+  jobCard.className='card';
+  jobCard.innerHTML=`<div class="card-title">Job Details</div>`;
+  jobCard.appendChild(makeLocationField());
+  container.appendChild(jobCard);
+
+  // Options
+  const optCard=document.createElement('div');
+  optCard.className='card';
+  optCard.innerHTML=`<div class="card-title">Options & Add-ons</div>`;
+  optCard.appendChild(makeOptionsFields(it));
+  container.appendChild(optCard);
 }
 
-function renderOptions(){
-  const it=INSTALL_TYPES[state.selectedInstall];
-  const container=document.getElementById('optionsFields');
-  container.innerHTML='';
-  it.options.forEach(optKey=>{
-    if(optKey==='thermostat'){
-      const row=document.createElement('div');row.className='option-row';
-      row.innerHTML=`<div class="option-left"><div class="option-name">Thermostat</div></div>`;
-      const sw=document.createElement('div');sw.className='select-wrap';sw.style.minWidth='170px';
-      const sel=document.createElement('select');sel.style.fontSize='14px';
-      pricingData.thermostats.forEach((t,i)=>{
-        sel.innerHTML+=`<option value="${i}">${t.model}${t.cost>0?' (+$'+t.cost+')':''}</option>`;
+function renderSplitFields(it, container){
+  // Get unique tonnages for this system type
+  const systems = appData.splitSystems.filter(r=>r['System Type']===it.filter);
+  const tons = [...new Set(systems.map(r=>parseFloat(r['Tons'])).filter(t=>!isNaN(t)))].sort((a,b)=>a-b);
+
+  const card=document.createElement('div');
+  card.className='card';
+  card.innerHTML=`<div class="card-title">System Selection</div>`;
+
+  // Tonnage
+  const tg=document.createElement('div');tg.className='equip-group';
+  tg.innerHTML=`<div class="equip-label">Tonnage</div>`;
+  const tsw=document.createElement('div');tsw.className='select-wrap';
+  const tsel=document.createElement('select');
+  tsel.innerHTML=`<option value="">— Select Tonnage —</option>`;
+  tons.forEach(t=>{tsel.innerHTML+=`<option value="${t}">${t} Ton</option>`;});
+  if(calcState.selectedTonnage) tsel.value=calcState.selectedTonnage;
+  tsel.onchange=()=>{
+    calcState.selectedTonnage=tsel.value;
+    calcState.selectedSeries=null;
+    calcState.selectedSystem=null;
+    renderSeriesSelect(it, systems, container, card);
+  };
+  tsw.appendChild(tsel);tg.appendChild(tsw);card.appendChild(tg);
+
+  if(calcState.selectedTonnage) renderSeriesSelect(it, systems, container, card, true);
+
+  container.appendChild(card);
+}
+
+function renderSeriesSelect(it, systems, container, card, init=false){
+  // Remove old series/system selects
+  ['seriesGroup','systemGroup'].forEach(id=>{const el=document.getElementById(id);if(el)el.remove();});
+
+  const filtered=systems.filter(r=>parseFloat(r['Tons'])===parseFloat(calcState.selectedTonnage));
+  const seriesNames=[...new Set(filtered.map(r=>r['Series Name']||'').filter(Boolean))].sort();
+
+  const sg=document.createElement('div');sg.className='equip-group';sg.id='seriesGroup';
+  sg.innerHTML=`<div class="equip-label">Series / Model Line</div>`;
+  const ssw=document.createElement('div');ssw.className='select-wrap';
+  const ssel=document.createElement('select');
+  ssel.innerHTML=`<option value="">— Select Series —</option>`;
+  seriesNames.forEach(s=>{ssel.innerHTML+=`<option value="${s}">${s}</option>`;});
+  if(calcState.selectedSeries) ssel.value=calcState.selectedSeries;
+  ssel.onchange=()=>{
+    calcState.selectedSeries=ssel.value;
+    calcState.selectedSystem=null;
+    renderSystemSelect(filtered, card);
+  };
+  ssw.appendChild(ssel);sg.appendChild(ssw);card.appendChild(sg);
+
+  if(calcState.selectedSeries) renderSystemSelect(filtered, card, true);
+}
+
+function renderSystemSelect(filtered, card, init=false){
+  const old=document.getElementById('systemGroup');if(old)old.remove();
+  const oldHK=document.getElementById('heatKitGroup');if(oldHK)oldHK.remove();
+
+  const bySeries=filtered.filter(r=>r['Series Name']===calcState.selectedSeries);
+  const it=INSTALL_TYPES.find(i=>i.key===calcState.installKey);
+
+  const sg=document.createElement('div');sg.className='equip-group';sg.id='systemGroup';
+  sg.innerHTML=`<div class="equip-label">System Matchup</div>`;
+  const ssw=document.createElement('div');ssw.className='select-wrap';
+  const ssel=document.createElement('select');
+  ssel.innerHTML=`<option value="">— Select System —</option>`;
+  bySeries.forEach((r,i)=>{
+    const outdoor=r['Outdoor Model']||'';
+    const indoor=r['Indoor Model']||'';
+    const coil=r['Evap Coil']||'';
+    const seer=r['SEER2']?r['SEER2']+' SEER2':'';
+    const label=`${outdoor} + ${indoor}${coil?' + '+coil:''} ${seer?'('+seer+')':''}`;
+    ssel.innerHTML+=`<option value="${i}">${label}</option>`;
+  });
+  if(calcState.selectedSystem!==null) ssel.value=calcState.selectedSystem;
+  ssel.onchange=()=>{
+    calcState.selectedSystem=parseInt(ssel.value);
+    if(it&&it.hasHeatKit) renderHeatKitSelect(card);
+    else document.getElementById('viewQuoteBtn').style.display='block';
+  };
+  ssw.appendChild(ssel);sg.appendChild(ssw);card.appendChild(sg);
+
+  if(calcState.selectedSystem!==null){
+    ssel.value=calcState.selectedSystem;
+    if(it&&it.hasHeatKit) renderHeatKitSelect(card);
+    else document.getElementById('viewQuoteBtn').style.display='block';
+  }
+}
+
+function renderHeatKitSelect(card){
+  const old=document.getElementById('heatKitGroup');if(old)old.remove();
+  const heatKits=appData.equipment.filter(r=>(r['Category']||'')==='Heat Kits');
+  if(!heatKits.length){document.getElementById('viewQuoteBtn').style.display='block';return;}
+
+  const hkg=document.createElement('div');hkg.className='equip-group';hkg.id='heatKitGroup';
+  hkg.innerHTML=`<div class="equip-label">Heat Kit (Optional)</div>`;
+  const hsw=document.createElement('div');hsw.className='select-wrap';
+  const hsel=document.createElement('select');
+  hsel.innerHTML=`<option value="">— No Heat Kit —</option>`;
+  heatKits.forEach((r,i)=>{
+    const kw=r['kW']?r['kW']+'kW ':'';
+    const model=r['Model Number']||'';
+    const price=parseFloat(r['Price'])||0;
+    hsel.innerHTML+=`<option value="${i}">${kw}${model} — $${price.toLocaleString()}</option>`;
+  });
+  if(calcState.selectedEquipment['Heat Kits']!==undefined){
+    const idx=heatKits.indexOf(calcState.selectedEquipment['Heat Kits']);
+    if(idx>=0) hsel.value=idx;
+  }
+  hsel.onchange=()=>{
+    if(hsel.value===''){delete calcState.selectedEquipment['Heat Kits'];}
+    else{calcState.selectedEquipment['Heat Kits']=heatKits[parseInt(hsel.value)];}
+    document.getElementById('viewQuoteBtn').style.display='block';
+  };
+  hsw.appendChild(hsel);hkg.appendChild(hsw);card.appendChild(hkg);
+  document.getElementById('viewQuoteBtn').style.display='block';
+}
+
+function renderEquipFields(it, container){
+  it.categories.forEach(cat=>{
+    const items=appData.equipment.filter(r=>(r['Category']||'')===cat);
+    if(!items.length) return;
+
+    const card=document.createElement('div');
+    card.className='card';
+    card.innerHTML=`<div class="card-title">${cat}</div>`;
+
+    // Group by Product Group
+    const groups=[...new Set(items.map(r=>r['Product Group']||'').filter(Boolean))].sort();
+
+    // Series selector
+    const serGrp=document.createElement('div');serGrp.className='equip-group';
+    serGrp.innerHTML=`<div class="equip-label">Series / Product Line</div>`;
+    const sersw=document.createElement('div');sersw.className='select-wrap';
+    const sersel=document.createElement('select');
+    sersel.innerHTML=`<option value="">— Select Series —</option>`;
+    groups.forEach(g=>{sersel.innerHTML+=`<option value="${g}">${g}</option>`;});
+
+    const modelGrp=document.createElement('div');modelGrp.className='equip-group';
+    modelGrp.style.display='none';
+    modelGrp.innerHTML=`<div class="equip-label">Model</div>`;
+    const modsw=document.createElement('div');modsw.className='select-wrap';
+    const modsel=document.createElement('select');
+    modsel.innerHTML=`<option value="">— Select Model —</option>`;
+    modsw.appendChild(modsel);modelGrp.appendChild(modsw);
+
+    sersel.onchange=()=>{
+      modsel.innerHTML=`<option value="">— Select Model —</option>`;
+      if(!sersel.value){modelGrp.style.display='none';return;}
+      const filtered=items.filter(r=>r['Product Group']===sersel.value);
+      filtered.forEach((r,i)=>{
+        const tons=r['Tons']?r['Tons']+' Ton ':'';
+        const desc=r['Description']||'';
+        const model=r['Model Number']||'';
+        modsel.innerHTML+=`<option value="${i}">${tons}${model}${desc?' — '+desc:''}</option>`;
       });
-      sel.value=state.thermostatIndex;
-      sel.onchange=()=>{state.thermostatIndex=parseInt(sel.value);};
-      sw.appendChild(sel);row.appendChild(sw);container.appendChild(row);
-    } else {
-      const price=getOptionPrice(optKey);
-      const row=document.createElement('div');row.className='option-row';
-      const tog=document.createElement('div');
-      tog.className='toggle'+(state.options[optKey]?' on':'');
-      tog.onclick=()=>{state.options[optKey]=!state.options[optKey];tog.classList.toggle('on',state.options[optKey]);};
-      row.innerHTML=`<div class="option-left"><div><div class="option-name">${getOptionLabel(optKey)}</div><div class="option-price">+$${price.toLocaleString()}</div></div></div>`;
-      row.appendChild(tog);container.appendChild(row);
-    }
+      modelGrp.style.display='block';
+      // Clear previous selection for this category
+      delete calcState.selectedEquipment[cat];
+      document.getElementById('viewQuoteBtn').style.display='none';
+    };
+
+    modsel.onchange=()=>{
+      if(modsel.value===''){delete calcState.selectedEquipment[cat];return;}
+      const filtered=items.filter(r=>r['Product Group']===sersel.value);
+      calcState.selectedEquipment[cat]=filtered[parseInt(modsel.value)];
+      // Check if all required categories selected
+      const allSelected=it.categories.every(c=>calcState.selectedEquipment[c]);
+      if(allSelected) document.getElementById('viewQuoteBtn').style.display='block';
+    };
+
+    sersw.appendChild(sersel);serGrp.appendChild(sersw);
+    card.appendChild(serGrp);card.appendChild(modelGrp);
+    container.appendChild(card);
   });
 }
 
+function makeLocationField(){
+  const wrap=document.createElement('div');
+  const g=document.createElement('div');g.className='equip-group';
+  g.innerHTML=`<div class="equip-label">System Location</div>`;
+  const sw=document.createElement('div');sw.className='select-wrap';
+  const sel=document.createElement('select');
+  sel.innerHTML=`<option value="">— Select location —</option>`;
+  (appData.locations||[]).forEach(l=>{sel.innerHTML+=`<option value="${l}">${l}</option>`;});
+  sel.innerHTML+=`<option value="__custom__">Custom…</option>`;
+  sel.value=calcState.systemLocation||'';
+  const custom=document.createElement('input');
+  custom.type='text';custom.placeholder='Type custom location…';
+  custom.style.marginTop='8px';
+  custom.style.display=calcState.systemLocation==='__custom__'?'block':'none';
+  custom.value=calcState.systemLocationCustom||'';
+  custom.oninput=()=>{calcState.systemLocationCustom=custom.value;};
+  sel.onchange=()=>{calcState.systemLocation=sel.value;custom.style.display=sel.value==='__custom__'?'block':'none';};
+  sw.appendChild(sel);g.appendChild(sw);g.appendChild(custom);wrap.appendChild(g);
+  return wrap;
+}
+
+function makeOptionsFields(it){
+  const wrap=document.createElement('div');
+  const isSplit=it.source==='split';
+
+  // Thermostat
+  const tRow=document.createElement('div');tRow.className='option-row';
+  tRow.innerHTML=`<div class="option-left"><div class="option-name">Thermostat</div></div>`;
+  const tsw=document.createElement('div');tsw.className='select-wrap';tsw.style.minWidth='160px';
+  const tsel=document.createElement('select');tsel.style.fontSize='14px';
+  appData.thermostats.forEach((t,i)=>{tsel.innerHTML+=`<option value="${i}">${t.model}${t.cost>0?' (+$'+t.cost+')':''}</option>`;});
+  tsel.value=calcState.thermostatIdx;
+  tsel.onchange=()=>{calcState.thermostatIdx=parseInt(tsel.value);};
+  tsw.appendChild(tsel);tRow.appendChild(tsw);wrap.appendChild(tRow);
+
+  // Return Plenum
+  if(it.showReturn!==false){
+    const rpRow=document.createElement('div');rpRow.className='option-row';
+    const rpTog=document.createElement('div');rpTog.className='toggle'+(calcState.options.returnPlenum?' on':'');
+    rpTog.onclick=()=>{calcState.options.returnPlenum=!calcState.options.returnPlenum;rpTog.classList.toggle('on',calcState.options.returnPlenum);};
+    rpRow.innerHTML='<div class="option-left"><div class="option-name">Return Plenum</div>'+(adminMode?'<div class="option-price">+$'+(appData.settings.returnPlenum||250).toLocaleString()+'</div>':'')+'</div>';
+    rpRow.appendChild(rpTog);wrap.appendChild(rpRow);
+  }
+
+  // Supply Plenum
+  if(it.showSupply!==false){
+    const spRow=document.createElement('div');spRow.className='option-row';
+    const spTog=document.createElement('div');spTog.className='toggle'+(calcState.options.supplyPlenum?' on':'');
+    spTog.onclick=()=>{calcState.options.supplyPlenum=!calcState.options.supplyPlenum;spTog.classList.toggle('on',calcState.options.supplyPlenum);};
+    spRow.innerHTML='<div class="option-left"><div class="option-name">Supply Plenum</div>'+(adminMode?'<div class="option-price">+$'+(appData.settings.supplyPlenum||250).toLocaleString()+'</div>':'')+'</div>';
+    spRow.appendChild(spTog);wrap.appendChild(spRow);
+  }
+
+  // 10-Year Labor
+  if(it.showWarranty!==false){
+    const wyRow=document.createElement('div');wyRow.className='option-row';
+    const wyTog=document.createElement('div');wyTog.className='toggle'+(calcState.options.warranty10yr?' on':'');
+    wyTog.onclick=()=>{calcState.options.warranty10yr=!calcState.options.warranty10yr;wyTog.classList.toggle('on',calcState.options.warranty10yr);};
+    wyRow.innerHTML='<div class="option-left"><div class="option-name">10-Year Labor Warranty</div>'+(adminMode?'<div class="option-price">+$'+(appData.settings.warranty10yr||750).toLocaleString()+'</div>':'')+'</div>';
+    wyRow.appendChild(wyTog);wrap.appendChild(wyRow);
+  }
+
+  return wrap;
+}
+
+// ─── PRICING CALC ─────────────────────────────────────────────────────────────
 function calcPrice(){
-  if(state.selectedInstall===null) return null;
-  const it=INSTALL_TYPES[state.selectedInstall];
-  const s=pricingData.settings;
+  const it=INSTALL_TYPES.find(i=>i.key===calcState.installKey);
+  if(!it) return null;
+  const s=appData.settings;
   let equipCost=0;
-  it.equipment.forEach(slot=>{
-    const idx=state.selectedEquipment[slot.label];
-    if(idx!==undefined&&pricingData.equipment[idx]) equipCost+=pricingData.equipment[idx].cost;
-  });
-  const equipMarkedUp=equipCost*(s.equipMarkup||1.10);
-  const labor=pricingData.labor[it.key]||0;
-  const materials=pricingData.materials[it.key]||0;
+
+  if(it.source==='split'){
+    const systems=appData.splitSystems.filter(r=>r['System Type']===it.filter);
+    const filtered=systems.filter(r=>parseFloat(r['Tons'])===parseFloat(calcState.selectedTonnage)&&r['Series Name']===calcState.selectedSeries);
+    if(calcState.selectedSystem===null||calcState.selectedSystem===undefined) return null;
+    const sys=filtered[calcState.selectedSystem];
+    if(!sys) return null;
+    equipCost=parseFloat(sys['System Total'])||0;
+  } else {
+    it.categories.forEach(cat=>{
+      const eq=calcState.selectedEquipment[cat];
+      if(eq) equipCost+=parseFloat(eq['Price'])||0;
+    });
+  }
+
+  const equipMarkedUp=equipCost*(s.equipMarkup||1.1);
+  const labor=appData.labor[it.laborKey]||appData.labor[it.key]||appData.labor[it.name]||0;
+  const materials=appData.materials[it.laborKey]||appData.materials[it.key]||appData.materials[it.name]||0;
   let optionsCost=0;
-  it.options.forEach(optKey=>{
-    if(optKey==='thermostat'){const t=pricingData.thermostats[state.thermostatIndex];if(t) optionsCost+=t.cost;}
-    else if(state.options[optKey]) optionsCost+=getOptionPrice(optKey);
-  });
+  const therm=appData.thermostats[calcState.thermostatIdx];
+  if(therm) optionsCost+=therm.cost||0;
+  if(calcState.options.returnPlenum) optionsCost+=s.returnPlenum||250;
+  if(calcState.options.supplyPlenum) optionsCost+=s.supplyPlenum||250;
+  if(calcState.options.warranty10yr) optionsCost+=s.warranty10yr||750;
+
   const subtotal=equipMarkedUp+labor+materials+optionsCost;
-  const salePrice=subtotal/(s.marginDivisor||0.60);
-  return{equipCost,equipMarkedUp,labor,materials,optionsCost,subtotal,salePrice};
+  const priceBeforeCommission=subtotal/(s.marginDivisor||0.55);
+  const isComplete=it.source==='split';
+  const commissionRate=isComplete?(s.completeCommission||0.05):(s.partialCommission||0.03);
+  const salePrice=priceBeforeCommission/(1-commissionRate);
+  const salePriceRounded=Math.round(salePrice/10)*10;
+  const commissionAmt=salePrice*commissionRate;
+
+  return{equipCost,equipMarkedUp,labor,materials,optionsCost,subtotal,priceBeforeCommission,commissionRate,commissionAmt,salePrice,salePriceRounded};
 }
 
-function buildQuoteText(){
-  if(state.selectedInstall===null) return null;
-  const it=INSTALL_TYPES[state.selectedInstall];
-  const p=calcPrice();
-  const s=pricingData.settings;
-  const tmpl = (pricingData.templates&&pricingData.templates[it.key]) || FALLBACK_TEMPLATES[it.key] || '';
-  if(!tmpl) return null;
-  const eq={};
-  it.equipment.forEach(slot=>{
-    const idx=state.selectedEquipment[slot.label];
-    if(idx!==undefined&&pricingData.equipment[idx]){eq[slot.label]=pricingData.equipment[idx];}
-  });
-  const warrantyOrder=['Condenser','Heat Pump','RTU Unit','Evaporator Coil','Furnace','Air Handler'];
-  let primaryEquip=null;
-  for(const label of warrantyOrder){if(eq[label]){primaryEquip=eq[label];break;}}
-  if(!primaryEquip) primaryEquip=Object.values(eq)[0]||null;
-
-  const calcWarranty = (field, label) => {
-    const entries = Object.entries(eq)
-      .map(([slot, e]) => ({ slot, val: (e[field]||'').trim() }))
-      .filter(e => e.val && e.val.toLowerCase() !== 'n/a');
-    if (entries.length === 0) return '';
-    const unique = [...new Set(entries.map(e => e.val))];
-    if (unique.length === 1) return `\n- ${unique[0]} ${label}`;
-    return entries.map(e => `\n- ${e.val} ${label} (${e.slot})`).join('');
-  };
-
-  const parts_warranty          = calcWarranty('parts_warranty', 'Parts');
-  const compressor_warranty     = calcWarranty('compressor_warranty', 'Compressor');
-  const heat_exchanger_warranty = calcWarranty('heat_exchanger_warranty', 'Heat Exchanger');
-  const other_warranty          = calcWarranty('other_warranty', 'Other');
-  const labor_warranty = state.options['warranty_10yr'] ? '10 years' : '1 year';
-  const thermostat=pricingData.thermostats[state.thermostatIndex];
-  const thermostatIsNone = !thermostat || thermostat.cost===0;
-  const thermostat_model = thermostatIsNone ? '' : thermostat.model;
-  const supply_plenum  = state.options['supply_plenum']  ? '\n- Includes new matching supply plenum with manual balancing dampers'  : '';
-  const return_plenum  = state.options['return_plenum']  ? '\n- Includes new filtered return plenum with 4" filter'  : '';
-  const thermostat_line= thermostatIsNone ? '' : `\n- New thermostat: ${thermostat_model}`;
-  const system_tonnage     = state.systemTonnage==='__custom__' ? state.systemTonnageCustom : state.systemTonnage;
-  const system_seer        = state.systemSeer==='__custom__'    ? state.systemSeerCustom    : state.systemSeer;
-  const system_location    = state.systemLocation==='__custom__' ? state.systemLocationCustom : state.systemLocation;
-  const system_description = [system_tonnage, system_seer].filter(Boolean).join(' ');
-  const price = '$'+(Math.round(p.salePrice/10)*10).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0});
-  const subs={
-    '{price}':price,
-    '{condenser_model}':  eq['Condenser']?.model    || '[!!! No condenser selected]',
-    '{coil_model}':       eq['Evaporator Coil']?.model || '[!!! No coil selected]',
-    '{furnace_model}':    eq['Furnace']?.model       || '[!!! No furnace selected]',
-    '{heatpump_model}':   eq['Heat Pump']?.model     || '[!!! No heat pump selected]',
-    '{airhandler_model}': eq['Air Handler']?.model   || '[!!! No air handler selected]',
-    '{heatkit_model}':    eq['Heat Kit']?.model      || '[!!! No heat kit selected]',
-    '{rtu_model}':        eq['RTU Unit']?.model      || '[!!! No RTU selected]',
-    '{thermostat_model}': thermostat_model,
-    '{supply_plenum}':    supply_plenum,
-    '{return_plenum}':    return_plenum,
-    '{thermostat_line}':  thermostat_line,
-    '{labor_warranty}':   labor_warranty,
-    '{parts_warranty}':   parts_warranty,
-    '{compressor_warranty}': compressor_warranty,
-    '{heat_exchanger_warranty}': heat_exchanger_warranty,
-    '{other_warranty}':   other_warranty,
-    '{system_tonnage}':     system_tonnage,
-    '{system_seer}':        system_seer,
-    '{system_description}': system_description,
-    '{system_location}':    system_location,
-  };
-  let text=tmpl;
-  for(const [key,val] of Object.entries(subs)){text=text.split(key).join(val);}
-  return text;
-}
-
-function renderSummary(){
-  const container=document.getElementById('summaryContent');
-  if(state.selectedInstall===null){
-    container.innerHTML=`<div class="empty-state"><div class="icon">📋</div><p>Complete a quote in the Calculator tab first</p></div>`;
+// ─── QUOTE RENDER ─────────────────────────────────────────────────────────────
+function renderQuote(){
+  const container=document.getElementById('quoteContent');
+  const it=INSTALL_TYPES.find(i=>i.key===calcState.installKey);
+  if(!it){
+    container.innerHTML=`<div class="empty-state"><div class="icon">📋</div><p>Complete the Calculator tab first</p></div>`;
     return;
   }
-  const it=INSTALL_TYPES[state.selectedInstall];
   const p=calcPrice();
-  const s=pricingData.settings;
-  const fmt=n=>'$'+n.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  if(!p){
+    container.innerHTML=`<div class="empty-state"><div class="icon">📋</div><p>Please complete all selections in the Calculator tab</p></div>`;
+    return;
+  }
+
+  const s=appData.settings;
+  const fmt=n=>'$'+parseFloat(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+
+  // Get selected equipment details
   let equipLines='';
-  it.equipment.forEach(slot=>{
-    const idx=state.selectedEquipment[slot.label];
-    if(idx!==undefined&&pricingData.equipment[idx]){
-      const eq=pricingData.equipment[idx];
-      equipLines+=`<div class="price-row"><span>${slot.label}: ${eq.model}</span><span class="value">${fmt(eq.cost)}</span></div>`;
-    } else {
-      equipLines+=`<div class="price-row"><span>${slot.label}</span><span style="color:var(--danger)">Not selected</span></div>`;
+  let quoteEquipLines='';
+  let warrantyText='';
+  let seerText='';
+  let ahriText='';
+  const therm=appData.thermostats[calcState.thermostatIdx];
+  const location=calcState.systemLocation==='__custom__'?calcState.systemLocationCustom:calcState.systemLocation;
+
+  if(it.source==='split'){
+    const systems=appData.splitSystems.filter(r=>r['System Type']===it.filter);
+    const filtered=systems.filter(r=>parseFloat(r['Tons'])===parseFloat(calcState.selectedTonnage)&&r['Series Name']===calcState.selectedSeries);
+    const sys=filtered[calcState.selectedSystem];
+    if(sys){
+      const fields=[
+        ['Outdoor Unit',sys['Outdoor Model'],sys['Outdoor Price']],
+        ['Indoor Unit',sys['Indoor Model'],sys['Indoor Price']],
+        ['Evaporator Coil',sys['Evap Coil'],sys['Coil Price']],
+        sys['Heat Kit']?['Heat Kit',sys['Heat Kit'],sys['Heat Kit Price']]:null,
+        sys['Relay Panel']?['Relay Panel',sys['Relay Panel'],sys['Relay Panel Price']]:null,
+      ].filter(Boolean);
+      fields.forEach(([label,model,price])=>{
+        if(model&&model!=='') {
+          equipLines+=`<div class="price-row"><span>${label}: ${model}</span><span class="value">${fmt(price||0)}</span></div>`;
+          quoteEquipLines+=`- ${label}: ${model}\n`;
+        }
+      });
+      warrantyText=sys['Warranty']||'';
+      seerText=sys['SEER2']?sys['SEER2']+' SEER2'+(sys['HSPF2']?' / '+sys['HSPF2']+' HSPF2':''):'';
+      ahriText=sys['AHRI']||'';
     }
-  });
+  } else {
+    it.categories.forEach(cat=>{
+      const eq=calcState.selectedEquipment[cat];
+      if(eq){
+        equipLines+=`<div class="price-row"><span>${cat}: ${eq['Model Number']}</span><span class="value">${fmt(eq['Price']||0)}</span></div>`;
+        quoteEquipLines+=`- ${cat}: ${eq['Model Number']}\n`;
+        if(!warrantyText&&eq['Warranty']) warrantyText=eq['Warranty'];
+        if(!seerText&&eq['SEER2']) seerText=eq['SEER2']+' SEER2';
+        if(!ahriText&&eq['AHRI']) ahriText=String(eq['AHRI']);
+      }
+    });
+  }
+
   let optLines='';
-  it.options.forEach(optKey=>{
-    if(optKey==='thermostat'){
-      const t=pricingData.thermostats[state.thermostatIndex];
-      if(t) optLines+=`<div class="price-row"><span>Thermostat: ${t.model}</span><span class="value">${fmt(t.cost)}</span></div>`;
-    } else if(state.options[optKey]){
-      optLines+=`<div class="price-row"><span>${getOptionLabel(optKey)}</span><span class="value">${fmt(getOptionPrice(optKey))}</span></div>`;
-    }
-  });
-  const quoteText=buildQuoteText()||'(Select all equipment to generate quote text)';
-  container.innerHTML=`
-    <div class="card">
-      <div class="card-title">Install Type</div>
-      <div style="font-size:16px;font-weight:600">${it.key}</div>
-    </div>
+  if(therm&&therm.cost>0) optLines+=`<div class="price-row"><span>Thermostat: ${therm.model}</span><span class="value">${fmt(therm.cost)}</span></div>`;
+  if(calcState.options.returnPlenum) optLines+=`<div class="price-row"><span>Return Plenum</span><span class="value">${fmt(s.returnPlenum||250)}</span></div>`;
+  if(calcState.options.supplyPlenum) optLines+=`<div class="price-row"><span>Supply Plenum</span><span class="value">${fmt(s.supplyPlenum||250)}</span></div>`;
+  if(calcState.options.warranty10yr) optLines+=`<div class="price-row"><span>10-Year Labor Warranty</span><span class="value">${fmt(s.warranty10yr||750)}</span></div>`;
+
+  const laborWarranty=calcState.options.warranty10yr?'10 Years':'1 Year';
+
+  // Build quote text
+  const supplyPlenumLine=calcState.options.supplyPlenum?'\n- Includes new matching supply plenum with manual balancing dampers':'';
+  const returnPlenumLine=calcState.options.returnPlenum?'\n- Includes new filtered return plenum with 4" filter':'';
+  const thermLine=therm&&therm.cost>0?`\n- New thermostat: ${therm.model}`:'';
+  const locationLine=location?` for ${location}`:'';
+  const seerLine=seerText?`\nEfficiency: ${seerText}`:'';
+  const ahriLine=ahriText?`\nAHRI Reference: ${ahriText}`:'';
+  const warrantyLine=warrantyText?`\n\nWarranties:\n- ${warrantyText}\n- ${laborWarranty} Labor\n- Lifetime Workmanship`:`\n\nWarranties:\n- ${laborWarranty} Labor\n- Lifetime Workmanship`;
+
+  // Use template if available, otherwise build default
+  let quoteText;
+  const tmpl=appData.templates[it.templateKey]||appData.templates[it.name]||appData.templates[it.key]||null;
+  if(tmpl){
+    quoteText=tmpl
+      .replace(/{install_type}/g, it.name)
+      .replace(/{system_location}/g, location||'')
+      .replace(/{location_line}/g, locationLine)
+      .replace(/{supply_plenum}/g, supplyPlenumLine)
+      .replace(/{return_plenum}/g, returnPlenumLine)
+      .replace(/{thermostat_line}/g, thermLine)
+      .replace(/{seer}/g, seerText)
+      .replace(/{ahri}/g, ahriText)
+      .replace(/{equipment_list}/g, quoteEquipLines.trim())
+      .replace(/{warranty}/g, warrantyText)
+      .replace(/{labor_warranty}/g, laborWarranty)
+      .replace(/{price}/g, '$'+p.salePriceRounded.toLocaleString())
+      .replace(/{tons}/g, calcState.selectedTonnage||'');
+  } else {
+    quoteText=`Install new ${it.name}${locationLine}.${supplyPlenumLine}${returnPlenumLine}${thermLine}${seerLine}${ahriLine}
+
+Equipment:
+${quoteEquipLines.trim()}${warrantyLine}
+
+Price: $${p.salePriceRounded.toLocaleString()}`;
+  }
+
+  const breakdownSection = adminMode ? `
     <div class="price-summary">
-      <div class="card-title" style="color:var(--accent2);margin-bottom:8px">Price Breakdown</div>
+      <div class="card-title" style="color:var(--accent2);margin-bottom:8px;">Price Breakdown</div>
       ${equipLines}
       <div class="price-row"><span>Equipment Subtotal</span><span class="value">${fmt(p.equipCost)}</span></div>
       <div class="price-row"><span>Equipment (×${s.equipMarkup})</span><span class="value">${fmt(p.equipMarkedUp)}</span></div>
       <div class="price-row"><span>Labor</span><span class="value">${fmt(p.labor)}</span></div>
       <div class="price-row"><span>Materials</span><span class="value">${fmt(p.materials)}</span></div>
-      ${optLines?`<div style="border-top:1px solid var(--border);margin:6px 0;padding-top:6px"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Add-ons</div>${optLines}</div>`:''}
+      ${optLines?`<div style="border-top:1px solid var(--border);margin:6px 0;padding-top:6px;">${optLines}</div>`:''}
       <div class="price-row"><span>Subtotal</span><span class="value">${fmt(p.subtotal)}</span></div>
-      <div class="price-row total"><span class="plabel">Sale Price</span><span class="value">$${(Math.round(p.salePrice/10)*10).toLocaleString()}</span></div>
+      <div class="price-row"><span>Pre-Commission Price</span><span class="value">${fmt(p.priceBeforeCommission)}</span></div>
+      <div class="price-row"><span>Commission (${Math.round(p.commissionRate*100)}%)</span><span class="value">${fmt(p.commissionAmt)}</span></div>
+      <div class="price-row total"><span class="plabel">Sale Price</span><span class="value">$${p.salePriceRounded.toLocaleString()}</span></div>
+    </div>` : `
+    <div class="price-summary">
+      <div class="price-row total" style="border-top:none;margin-top:0;padding-top:0;">
+        <span class="plabel">Sale Price</span>
+        <span class="value">$${p.salePriceRounded.toLocaleString()}</span>
+      </div>
+    </div>`;
+
+  container.innerHTML=`
+    <div class="card">
+      <div class="card-title">Install Type</div>
+      <div style="font-size:16px;font-weight:600;">${it.name}${location?' — '+location:''}</div>
+      ${seerText?`<div style="font-size:13px;color:var(--muted);margin-top:4px;">${seerText}</div>`:''}
+      ${ahriText?`<div style="font-size:13px;color:var(--muted);">AHRI: ${ahriText}</div>`:''}
     </div>
+    ${breakdownSection}
     <div class="card">
       <div class="card-title">Quote Text</div>
       <div class="quote-box" id="quoteTextBox">${quoteText}</div>
@@ -1355,79 +1067,311 @@ function renderSummary(){
 function copyQuote(){
   const box=document.getElementById('quoteTextBox');
   const btn=document.getElementById('copyBtn');
-  if(!box||!btn) return;
   const text=box.innerText||box.textContent;
   navigator.clipboard.writeText(text).then(()=>{
     btn.textContent='✓ Copied!';btn.classList.add('copied');
     setTimeout(()=>{btn.innerHTML='📋 Copy Quote Text';btn.classList.remove('copied');},2000);
   }).catch(()=>{
-    const ta=document.createElement('textarea');
-    ta.value=text;ta.style.position='fixed';ta.style.opacity='0';
+    const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';
     document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
     btn.textContent='✓ Copied!';btn.classList.add('copied');
     setTimeout(()=>{btn.innerHTML='📋 Copy Quote Text';btn.classList.remove('copied');},2000);
   });
 }
 
+// ─── SERVICE REPAIR ───────────────────────────────────────────────────────────
+function calcLaborCost(wt){
+  const m1=parseFloat(srState.man1Rate)||0;
+  const m2=parseFloat(srState.man2Rate)||0;
+  const hrs=parseFloat(wt.hours)||0;
+  const men=parseInt(wt.men)||1;
+  return men===1?hrs*m1:(hrs*m1)+(hrs*m2);
+}
+
+function getSRTier(cost){
+  for(const t of srState.tiers){
+    const maxOk=t.max===null||t.max===''||cost<=parseFloat(t.max);
+    if(cost>=parseFloat(t.min)&&maxOk) return t;
+  }
+  return srState.tiers[srState.tiers.length-1];
+}
+
+function calcMarkedUpPart(partWithTaxAndShipping){
+  const tier=getSRTier(partWithTaxAndShipping);
+  const multiplied=partWithTaxAndShipping*parseFloat(tier.mult);
+  const floor=(tier.floor!==null&&tier.floor!==undefined&&tier.floor!=='')?parseFloat(tier.floor):0;
+  return Math.max(multiplied,floor);
+}
+
+function getSRTierLabel(cost){
+  const t=getSRTier(cost);
+  const minStr='$'+parseFloat(t.min).toLocaleString();
+  const maxStr=(t.max===null||t.max==='')?'+':' – $'+parseFloat(t.max).toLocaleString();
+  return minStr+maxStr;
+}
+
+function renderSRChips(){
+  const grid=document.getElementById('srWorkChips');
+  if(!grid) return;
+  grid.innerHTML='';
+  srState.workTypes.forEach((wt,i)=>{
+    const labor=calcLaborCost(wt);
+    const chip=document.createElement('div');
+    chip.className='sr-work-chip'+(srState.selectedWorkIdx===i?' selected':'');
+    const laborStr=adminMode?' · $'+labor.toLocaleString():''; chip.innerHTML='<div>'+wt.name+'</div><div style="font-size:10px;color:var(--muted);margin-top:2px;font-family:\'Barlow\',sans-serif;">'+wt.hours+'hr · '+wt.men+'man'+laborStr+'</div>';
+    chip.onclick=()=>{srState.selectedWorkIdx=i;renderSR();};
+    grid.appendChild(chip);
+  });
+}
+
+function renderSR(){
+  renderSRChips();
+  const partCostRaw=parseFloat(document.getElementById('srPartCost').value);
+  const shippingRaw=parseFloat(document.getElementById('srShipping')?.value||0)||0;
+  const hasPartCost=!isNaN(partCostRaw)&&partCostRaw>0;
+  const hasWorkType=srState.selectedWorkIdx!==null;
+  const resultCard=document.getElementById('srResultCard');
+
+  // Sync tax toggle visual
+  document.getElementById('srTaxToggle').classList.toggle('on',srState.taxEnabled);
+
+  if(!hasPartCost||!hasWorkType){resultCard.style.display='none';
+    document.getElementById('srPartNote').textContent=hasPartCost?'Tier: '+getSRTierLabel(partCostRaw):'';
+    return;
+  }
+
+  const taxAmt=srState.taxEnabled?partCostRaw*(srState.taxRate/100):0;
+  const partWithTax=partCostRaw+taxAmt+shippingRaw;
+  const markedUpPart=calcMarkedUpPart(partWithTax);
+  const wt=srState.workTypes[srState.selectedWorkIdx];
+  const labor=calcLaborCost(wt);
+  const total=markedUpPart+labor;
+  const totalRounded=Math.round(total/5)*5;
+
+  const fmt=n=>'$'+n.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  const fmtR=n=>'$'+n.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0});
+
+  document.getElementById('srTaxRateLbl').textContent=srState.taxRate+'%';
+  document.getElementById('srLaborTypeLbl').textContent=wt.name;
+  document.getElementById('srRowPartCost').textContent=fmt(partCostRaw);
+  document.getElementById('srRowTax').textContent=srState.taxEnabled?fmt(taxAmt):'N/A';
+  document.getElementById('srRowShipping').textContent=shippingRaw>0?fmt(shippingRaw):'N/A';
+  document.getElementById('srRowPartTaxed').textContent=fmt(partWithTax);
+  document.getElementById('srRowTier').textContent=getSRTierLabel(partCostRaw)+'  ×'+parseFloat(getSRTier(partCostRaw).mult).toFixed(2);
+  document.getElementById('srRowMarkedPart').textContent=fmt(markedUpPart);
+  document.getElementById('srRowLabor').textContent=fmt(labor);
+  document.getElementById('srRowTotal').textContent=fmtR(totalRounded);
+
+  const quoteText=`Service Repair: ${wt.name}\n\nPart Cost: ${fmt(partCostRaw)}${srState.taxEnabled?'\nTax ('+srState.taxRate+'%): '+fmt(taxAmt):''}${shippingRaw>0?'\nShipping: '+fmt(shippingRaw):''}\nLabor (${wt.hours}hr · ${wt.men} man): ${fmt(labor)}\n\nTotal Price: ${fmtR(totalRounded)}`;
+  document.getElementById('srQuoteBox').textContent=quoteText;
+
+  resultCard.style.display='block';
+  const detailRows=document.getElementById('srDetailRows');
+  const title=document.getElementById('srBreakdownTitle');
+  if(detailRows) detailRows.style.display=adminMode?'block':'none';
+  if(title) title.textContent=adminMode?'Repair Price Breakdown':'Repair Price';
+  document.getElementById('srPartNote').textContent=adminMode?'Tier: '+getSRTierLabel(partCostRaw)+' → ×'+parseFloat(getSRTier(partCostRaw).mult).toFixed(2):'';
+}
+
+function toggleSRTax(){srState.taxEnabled=!srState.taxEnabled;saveSRState();renderSR();}
+function toggleSRDetail(){srState.showDetail=!srState.showDetail;const t=document.getElementById('detailToggle');if(t)t.classList.toggle('on',srState.showDetail);saveSRState();renderSR();}
+
+function copySRQuote(){
+  const box=document.getElementById('srQuoteBox');
+  const btn=document.getElementById('srCopyBtn');
+  const text=box.innerText||box.textContent;
+  navigator.clipboard.writeText(text).then(()=>{btn.textContent='✓ Copied!';btn.classList.add('copied');setTimeout(()=>{btn.innerHTML='📋 Copy Quote Text';btn.classList.remove('copied');},2000);})
+  .catch(()=>{const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);btn.textContent='✓ Copied!';btn.classList.add('copied');setTimeout(()=>{btn.innerHTML='📋 Copy Quote Text';btn.classList.remove('copied');},2000);});
+}
+
+// ─── SR TABLES MODAL ──────────────────────────────────────────────────────────
+function openSRTables(){
+  window._pinTarget='sr';
+  document.getElementById('pinInput').value='';
+  document.getElementById('pinError').textContent='';
+  document.getElementById('pinModal').classList.add('open');
+  setTimeout(()=>document.getElementById('pinInput').focus(),100);
+}
+
+function closeSRTables(){document.getElementById('srTablesModal').classList.remove('open');}
+
+function _openSRTables(){
+  document.getElementById('rtTaxRate').value=srState.taxRate;
+  document.getElementById('rtMan1Rate').value=srState.man1Rate;
+  document.getElementById('rtMan2Rate').value=srState.man2Rate;
+  renderSRTierRows();
+  renderSRWorkRows();
+  document.getElementById('srTablesModal').classList.add('open');
+}
+
+function renderSRTierRows(){
+  const tbody=document.getElementById('rtTiersTbody');tbody.innerHTML='';
+  srState.tiers.forEach((t,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td><input type="number" class="sr-tier-min" value="${t.min}" min="0" step="0.01"></td>
+      <td><input type="number" class="sr-tier-max" value="${t.max!==null?t.max:''}" min="0" step="0.01" placeholder="∞"></td>
+      <td><input type="number" class="sr-tier-mult" value="${t.mult}" min="0.1" step="0.01" style="max-width:60px;"></td>
+      <td><input type="number" class="sr-tier-floor" value="${t.floor!==null&&t.floor!==''?t.floor:''}" min="0" step="1" placeholder="—"></td>
+      <td><button class="del-row-btn" onclick="deleteSRTierRow(${i})">×</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function addSRTierRow(){collectSRTiersFromDOM();srState.tiers.push({min:0,max:null,mult:1.5,floor:null});renderSRTierRows();}
+function deleteSRTierRow(i){collectSRTiersFromDOM();srState.tiers.splice(i,1);renderSRTierRows();}
+function collectSRTiersFromDOM(){
+  const rows=document.querySelectorAll('#rtTiersTbody tr');
+  const tiers=[];
+  rows.forEach(tr=>{
+    const min=parseFloat(tr.querySelector('.sr-tier-min')?.value);
+    const maxRaw=tr.querySelector('.sr-tier-max')?.value.trim();
+    const max=maxRaw===''?null:parseFloat(maxRaw);
+    const mult=parseFloat(tr.querySelector('.sr-tier-mult')?.value);
+    const floorRaw=tr.querySelector('.sr-tier-floor')?.value.trim();
+    const floor=floorRaw===''?null:parseFloat(floorRaw);
+    if(!isNaN(min)&&!isNaN(mult)) tiers.push({min,max,mult,floor});
+  });
+  if(tiers.length) srState.tiers=tiers;
+}
+
+function renderSRWorkRows(){
+  const tbody=document.getElementById('rtWorkTbody');tbody.innerHTML='';
+  srState.workTypes.forEach((wt,i)=>{
+    const labor=calcLaborCost(wt);
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td><input type="text" class="wt-name" value="${wt.name}" placeholder="Work type"></td>
+      <td><input type="number" class="wt-hours" value="${wt.hours}" min="0.5" step="0.5" style="max-width:50px;" oninput="refreshWTLabor(this)"></td>
+      <td><select class="wt-men" style="padding:6px 4px;font-size:12px;" onchange="refreshWTLabor(this)"><option value="1" ${wt.men===1?'selected':''}>1</option><option value="2" ${wt.men===2?'selected':''}>2</option></select></td>
+      <td style="font-size:12px;color:var(--success);font-weight:600;white-space:nowrap;" class="wt-labor">$${labor.toLocaleString()}</td>
+      <td><button class="del-row-btn" onclick="deleteSRWorkRow(${i})">×</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function refreshWTLabor(el){
+  const tr=el.closest('tr');
+  const hrs=parseFloat(tr.querySelector('.wt-hours').value)||0;
+  const men=parseInt(tr.querySelector('.wt-men').value)||1;
+  const m1=parseFloat(srState.man1Rate)||0;
+  const m2=parseFloat(srState.man2Rate)||0;
+  const labor=men===1?hrs*m1:(hrs*m1)+(hrs*m2);
+  tr.querySelector('.wt-labor').textContent='$'+labor.toLocaleString();
+}
+
+function collectSRWorkFromDOM(){
+  const rows=document.querySelectorAll('#rtWorkTbody tr');
+  const wts=[];
+  rows.forEach(tr=>{
+    const name=tr.querySelector('.wt-name')?.value.trim();
+    const hours=parseFloat(tr.querySelector('.wt-hours')?.value)||1;
+    const men=parseInt(tr.querySelector('.wt-men')?.value)||1;
+    if(name) wts.push({name,hours,men});
+  });
+  if(wts.length) srState.workTypes=wts;
+}
+
+function addSRWorkRow(){collectSRWorkFromDOM();srState.workTypes.push({name:'New Work Type',hours:2,men:1});renderSRWorkRows();}
+function deleteSRWorkRow(i){collectSRWorkFromDOM();srState.workTypes.splice(i,1);if(srState.selectedWorkIdx===i)srState.selectedWorkIdx=null;else if(srState.selectedWorkIdx>i)srState.selectedWorkIdx--;renderSRWorkRows();}
+
+function saveSRTables(){
+  const tax=parseFloat(document.getElementById('rtTaxRate').value);
+  if(!isNaN(tax)) srState.taxRate=tax;
+  const m1=parseFloat(document.getElementById('rtMan1Rate').value);
+  const m2=parseFloat(document.getElementById('rtMan2Rate').value);
+  if(!isNaN(m1)) srState.man1Rate=m1;
+  if(!isNaN(m2)) srState.man2Rate=m2;
+  collectSRTiersFromDOM();
+  collectSRWorkFromDOM();
+  saveSRState();
+  closeSRTables();
+  if(srState.selectedWorkIdx!==null&&srState.selectedWorkIdx>=srState.workTypes.length) srState.selectedWorkIdx=null;
+  renderSR();
+}
+
+// ─── PIN MODAL ────────────────────────────────────────────────────────────────
+function closePinModal(){document.getElementById('pinModal').classList.remove('open');}
+
+function promptAdmin(){
+  window._pinTarget=null;
+  window._pinTarget='admin';
+  document.getElementById('pinInput').value='';
+  document.getElementById('pinError').textContent='';
+  document.getElementById('pinModal').classList.add('open');
+  setTimeout(()=>document.getElementById('pinInput').focus(),100);
+}
+
+function submitPin(){
+  const pin=document.getElementById('pinInput').value.trim();
+  if(pin!=='1225'){
+    document.getElementById('pinError').textContent='Incorrect PIN. Please try again.';
+    document.getElementById('pinInput').value='';
+    document.getElementById('pinInput').focus();
+    return;
+  }
+  closePinModal();
+  try{
+    if(window._pinTarget==='settings') _openSettingsModal();
+    else if(window._pinTarget==='sr') _openSRTables();
+    else if(window._pinTarget==='admin') enterAdminMode();
+  }catch(e){ console.error('PIN action error:',e); }
+  window._pinTarget=null;
+}
+
+// ─── SETTINGS MODAL ───────────────────────────────────────────────────────────
+function openSettings(){
+  window._pinTarget='settings';
+  document.getElementById('pinInput').value='';
+  document.getElementById('pinError').textContent='';
+  document.getElementById('pinModal').classList.add('open');
+  setTimeout(()=>document.getElementById('pinInput').focus(),100);
+}
+
 function _openSettingsModal(){
   const urls=getUrls();
-  document.getElementById('urlEquipment').value=urls.equipment||'';
-  document.getElementById('urlLabor').value=urls.labor||'';
-  document.getElementById('urlThermostats').value=urls.thermostats||'';
-  document.getElementById('urlSettings').value=urls.settings||'';
-  document.getElementById('urlTemplates').value=urls.templates||'';
-  document.getElementById('urlLocations').value=urls.locations||'';
-  ['statusEquipment','statusLabor','statusThermostats','statusSettings','statusTemplates','statusLocations'].forEach(id=>{
-    document.getElementById(id).innerHTML='';
-  });
+  document.getElementById('urlCatalog').value=urls.catalog||CATALOG_URL;
+  document.getElementById('urlSettings').value=urls.settings||SETTINGS_URL;
+  document.getElementById('statusCatalog').innerHTML='';
+  document.getElementById('statusSettings').innerHTML='';
   document.getElementById('settingsModal').classList.add('open');
 }
-function openSettings(){
-  // Route through PIN modal; on success call _openSettingsModal
-  window._pinTarget = 'settings';
-  document.getElementById('pinInput').value = '';
-  document.getElementById('pinError').textContent = '';
-  document.getElementById('pinModal').classList.add('open');
-  setTimeout(() => document.getElementById('pinInput').focus(), 100);
-}
+
 function closeSettings(){document.getElementById('settingsModal').classList.remove('open');}
-document.addEventListener('DOMContentLoaded',()=>{document.getElementById('settingsModal').addEventListener('click',e=>{if(e.target===document.getElementById('settingsModal'))closeSettings();});});
 
 async function saveAndReload(){
   saveUrls({
-    equipment:document.getElementById('urlEquipment').value.trim(),
-    labor:document.getElementById('urlLabor').value.trim(),
-    thermostats:document.getElementById('urlThermostats').value.trim(),
+    catalog:document.getElementById('urlCatalog').value.trim(),
     settings:document.getElementById('urlSettings').value.trim(),
-    templates:document.getElementById('urlTemplates').value.trim(),
-    locations:document.getElementById('urlLocations').value.trim()
   });
   await loadAllData(true);
 }
 
+// ─── CLICK OUTSIDE TO CLOSE ───────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded',()=>{
+  ['settingsModal','srTablesModal','pinModal'].forEach(id=>{
+    const el=document.getElementById(id);
+    el.addEventListener('click',e=>{if(e.target===el)el.classList.remove('open');});
+  });
+});
+
 // ─── INIT ─────────────────────────────────────────────────────────────────────
-loadSRTables();
-(async () => {
-  // Hard fallback: if still spinning after 10s, force-hide overlay and show error
-  const hardTimeout = setTimeout(() => {
-    const overlay = document.getElementById('loadOverlay');
-    if (!overlay.classList.contains('hidden')) {
-      overlay.classList.add('hidden');
-      showDataError();
-    }
-  }, 10000);
+loadAdminMode();
+loadSRState();
+// renderSRChips called after data loads via updateAdminUI
 
-  try {
-    await loadAllData(false);
-  } catch(e) {
-    console.error('loadAllData failed:', e);
-    document.getElementById('loadOverlay').classList.add('hidden');
-    showDataError();
-  } finally {
-    clearTimeout(hardTimeout);
+// Init admin UI immediately
+updateAdminUI();
+
+const hardTimeout=setTimeout(()=>{
+  const ov=document.getElementById('loadOverlay');
+  if(!ov.classList.contains('hidden')){
+    ov.classList.add('hidden');
+    setStatus('err','Could not load pricing data — tap ⚙ Setup to configure');
   }
-})();
-</script>
+},20000);
 
+loadAllData(false).finally(()=>clearTimeout(hardTimeout));
+</script>
 </body>
 </html>
