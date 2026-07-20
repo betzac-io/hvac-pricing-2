@@ -268,6 +268,24 @@ select:focus,input:focus{border-color:var(--accent2);}
         <option value="">— Select Type of Work —</option>
       </select>
     </div>
+    <div id="srCustomLaborFields" style="display:none;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Custom Labor</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">Hours</div>
+          <input type="number" id="srCustomHours" min="0.5" step="0.5" placeholder="2" oninput="renderSR()" style="font-size:16px;">
+        </div>
+        <div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">Men</div>
+          <div class="select-wrap">
+            <select id="srCustomMen" onchange="renderSR()" style="font-size:16px;">
+              <option value="1">1 Man</option>
+              <option value="2">2 Men</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
     <div id="srWorkDetail" style="font-size:12px;color:var(--muted);margin-top:8px;"></div>
   </div>
 
@@ -1114,7 +1132,13 @@ function getSRTierLabel(cost){
 }
 
 function srSelectWork(val){
-  srState.selectedWorkIdx=val===''?null:parseInt(val);
+  if(val==='__custom__'){
+    srState.selectedWorkIdx='__custom__';
+  } else {
+    srState.selectedWorkIdx=val===''?null:parseInt(val);
+  }
+  const customFields=document.getElementById('srCustomLaborFields');
+  if(customFields) customFields.style.display=val==='__custom__'?'block':'none';
   renderSR();
 }
 
@@ -1130,7 +1154,14 @@ function renderSRChips(){
     opt.textContent=wt.name+' ('+wt.hours+'hr · '+wt.men+' man'+laborStr+')';
     sel.appendChild(opt);
   });
-  if(srState.selectedWorkIdx!==null) sel.value=srState.selectedWorkIdx;
+  // Add custom labor option
+  const customOpt=document.createElement('option');
+  customOpt.value='__custom__';
+  customOpt.textContent='Custom Labor (enter hours & men)';
+  sel.appendChild(customOpt);
+
+  if(srState.selectedWorkIdx==='__custom__') sel.value='__custom__';
+  else if(srState.selectedWorkIdx!==null) sel.value=srState.selectedWorkIdx;
 }
 
 function renderSR(){
@@ -1138,7 +1169,7 @@ function renderSR(){
   const partCostRaw=parseFloat(document.getElementById('srPartCost').value);
   const shippingRaw=parseFloat(document.getElementById('srShipping')?.value||0)||0;
   const hasPartCost=!isNaN(partCostRaw)&&partCostRaw>0;
-  const hasWorkType=srState.selectedWorkIdx!==null;
+  const hasWorkType=srState.selectedWorkIdx!==null&&(srState.selectedWorkIdx!=='__custom__'||(parseFloat(document.getElementById('srCustomHours')?.value)||0)>0);
   const resultCard=document.getElementById('srResultCard');
 
   // Sync tax toggle visual
@@ -1152,8 +1183,18 @@ function renderSR(){
   const taxAmt=srState.taxEnabled?partCostRaw*(srState.taxRate/100):0;
   const partWithTax=partCostRaw+taxAmt+shippingRaw;
   const markedUpPart=calcMarkedUpPart(partWithTax);
-  const wt=srState.workTypes[srState.selectedWorkIdx];
-  const labor=calcLaborCost(wt);
+  let wt, labor;
+  if(srState.selectedWorkIdx==='__custom__'){
+    const hrs=parseFloat(document.getElementById('srCustomHours')?.value)||0;
+    const men=parseInt(document.getElementById('srCustomMen')?.value)||1;
+    wt={name:'Custom Labor', hours:hrs, men:men};
+    const m1=parseFloat(srState.man1Rate)||0;
+    const m2=parseFloat(srState.man2Rate)||0;
+    labor=men===1?hrs*m1:(hrs*m1)+(hrs*m2);
+  } else {
+    wt=srState.workTypes[srState.selectedWorkIdx];
+    labor=calcLaborCost(wt);
+  }
   const total=markedUpPart+labor;
   const totalRounded=Math.round(total/5)*5;
 
