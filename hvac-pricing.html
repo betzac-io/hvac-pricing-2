@@ -84,9 +84,7 @@ select:focus,input:focus{border-color:var(--accent2);}
 .sr-input-row{display:flex;align-items:center;gap:10px;}
 .sr-input-row .prefix{font-size:20px;font-weight:700;color:var(--muted);flex-shrink:0;}
 .sr-breakdown{background:linear-gradient(135deg,#1a1d27 0%,#1e2235 100%);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:14px;}
-.sr-work-chip-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px;}
-.sr-work-chip{background:var(--surface2);border:2px solid var(--border);border-radius:10px;padding:10px 8px;text-align:center;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;line-height:1.3;letter-spacing:.3px;color:var(--muted);transition:all .15s;}
-.sr-work-chip.selected{background:rgba(249,115,22,.15);border-color:var(--accent);color:var(--accent);}
+
 .section-divider{border:none;border-top:1px solid var(--border);margin:18px 0;}
 .repair-table{width:100%;border-collapse:collapse;margin-bottom:6px;}
 .repair-table th{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);text-align:left;padding:6px 4px;border-bottom:1px solid var(--border);}
@@ -265,7 +263,12 @@ select:focus,input:focus{border-color:var(--accent2);}
 
   <div class="card">
     <div class="card-title">Type of Work</div>
-    <div class="sr-work-chip-grid" id="srWorkChips"></div>
+    <div class="select-wrap">
+      <select id="srWorkSelect" onchange="srSelectWork(this.value)" style="font-size:15px;">
+        <option value="">— Select Type of Work —</option>
+      </select>
+    </div>
+    <div id="srWorkDetail" style="font-size:12px;color:var(--muted);margin-top:8px;"></div>
   </div>
 
   <div id="srResultCard" style="display:none;">
@@ -1110,18 +1113,24 @@ function getSRTierLabel(cost){
   return minStr+maxStr;
 }
 
+function srSelectWork(val){
+  srState.selectedWorkIdx=val===''?null:parseInt(val);
+  renderSR();
+}
+
 function renderSRChips(){
-  const grid=document.getElementById('srWorkChips');
-  if(!grid) return;
-  grid.innerHTML='';
+  const sel=document.getElementById('srWorkSelect');
+  if(!sel) return;
+  sel.innerHTML='<option value="">— Select Type of Work —</option>';
   srState.workTypes.forEach((wt,i)=>{
     const labor=calcLaborCost(wt);
-    const chip=document.createElement('div');
-    chip.className='sr-work-chip'+(srState.selectedWorkIdx===i?' selected':'');
-    const laborStr=adminMode?' · $'+labor.toLocaleString():''; chip.innerHTML='<div>'+wt.name+'</div><div style="font-size:10px;color:var(--muted);margin-top:2px;font-family:\'Barlow\',sans-serif;">'+wt.hours+'hr · '+wt.men+'man'+laborStr+'</div>';
-    chip.onclick=()=>{srState.selectedWorkIdx=i;renderSR();};
-    grid.appendChild(chip);
+    const laborStr=adminMode?' — $'+labor.toLocaleString():'';
+    const opt=document.createElement('option');
+    opt.value=i;
+    opt.textContent=wt.name+' ('+wt.hours+'hr · '+wt.men+' man'+laborStr+')';
+    sel.appendChild(opt);
   });
+  if(srState.selectedWorkIdx!==null) sel.value=srState.selectedWorkIdx;
 }
 
 function renderSR(){
