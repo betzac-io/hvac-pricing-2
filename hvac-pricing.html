@@ -325,7 +325,7 @@ const INSTALL_TYPES = [
   {key:'split-gac',    name:'Split Gas/AC',      sub:'Complete System', source:'split', filter:'Split Gas/AC Systems - R-454B',       templateKey:'Complete Air Conditioner', laborKey:'Complete Air Conditioner', showReturn:true,  showSupply:true,  showWarranty:true},
   {key:'split-hp',     name:'Split Heat Pump',   sub:'Complete System', source:'split', filter:'Split Heat Pump Systems - R-454B',     templateKey:'Complete Heat Pump',        laborKey:'Complete Heat Pump',       showReturn:true,  showSupply:true,  showWarranty:true, hasHeatKit:true},
   {key:'split-df',     name:'Split Dual Fuel',   sub:'Complete System', source:'split', filter:'Split Dual Fuel Systems - R-454B',     templateKey:'Complete Dual Fuel',        laborKey:'Complete Dual Fuel',       showReturn:true,  showSupply:true,  showWarranty:true},
-  {key:'split-cool',   name:'Split Cooling',     sub:'Complete System', source:'split', filter:'Split Cooling Only Systems - R-454B',  templateKey:'Complete Cooling',          laborKey:'Complete Cooling',         showReturn:true,  showSupply:true,  showWarranty:true},
+  {key:'split-cool',   name:'Split Cooling',     sub:'Complete System', source:'split', filter:'Split Cooling Systems - R-454B', filterAlt:'Split Cooling Only Systems - R-454B',  templateKey:'Complete Cooling',          laborKey:'Complete Cooling',         showReturn:true,  showSupply:true,  showWarranty:true},
   {key:'condenser',    name:'Condenser',          sub:'Partial Install', source:'equip', categories:['Air Conditioners'],              templateKey:'Condenser',                 laborKey:'Condenser',                showReturn:false, showSupply:false, showWarranty:false},
   {key:'cond-coil',    name:'Condenser & Coil',  sub:'Partial Install', source:'equip', categories:['Air Conditioners','Evaporator Coils'], templateKey:'Condenser and Coil',   laborKey:'Condenser and Coil',       showReturn:false, showSupply:true,  showWarranty:false},
   {key:'evap-coil',    name:'Evaporator Coil',   sub:'Partial Install', source:'equip', categories:['Evaporator Coils'],              templateKey:'Evaporator Coil',           laborKey:'Evaporator Coil',          showReturn:false, showSupply:true,  showWarranty:false},
@@ -662,7 +662,7 @@ function renderCalculatorFields(){
 
 function renderSplitFields(it, container){
   // Get unique tonnages for this system type
-  const systems = appData.splitSystems.filter(r=>r['System Type']===it.filter);
+  const systems = appData.splitSystems.filter(r=>r['System Type']===it.filter||(it.filterAlt&&r['System Type']===it.filterAlt));
   const tons = [...new Set(systems.map(r=>parseFloat(r['Tons'])).filter(t=>!isNaN(t)))].sort((a,b)=>a-b);
 
   const card=document.createElement('div');
@@ -731,7 +731,8 @@ function renderSystemSelect(filtered, card, init=false){
     const indoor=r['Indoor Model']||'';
     const coil=r['Evap Coil']||'';
     const seer=r['SEER2']?r['SEER2']+' SEER2':'';
-    const label=`${outdoor} + ${indoor}${coil?' + '+coil:''} ${seer?'('+seer+')':''}`;
+    const brand=r['Brand']?r['Brand']+' ':'';
+    const label=brand+outdoor+' + '+indoor+(coil?' + '+coil:'')+(seer?' ('+seer+')':'');
     ssel.innerHTML+=`<option value="${i}">${label}</option>`;
   });
   if(calcState.selectedSystem!==null) ssel.value=calcState.selectedSystem;
@@ -910,7 +911,7 @@ function calcPrice(){
   let equipCost=0;
 
   if(it.source==='split'){
-    const systems=appData.splitSystems.filter(r=>r['System Type']===it.filter);
+    const systems=appData.splitSystems.filter(r=>r['System Type']===it.filter||(it.filterAlt&&r['System Type']===it.filterAlt));
     const filtered=systems.filter(r=>parseFloat(r['Tons'])===parseFloat(calcState.selectedTonnage)&&r['Series Name']===calcState.selectedSeries);
     if(calcState.selectedSystem===null||calcState.selectedSystem===undefined) return null;
     const sys=filtered[calcState.selectedSystem];
@@ -967,37 +968,50 @@ function renderQuote(){
   let warrantyText='';
   let seerText='';
   let ahriText='';
+  let brandName='';
   const therm=appData.thermostats[calcState.thermostatIdx];
   const location=calcState.systemLocation==='__custom__'?calcState.systemLocationCustom:calcState.systemLocation;
 
   if(it.source==='split'){
-    const systems=appData.splitSystems.filter(r=>r['System Type']===it.filter);
+    const systems=appData.splitSystems.filter(r=>r['System Type']===it.filter||(it.filterAlt&&r['System Type']===it.filterAlt));
     const filtered=systems.filter(r=>parseFloat(r['Tons'])===parseFloat(calcState.selectedTonnage)&&r['Series Name']===calcState.selectedSeries);
     const sys=filtered[calcState.selectedSystem];
     if(sys){
+      const brand=sys['Brand']?sys['Brand']+' ':'';
+      const isHeatPump=it.key==='split-hp';
+      const isCoolingOnly=it.key==='split-cool';
+      const indoorLabel=(isHeatPump||isCoolingOnly)?'Air Handler':'Indoor Unit';
+      const showCoil=!(isHeatPump||isCoolingOnly);
       const fields=[
-        ['Outdoor Unit',sys['Outdoor Model'],sys['Outdoor Price']],
-        ['Indoor Unit',sys['Indoor Model'],sys['Indoor Price']],
-        ['Evaporator Coil',sys['Evap Coil'],sys['Coil Price']],
-        sys['Heat Kit']?['Heat Kit',sys['Heat Kit'],sys['Heat Kit Price']]:null,
-        sys['Relay Panel']?['Relay Panel',sys['Relay Panel'],sys['Relay Panel Price']]:null,
+        ['Outdoor Unit',brand+(sys['Outdoor Model']||''),sys['Outdoor Price']],
+        [indoorLabel,brand+(sys['Indoor Model']||''),sys['Indoor Price']],
+        showCoil?['Evaporator Coil',brand+(sys['Evap Coil']||''),sys['Coil Price']]:null,
+        sys['Heat Kit']?['Heat Kit',brand+(sys['Heat Kit']||''),sys['Heat Kit Price']]:null,
+        sys['Relay Panel']?['Relay Panel',brand+(sys['Relay Panel']||''),sys['Relay Panel Price']]:null,
       ].filter(Boolean);
       fields.forEach(([label,model,price])=>{
-        if(model&&model!=='') {
+        if(model&&model!==brand.trim()) {
           equipLines+=`<div class="price-row"><span>${label}: ${model}</span><span class="value">${fmt(price||0)}</span></div>`;
           quoteEquipLines+=`- ${label}: ${model}\n`;
         }
       });
       warrantyText=sys['Warranty']||'';
+      brandName=sys['Brand']||'';
       seerText=sys['SEER2']?sys['SEER2']+' SEER2'+(sys['HSPF2']?' / '+sys['HSPF2']+' HSPF2':''):'';
       ahriText=sys['AHRI']||'';
     }
   } else {
+    // Get brand from any selected equipment
+    it.categories.forEach(cat=>{
+      const eq=calcState.selectedEquipment[cat];
+      if(eq&&!brandName) brandName=eq['Brand']||'';
+    });
     it.categories.forEach(cat=>{
       const eq=calcState.selectedEquipment[cat];
       if(eq){
-        equipLines+=`<div class="price-row"><span>${cat}: ${eq['Model Number']}</span><span class="value">${fmt(eq['Price']||0)}</span></div>`;
-        quoteEquipLines+=`- ${cat}: ${eq['Model Number']}\n`;
+        const brandPrefix=brandName?brandName+' ':'';
+        equipLines+=`<div class="price-row"><span>${cat}: ${brandPrefix}${eq['Model Number']}</span><span class="value">${fmt(eq['Price']||0)}</span></div>`;
+        quoteEquipLines+=`- ${cat}: ${brandPrefix}${eq['Model Number']}\n`;
         if(!warrantyText&&eq['Warranty']) warrantyText=eq['Warranty'];
         if(!seerText&&eq['SEER2']) seerText=eq['SEER2']+' SEER2';
         if(!ahriText&&eq['AHRI']) ahriText=String(eq['AHRI']);
@@ -1025,6 +1039,7 @@ function renderQuote(){
   // Use template if available, otherwise build default
   let quoteText;
   const tmpl=appData.templates[it.templateKey]||appData.templates[it.name]||appData.templates[it.key]||null;
+  const brand=brandName;
   if(tmpl){
     quoteText=tmpl
       .replace(/{install_type}/g, it.name)
@@ -1039,7 +1054,9 @@ function renderQuote(){
       .replace(/{warranty}/g, warrantyText)
       .replace(/{labor_warranty}/g, laborWarranty)
       .replace(/{price}/g, '$'+p.salePriceRounded.toLocaleString())
-      .replace(/{tons}/g, calcState.selectedTonnage||'');
+      .replace(/{tons}/g, calcState.selectedTonnage||'')
+      .replace(/{brand}/g, brandName||'')
+      .replace(/{equipment_label}/g, brandName ? brandName+' Equipment' : 'Equipment');
   } else {
     quoteText=`Install new ${it.name}${locationLine}.${supplyPlenumLine}${returnPlenumLine}${thermLine}${seerLine}${ahriLine}
 
@@ -1074,7 +1091,8 @@ Price: $${p.salePriceRounded.toLocaleString()}`;
     <div class="card">
       <div class="card-title">Install Type</div>
       <div style="font-size:16px;font-weight:600;">${it.name}${location?' — '+location:''}</div>
-      ${seerText?`<div style="font-size:13px;color:var(--muted);margin-top:4px;">${seerText}</div>`:''}
+      ${brandName?`<div style="font-size:13px;color:var(--accent);font-weight:600;margin-top:4px;">${brandName}</div>`:''}
+      ${seerText?`<div style="font-size:13px;color:var(--muted);margin-top:2px;">${seerText}</div>`:''}
       ${ahriText?`<div style="font-size:13px;color:var(--muted);">AHRI: ${ahriText}</div>`:''}
     </div>
     ${breakdownSection}
