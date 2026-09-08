@@ -213,6 +213,7 @@ select:focus,input:focus{border-color:var(--accent2);}
   <div class="tab active" onclick="switchTab('calculator')">Calculator</div>
   <div class="tab" onclick="switchTab('quote')">Quote & Price</div>
   <div class="tab" onclick="switchTab('repair')">Service Repair</div>
+  <div class="tab" onclick="switchTab('commissions')">Commissions</div>
 </div>
 
 <!-- CALCULATOR TAB -->
@@ -233,6 +234,17 @@ select:focus,input:focus{border-color:var(--accent2);}
 <div id="tab-quote" class="section">
   <div id="quoteContent">
     <div class="empty-state"><div class="icon">📋</div><p>Complete the Calculator tab first</p></div>
+  </div>
+</div>
+
+<!-- COMMISSIONS TAB -->
+<div id="tab-commissions" class="section">
+  <div class="card">
+    <div class="card-title">Commissions</div>
+    <div style="text-align:center;padding:20px 0;">
+      <p style="color:var(--muted);font-size:14px;margin-bottom:20px;">Tap below to open the Commissions tracker</p>
+      <a href="https://script.google.com/macros/s/AKfycbxjLvUCd62DrCFOgTmnvBBOcLwZmkhQcczKxsbMQUnUzU_De59C2DXDHqnbq2U5fjfd/exec" target="_blank" style="background:var(--accent);color:#fff;border:none;border-radius:10px;padding:14px 28px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;text-decoration:none;display:inline-block;">Open Commissions Site →</a>
+    </div>
   </div>
 </div>
 
@@ -589,7 +601,7 @@ function setFieldStatus(id,ok,msg){
 
 // ─── TABS ─────────────────────────────────────────────────────────────────────
 function switchTab(tab){
-  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['calculator','quote','repair'][i]===tab));
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['calculator','quote','repair','commissions'][i]===tab));
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
   if(tab==='quote') renderQuote();
