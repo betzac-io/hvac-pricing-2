@@ -1242,7 +1242,7 @@ function renderSR(){
   document.getElementById('srRowLabor').textContent=fmt(labor);
   document.getElementById('srRowTotal').textContent=fmtR(totalRounded);
 
-  const quoteText=`Service Repair: ${wt.name}\n\nPart Cost: ${fmt(partCostRaw)}${srState.taxEnabled?'\nTax ('+srState.taxRate+'%): '+fmt(taxAmt):''}${shippingRaw>0?'\nShipping: '+fmt(shippingRaw):''}\nLabor (${wt.hours}hr · ${wt.men} man): ${fmt(labor)}\n\nTotal Price: ${fmtR(totalRounded)}`;
+  const quoteText=`Service Repair: ${wt.name}\n\nTotal Price: ${fmtR(totalRounded)}`;
   document.getElementById('srQuoteBox').textContent=quoteText;
 
   resultCard.style.display='block';
