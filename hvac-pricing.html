@@ -474,28 +474,83 @@ function loadSRState(){
 }
 function saveSRState(){localStorage.setItem('hvacSRState',JSON.stringify(srState));}
 
-// ─── DATA LOADING ─────────────────────────────────────────────────────────────
-async function fetchTab(baseUrl, tabName){
-  const url = baseUrl + '?tab=' + encodeURIComponent(tabName);
-  const controller = new AbortController();
-  const timer = setTimeout(()=>controller.abort(), 12000);
+// ─── DATA CACHE ───────────────────────────────────────────────────────────────
+const CACHE_KEY = 'hvacDataCache';
+const CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+function saveDataCache(data){
   try{
-    const res = await fetch(url, {signal:controller.signal});
-    clearTimeout(timer);
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    return await res.json();
-  }catch(e){
-    clearTimeout(timer);
-    throw e;
-  }
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ts: Date.now(), data}));
+  }catch(e){}
 }
 
-async function loadAllData(showFeedback=false){
+function loadDataCache(){
+  try{
+    const raw = localStorage.getItem(CACHE_KEY);
+    if(!raw) return null;
+    const parsed = JSON.parse(raw);
+    if(Date.now() - parsed.ts > CACHE_MAX_AGE_MS) return null;
+    return parsed;
+  }catch(e){ return null; }
+}
+
+function applyDataCache(cached){
+  const d = cached.data;
+  if(d.splitSystems)  appData.splitSystems  = d.splitSystems;
+  if(d.equipment)     appData.equipment     = d.equipment;
+  if(d.labor)         appData.labor         = d.labor;
+  if(d.materials)     appData.materials     = d.materials;
+  if(d.thermostats)   appData.thermostats   = d.thermostats;
+  if(d.settings)      appData.settings      = Object.assign(appData.settings, d.settings);
+  if(d.templates)     appData.templates     = d.templates;
+  if(d.locations)     appData.locations     = d.locations;
+  if(d.tonnageOptions) appData.tonnageOptions = d.tonnageOptions;
+  if(d.seerOptions)   appData.seerOptions   = d.seerOptions;
+}
+
+function buildCachePayload(){
+  return {
+    splitSystems: appData.splitSystems,
+    equipment: appData.equipment,
+    labor: appData.labor,
+    materials: appData.materials,
+    thermostats: appData.thermostats,
+    settings: appData.settings,
+    templates: appData.templates,
+    locations: appData.locations,
+    tonnageOptions: appData.tonnageOptions,
+    seerOptions: appData.seerOptions,
+  };
+}
+
+// ─── DATA LOADING ─────────────────────────────────────────────────────────────
+async function fetchTab(baseUrl, tabName, retries=3, delayMs=2000){
+  const url = baseUrl + '?tab=' + encodeURIComponent(tabName);
+  let lastErr;
+  for(let attempt=0; attempt<retries; attempt++){
+    if(attempt>0) await new Promise(r=>setTimeout(r, delayMs));
+    const controller = new AbortController();
+    const timer = setTimeout(()=>controller.abort(), 14000);
+    try{
+      const res = await fetch(url, {signal:controller.signal});
+      clearTimeout(timer);
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      return await res.json();
+    }catch(e){
+      clearTimeout(timer);
+      lastErr = e;
+    }
+  }
+  throw lastErr;
+}
+
+async function loadAllData(showFeedback=false, background=false){
   const saved = getUrls();
   const catalogUrl = saved.catalog || CATALOG_URL;
   const settingsUrl = saved.settings || SETTINGS_URL;
 
-  if(showFeedback) setStatus('','Fetching data…');
+  if(showFeedback && !background) setStatus('','Fetching data…');
+  if(background) setStatus('live','Refreshing data…');
 
   // Fetch all tabs in parallel
   const [splitResult, equipResult, laborResult, thermResult, settingsResult, templatesResult, locResult] = await Promise.allSettled([
@@ -576,10 +631,16 @@ async function loadAllData(showFeedback=false){
 
   if(errors.length===0){
     setStatus('live','Live data loaded');
+    saveDataCache(buildCachePayload());
   } else if(appData.splitSystems.length>0||appData.equipment.length>0){
     setStatus('live','Data loaded'+(errors.length?' (some tabs pending)':''));
+    if(errors.length < 3) saveDataCache(buildCachePayload());
   } else {
-    setStatus('err','Could not load pricing data — check Setup');
+    if(background){
+      setStatus('live','Showing cached data (refresh failed)');
+    } else {
+      setStatus('err','Could not load pricing data — check Setup');
+    }
   }
 
   document.getElementById('loadOverlay').classList.add('hidden');
@@ -1443,15 +1504,29 @@ loadSRState();
 // Init admin UI immediately
 updateAdminUI();
 
-const hardTimeout=setTimeout(()=>{
-  const ov=document.getElementById('loadOverlay');
-  if(!ov.classList.contains('hidden')){
-    ov.classList.add('hidden');
-    setStatus('err','Could not load pricing data — tap ⚙ Setup to configure');
-  }
-},20000);
-
-loadAllData(false).finally(()=>clearTimeout(hardTimeout));
+// Boot: use cache immediately if available, then refresh in background
+const cached = loadDataCache();
+if(cached){
+  applyDataCache(cached);
+  document.getElementById('loadOverlay').classList.add('hidden');
+  const ageMin = Math.round((Date.now()-cached.ts)/60000);
+  const ageStr = ageMin < 60 ? ageMin+'m ago' : Math.round(ageMin/60)+'h ago';
+  setStatus('live','Cached data ('+ageStr+') — refreshing…');
+  renderInstallChips();
+  renderSRChips();
+  updateAdminUI();
+  // Background refresh — don't block the UI
+  loadAllData(false, true);
+} else {
+  const hardTimeout=setTimeout(()=>{
+    const ov=document.getElementById('loadOverlay');
+    if(!ov.classList.contains('hidden')){
+      ov.classList.add('hidden');
+      setStatus('err','Could not load pricing data — tap ⚙ Setup to configure');
+    }
+  },20000);
+  loadAllData(false).finally(()=>clearTimeout(hardTimeout));
+}
 </script>
 </body>
 </html>
