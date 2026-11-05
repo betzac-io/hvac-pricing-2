@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#b3261e">
+<title>RTU Heat Check — Betz Heating &amp; Air</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --card: #fff; --ink: #1d2433; --muted: #667085; --line: #d0d5dd; --chip: #eef0f3;
+    --brand: #b3261e; --brand-ink: #fff;
+    --green: #1a7f37; --yellow: #b8860b; --red: #c0261c; --na: #667085;
+    --bad-bg: #fef3f2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1218; --card: #181c25; --ink: #e6e8ec; --muted: #98a2b3; --line: #344054; --chip: #222836; --bad-bg: #3d1714; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  [hidden] { display: none !important; }
+
+  .top { position: sticky; top: 0; z-index: 5; display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    padding: 10px 16px; background: var(--brand); color: var(--brand-ink); }
+  .top strong { font-size: 18px; display: block; }
+  .top small { font-size: 12px; opacity: .9; }
+  .top-actions { display: flex; gap: 8px; align-items: center; }
+  .pill { background: rgba(255,255,255,.18); color: #fff; border: 0; font: inherit; font-size: 13px; font-weight: 600;
+    padding: 6px 12px; border-radius: 999px; cursor: pointer; }
+  .pill.pending { background: #fff; color: var(--brand); }
+
+  main { max-width: 680px; margin: 0 auto; padding: 12px 16px 110px; }
+
+  /* Login */
+  .login { max-width: 360px; margin: 48px auto; padding: 0 16px; text-align: center; }
+  .login h1 { font-size: 22px; margin: 0 0 6px; }
+  .login p { color: var(--muted); margin: 0 0 18px; }
+  .login input { text-align: center; font-size: 28px; letter-spacing: .3em; }
+  .login button { width: 100%; margin-top: 12px; }
+  .login .err { color: var(--red); font-weight: 600; min-height: 1.4em; margin-top: 10px; }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin: 0 0 14px; }
+  .card h2 { margin: 0 0 10px; font-size: 14px; text-transform: uppercase; letter-spacing: .04em; color: var(--brand); }
+  .field { margin-bottom: 14px; }
+  .field:last-child { margin-bottom: 0; }
+  .field > .lbl { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  .field > .lbl .req { color: var(--red); }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .row2 { display: grid; grid-template-columns: 96px 1fr; gap: 8px; }
+  .row-other { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .row-other.single { grid-template-columns: 1fr; }
+
+  input, select, textarea { display: block; width: 100%; font: inherit; color: var(--ink); background: var(--card);
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px; min-height: 46px; }
+  textarea { min-height: 96px; resize: vertical; }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--brand); border-color: transparent; }
+  .invalid { outline: 2px solid var(--red) !important; border-radius: 8px; }
+
+  /* Segmented buttons */
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; }
+  .seg label { flex: 1 1 0; min-width: 64px; position: relative; }
+  .seg input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; min-height: 0; }
+  .seg span { display: flex; align-items: center; justify-content: center; text-align: center; min-height: 46px; padding: 6px 8px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--chip); font-weight: 600; font-size: 15px; }
+  .seg input:focus-visible + span { outline: 2px solid var(--brand); }
+  .seg input:checked + span { color: #fff; border-color: transparent; background: var(--ink); }
+  .seg input[value="Green"]:checked + span { background: var(--green); }
+  .seg input[value="Yellow"]:checked + span { background: var(--yellow); }
+  .seg input[value="Red"]:checked + span, .seg input[data-bad]:checked + span { background: var(--red); }
+  .seg input[value="Not Applicable"]:checked + span { background: var(--na); }
+  .seg input[value="Not Applicable"] + span { font-size: 13px; }
+
+  #summary { list-style: none; margin: 0; padding: 0; }
+  #summary li { background: var(--bad-bg); color: var(--red); font-weight: 600; font-size: 14px; padding: 8px 10px; border-radius: 8px; margin-bottom: 6px; }
+  #summary li.ok { background: var(--chip); color: var(--muted); }
+
+  .bar { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 10px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    background: var(--card); border-top: 1px solid var(--line); z-index: 5; }
+  button.btn { font: inherit; font-weight: 700; border-radius: 10px; min-height: 50px; border: 1px solid var(--line); cursor: pointer; padding: 0 16px; }
+  .btn.primary { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
+  .btn.secondary { background: var(--card); color: var(--ink); }
+  .btn:disabled { opacity: .6; }
+  .bar .primary { flex: 1; }
+
+  #toast { position: fixed; left: 50%; bottom: 92px; transform: translateX(-50%); background: var(--ink); color: var(--bg);
+    padding: 10px 16px; border-radius: 10px; font-weight: 600; font-size: 14px; max-width: 90vw; text-align: center;
+    opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 10; }
+  #toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div><strong>RTU Heat Check</strong><small id="whoami">Betz Heating &amp; Air</small></div>
+  <div class="top-actions">
+    <button type="button" id="queueBadge" class="pill pending" hidden title="Tap to retry sending">0 pending</button>
+    <button type="button" id="logoutBtn" class="pill" hidden>Log out</button>
+  </div>
+</header>
+
+<!-- PIN LOGIN -->
+<section id="loginView" class="login" hidden>
+  <img src="logo.png" alt="Betz Heating &amp; Air" style="width:56px;height:56px;object-fit:contain;border-radius:12px;margin-bottom:12px" onerror="this.remove()">
+  <h1>RTU Heat Check</h1>
+  <p>Enter the same PIN you use for Commissions.</p>
+  <form id="loginForm" autocomplete="off">
+    <input id="pinInput" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" required aria-label="PIN">
+    <button class="btn primary" type="submit" id="loginBtn">Log in</button>
+    <div class="err" id="loginErr" role="alert"></div>
+  </form>
+</section>
+
+<!-- FORM -->
+<main id="formView" hidden>
+  <form id="hcForm" novalidate autocomplete="off"></form>
+</main>
+
+<div class="bar" id="bar" hidden>
+  <button type="button" class="btn secondary" id="clearBtn">Clear</button>
+  <button type="submit" form="hcForm" class="btn primary" id="submitBtn">Submit</button>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  // ================= CONFIG =================
+  // Commission Portal Apps Script deployment (HeatCheck.gs adds the doPost this page uses)
+  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxjLvUCd62DrCFOgTmnvBBOcLwZmkhQcczKxsbMQUnUzU_De59C2DXDHqnbq2U5fjfd/exec';
+
+  const CUSTOMERS = ['United Notions', 'Redstone', 'Presidential', 'Integrity Porter', 'Quebec', 'Indian Trail'];
+  const GR  = ['Green', 'Red'];
+  const GYR = ['Green', 'Yellow', 'Red'];
+  const NA  = 'Not Applicable';
+  const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => String(a + i));
+
+  // Field keys are the exact labels from the checklist — they become the sheet's column headers.
+  // always: true = shown even when the unit has no heat.
+  const SECTIONS = [
+    { title: 'Unit', always: true, fields: [
+      { k: 'Customer', t: 'combo', opts: CUSTOMERS, req: true },
+      { k: 'Building', t: 'select', opts: range(1, 10), req: true },
+      { k: 'RTU', t: 'select', opts: range(1, 50), req: true },
+      { k: 'Does Unit have Heat?', t: 'seg', opts: ['Yes', 'No'], req: true },
+    ]},
+    { title: 'Filters', always: true, fields: [
+      { k: 'Filter Size 1', t: 'qtySize' },
+      { k: 'Filter Size 2', t: 'qtySize' },
+      { k: 'Filter Condition', t: 'seg', opts: ['Changed', 'Clean'] },
+    ]},
+    { title: 'Belt & Blower', fields: [
+      { k: 'Belt Size', t: 'text' },
+      { k: 'Belt Condition', t: 'seg', opts: GR },
+      { k: 'Blower Motor Run Capacitor', t: 'other', opts: ['5', '7.5', '10', '12.5', '15', '20'], unit: 'µF' },
+      { k: 'Blower Motor Run Capacitor Condition', t: 'seg', opts: GYR },
+      { k: 'Is Blower Wheel Clean', t: 'seg', opts: ['Yes', 'No'], bad: 'No' },
+      { k: 'Blower Motor Amp Draw', t: 'number', unit: 'A' },
+    ]},
+    { title: 'Inducer', fields: [
+      { k: 'Inducer Fan Motor 1 Run Capacitor Size', t: 'other', opts: ['3', '4', '5', '6'], unit: 'µF' },
+      { k: 'Inducer Fan Motor 1 Run Capacitor Condition', t: 'seg', opts: GYR },
+      { k: 'Inducer Fan Motor 2 Run Capacitor Size', t: 'other', opts: ['3', '4', '5', '6', NA], unit: 'µF' },
+      { k: 'Inducer Fan Motor 2 Run Capacitor Condition', t: 'seg', opts: [...GYR, NA] },
+    ]},
+    { title: 'Gas, Electrical & Safeties', fields: [
+      { k: 'Gas Valve 1', t: 'seg', opts: GR },
+      { k: 'Gas Valve 2', t: 'seg', opts: [...GR, NA] },
+      { k: 'High Voltage Condition', t: 'seg', opts: GR },
+      { k: 'Low Voltage Condition', t: 'seg', opts: GR },
+      { k: 'Heat Exchanger 1 Condition', t: 'seg', opts: GYR },
+      { k: 'Heat Exchanger 2 Condition', t: 'seg', opts: [...GYR, NA] },
+      { k: 'Spark Ignitor 1 Condition', t: 'seg', opts: GR },
+      { k: 'Spark Ignitor 2 Condition', t: 'seg', opts: [...GR, NA] },
+      { k: 'High Limit Condition', t: 'seg', opts: GR },
+      { k: 'Safeties Condition', t: 'seg', opts: GR },
+      { k: 'Flame Sensor Condition', t: 'seg', opts: ['Sanded', 'Good', 'Bad'], bad: 'Bad',
+        hint: 'Good = working but not easily accessible' },
+      { k: 'Gas Leaks Detected', t: 'seg', opts: ['Yes', 'No'], bad: 'Yes' },
+      { k: 'Is Thermostat Working Properly', t: 'seg', opts: ['Yes', 'No'], bad: 'No' },
+    ]},
+    { title: 'Notes', always: true, fields: [
+      { k: 'Other Notes', t: 'textarea' },
+    ]},
+  ];
+  // ===========================================
+
+  const KEYS = { session: 'betzRtuSession', queue: 'betzRtuQueue', draft: 'betzRtuDraft', lastCustomer: 'betzRtuLastCustomer' };
+  const $ = id => document.getElementById(id);
+  const form = $('hcForm');
+  const HEAT = 'Does Unit have Heat?';
+  let session = null;
+
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+    del(k) { try { localStorage.removeItem(k); } catch {} }
+  };
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  let uid = 0; const nid = () => 'f' + (++uid);
+
+  function toast(msg, ms = 3000) {
+    const t = $('toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), ms);
+  }
+
+  // ---------- Backend calls (same Apps Script as the sheet) ----------
+  const configured = () => /^https:\/\/script\.google\.com\//.test(SCRIPT_URL);
+  async function api(payload) {
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload)
+    });
+    return res.json();
+  }
+
+  // ---------- Build form from SECTIONS ----------
+  function fieldHTML(f) {
+    const id = nid(), name = esc(f.k);
+    const lbl = `<span class="lbl">${esc(f.k)}${f.req ? ' <span class="req">*</span>' : ''}</span>`;
+    const hint = f.hint ? `<div class="hint">${esc(f.hint)}</div>` : '';
+    let ctl = '';
+    switch (f.t) {
+      case 'combo':
+        ctl = `<input id="${id}" name="${name}" list="${id}-l" ${f.req ? 'required' : ''} placeholder="Pick or type a customer">
+               <datalist id="${id}-l">${f.opts.map(o => `<option value="${esc(o)}">`).join('')}</datalist>`;
+        return `<div class="field"><label class="lbl" for="${id}">${esc(f.k)}${f.req ? ' <span class="req">*</span>' : ''}</label>${ctl}${hint}</div>`;
+      case 'select':
+        ctl = `<select id="${id}" name="${name}" ${f.req ? 'required' : ''}><option value="">Select…</option>${f.opts.map(o => `<option>${esc(o)}</option>`).join('')}</select>`;
+        return `<div class="field"><label class="lbl" for="${id}">${esc(f.k)}${f.req ? ' <span class="req">*</span>' : ''}</label>${ctl}${hint}</div>`;
+      case 'seg':
+        ctl = `<div class="seg" role="radiogroup" aria-label="${name}" data-req="${f.req ? 1 : ''}">${f.opts.map(o =>
+          `<label><input type="radio" name="${name}" value="${esc(o)}" ${f.bad === o ? 'data-bad' : ''}><span>${esc(o)}</span></label>`).join('')}</div>`;
+        return `<div class="field">${lbl}${ctl}${hint}</div>`;
+      case 'qtySize':
+        ctl = `<div class="row2">
+                 <select name="${name}__qty" aria-label="${name} quantity"><option value="">Qty</option>${range(1, 10).map(o => `<option>${o}</option>`).join('')}</select>
+                 <input name="${name}__size" placeholder="Size, e.g. 20x25x2" aria-label="${name} size">
+               </div>`;
+        return `<div class="field">${lbl}${ctl}${hint}</div>`;
+      case 'other':
+        ctl = `<div class="row-other single">
+                 <select id="${id}" name="${name}" data-other><option value="">Select…</option>${f.opts.map(o => `<option value="${esc(o)}">${esc(o)}${o !== NA && f.unit ? ' ' + f.unit : ''}</option>`).join('')}<option value="__other">Other…</option></select>
+                 <input name="${name}__other" inputmode="decimal" placeholder="Custom ${f.unit || ''}" hidden aria-label="${name} custom value">
+               </div>`;
+        return `<div class="field"><label class="lbl" for="${id}">${esc(f.k)}</label>${ctl}${hint}</div>`;
+      case 'number':
+        return `<div class="field"><label class="lbl" for="${id}">${esc(f.k)}${f.unit ? ` <span class="hint">(${f.unit})</span>` : ''}</label>
+                <input id="${id}" name="${name}" type="number" inputmode="decimal" step="any">${hint}</div>`;
+      case 'textarea':
+        return `<div class="field"><label class="lbl" for="${id}">${esc(f.k)}</label><textarea id="${id}" name="${name}"></textarea>${hint}</div>`;
+      default:
+        return `<div class="field"><label class="lbl" for="${id}">${esc(f.k)}</label><input id="${id}" name="${name}">${hint}</div>`;
+    }
+  }
+
+  function buildForm() {
+    form.innerHTML =
+      `<div class="card"><div class="field" style="margin:0"><span class="lbl">Date / Time</span><div id="nowOut" class="hint" style="font-size:15px;color:inherit">Stamped when you submit</div></div></div>` +
+      SECTIONS.map((s, i) => `<section class="card" data-sec="${i}" ${s.always ? 'data-always' : ''}><h2>${esc(s.title)}</h2>${s.fields.map(fieldHTML).join('')}</section>`).join('') +
+      `<section class="card"><h2>Needs attention</h2><ul id="summary"></ul></section>`;
+  }
+
+  // ---------- Read / write values ----------
+  const el = name => form.elements.namedItem(name);
+  function radioVal(name) { const r = form.querySelector(`input[type=radio][name="${CSS.escape(name)}"]:checked`); return r ? r.value : ''; }
+
+  function fieldValue(f) {
+    switch (f.t) {
+      case 'seg': return radioVal(f.k);
+      case 'qtySize': {
+        const q = el(f.k + '__qty').value, s = el(f.k + '__size').value.trim();
+        return q || s ? `${q || '?'} × ${s || '?'}` : '';
+      }
+      case 'other': {
+        const v = el(f.k).value;
+        return v === '__other' ? el(f.k + '__other').value.trim() : v;
+      }
+      default: return el(f.k).value.trim();
+    }
+  }
+
+  const hasHeat = () => radioVal(HEAT) !== 'No';
+
+  function applyVisibility() {
+    const show = hasHeat();
+    form.querySelectorAll('section[data-sec]:not([data-always])').forEach(s => { s.hidden = !show; });
+    form.querySelectorAll('select[data-other]').forEach(sel => {
+      const other = sel.parentElement.querySelector('input');
+      const on = sel.value === '__other';
+      other.hidden = !on; sel.parentElement.classList.toggle('single', !on);
+    });
+    updateSummary();
+  }
+
+  function updateSummary() {
+    const items = [];
+    SECTIONS.forEach(s => {
+      if (!s.always && !hasHeat()) return;
+      s.fields.forEach(f => {
+        const v = fieldValue(f);
+        if (!v) return;
+        if (v === 'Red' || v === 'Yellow' || (f.bad && v === f.bad)) items.push(`${f.k}: ${v}`);
+      });
+    });
+    $('summary').innerHTML = items.length
+      ? items.map(i => `<li>${esc(i)}</li>`).join('')
+      : '<li class="ok">Nothing flagged Red, Yellow, or failed</li>';
+  }
+
+  // ---------- Draft (survives app switching / dead screen) ----------
+  function saveDraft() {
+    const d = {};
+    Array.from(form.elements).forEach(e => {
+      if (!e.name) return;
+      if (e.type === 'radio') { if (e.checked) d[e.name] = e.value; }
+      else d[e.name] = e.value;
+    });
+    store.set(KEYS.draft, d);
+  }
+  function restore(d) {
+    Array.from(form.elements).forEach(e => {
+      if (!e.name || !(e.name in d)) return;
+      if (e.type === 'radio') e.checked = d[e.name] === e.value; else e.value = d[e.name];
+    });
+  }
+  function freshForm(keep = {}) {
+    form.reset();
+    const cust = keep.Customer ?? store.get(KEYS.lastCustomer, '');
+    if (cust) el('Customer').value = cust;
+    if (keep.Building) el('Building').value = keep.Building;
+    if (keep.RTU) el('RTU').value = keep.RTU;
+    store.del(KEYS.draft);
+    applyVisibility();
+  }
+
+  // ---------- Collect record in checklist column order ----------
+  function stamp() {
+    const d = new Date(), p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+  function collect() {
+    const rec = { 'Date / Time': stamp(), 'Technician': session.name };
+    const heat = hasHeat();
+    SECTIONS.forEach(s => s.fields.forEach(f => { rec[f.k] = (s.always || heat) ? fieldValue(f) : ''; }));
+    return {
+      id: crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(16).slice(2),
+      pin: session.pin,
+      record: rec
+    };
+  }
+
+  function validate() {
+    let first = null;
+    form.querySelectorAll('.invalid').forEach(e => e.classList.remove('invalid'));
+    SECTIONS.forEach(s => s.fields.forEach(f => {
+      if (!f.req || fieldValue(f)) return;
+      const target = f.t === 'seg' ? form.querySelector(`.seg[aria-label="${CSS.escape(f.k)}"]`) : el(f.k);
+      target.classList.add('invalid'); first = first || target;
+    }));
+    if (first) { first.scrollIntoView({ behavior: 'smooth', block: 'center' }); toast('Fill in the required fields'); }
+    return !first;
+  }
+
+  // ---------- Offline-safe queue ----------
+  function updateBadge() {
+    const q = store.get(KEYS.queue, []);
+    $('queueBadge').hidden = !q.length; $('queueBadge').textContent = `${q.length} pending`;
+  }
+  let flushing = false;
+  async function flush() {
+    let q = store.get(KEYS.queue, []);
+    if (flushing || !configured() || !q.length) { updateBadge(); return { left: q.length, rejected: 0 }; }
+    flushing = true; let rejected = 0;
+    for (const item of [...q]) {
+      let res;
+      try { res = await api({ action: 'submit', ...item }); }
+      catch { break; } // offline — keep the rest queued
+      if (res && res.ok) q = q.filter(x => x.id !== item.id);
+      else if (res && res.error === 'bad_pin') { rejected++; }
+      store.set(KEYS.queue, q);
+    }
+    flushing = false; updateBadge();
+    return { left: q.length, rejected };
+  }
+
+  // ---------- Login ----------
+  function showView(loggedIn) {
+    $('loginView').hidden = loggedIn;
+    $('formView').hidden = !loggedIn; $('bar').hidden = !loggedIn; $('logoutBtn').hidden = !loggedIn;
+    $('whoami').textContent = loggedIn ? session.name : 'Betz Heating & Air';
+    if (!loggedIn) setTimeout(() => $('pinInput').focus(), 50);
+  }
+
+  $('loginForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const pin = $('pinInput').value.trim();
+    if (!pin) return;
+    $('loginErr').textContent = '';
+    if (!configured()) { $('loginErr').textContent = 'Apps Script URL not set in this page yet.'; return; }
+    $('loginBtn').disabled = true; $('loginBtn').textContent = 'Checking…';
+    try {
+      const res = await api({ action: 'verifyPin', pin });
+      if (res.ok) {
+        session = { name: res.name, pin };
+        store.set(KEYS.session, session);
+        $('pinInput').value = '';
+        showView(true); flush();
+      } else $('loginErr').textContent = 'PIN not recognized.';
+    } catch {
+      $('loginErr').textContent = 'No connection — need signal to log in the first time.';
+    }
+    $('loginBtn').disabled = false; $('loginBtn').textContent = 'Log in';
+  });
+
+  $('logoutBtn').addEventListener('click', () => {
+    if (!confirm('Log out? Your in-progress entry stays on this phone.')) return;
+    session = null; store.del(KEYS.session); showView(false);
+  });
+
+  // ---------- Form events ----------
+  form.addEventListener('input', e => { e.target.closest('.invalid, .seg')?.classList.remove('invalid'); e.target.classList.remove('invalid'); saveDraft(); updateSummary(); });
+  form.addEventListener('change', e => {
+    if (e.target.name === 'Customer' && e.target.value.trim()) store.set(KEYS.lastCustomer, e.target.value.trim());
+    applyVisibility(); saveDraft();
+  });
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!validate()) return;
+    const item = collect();
+    const q = store.get(KEYS.queue, []); q.push(item); store.set(KEYS.queue, q);
+    store.set(KEYS.lastCustomer, item.record.Customer);
+
+    $('submitBtn').disabled = true; $('submitBtn').textContent = 'Sending…';
+    const r = await flush();
+    $('submitBtn').disabled = false; $('submitBtn').textContent = 'Submit';
+
+    // Next unit on the same roof: keep customer + building, bump RTU
+    const nextRtu = Math.min(50, (parseInt(item.record.RTU, 10) || 0) + 1);
+    freshForm({ Customer: item.record.Customer, Building: item.record.Building, RTU: String(nextRtu) });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    const label = `Bldg ${item.record.Building} RTU ${item.record.RTU}`;
+    if (!configured()) toast(`${label} saved on this phone — Apps Script URL not set`, 4000);
+    else if (r.rejected) toast('PIN rejected by the sheet — log out and back in', 5000);
+    else if (r.left) toast(`No signal — ${label} saved, will send when back online`, 4000);
+    else toast(`${label} submitted ✓  Now on RTU ${nextRtu}`);
+  });
+
+  $('clearBtn').addEventListener('click', () => {
+    if (confirm('Clear this unit? Customer and building stay filled in.'))
+      freshForm({ Customer: el('Customer').value, Building: el('Building').value });
+  });
+  $('queueBadge').addEventListener('click', async () => {
+    const r = await flush();
+    toast(r.left ? `${r.left} still pending — check signal` : 'All pending checks sent ✓');
+  });
+  window.addEventListener('online', flush);
+
+  // ---------- Init ----------
+  buildForm();
+  const draft = store.get(KEYS.draft, null);
+  if (draft) { restore(draft); applyVisibility(); } else freshForm();
+  session = store.get(KEYS.session, null);
+  showView(!!session);
+  updateBadge(); if (session) flush();
+})();
+</script>
+</body>
+</html>
