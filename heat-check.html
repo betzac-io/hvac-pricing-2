@@ -168,9 +168,10 @@
     </div>
     <div class="row-other" style="margin-top:12px">
       <button type="button" class="btn primary" id="pdfBtn">Download PDF</button>
-      <button type="button" class="btn secondary" id="exportBtn">Download CSV</button>
+      <button type="button" class="btn primary" id="custPdfBtn">Customer PDF</button>
     </div>
-    <div class="hint" style="margin-top:6px">PDF: printable summary + every unit's details. CSV: one row per unit for Excel / Google Sheets.</div>
+    <button type="button" class="btn secondary" id="exportBtn" style="width:100%;margin-top:10px">Download CSV</button>
+    <div class="hint" style="margin-top:6px">PDF: printable summary + every unit's details. Customer PDF: the same report without technician names, ready to send. CSV: one row per unit for Excel / Google Sheets.</div>
   </section>
 </main>
 
@@ -212,8 +213,8 @@
     { title: 'Belt & Blower', fields: [
       { k: 'Belt Size', t: 'text' },
       { k: 'Belt Condition', t: 'seg', opts: GR },
-      { k: 'Blower Motor Run Capacitor', t: 'other', opts: ['5', '7.5', '10', '12.5', '15', '20'], unit: 'mf' },
-      { k: 'Blower Motor Run Capacitor Condition', t: 'seg', opts: GYR },
+      { k: 'Blower Motor Run Capacitor', t: 'other', opts: ['5', '7.5', '10', '12.5', '15', '20', 'ECM/Direct Drive'], unit: 'mf' },
+      { k: 'Blower Motor Run Capacitor Condition', t: 'seg', opts: [...GYR, NA] },
       { k: 'Is Blower Wheel Clean', t: 'seg', opts: ['Yes', 'No'], bad: 'No' },
       { k: 'Blower Motor Amp Draw', t: 'number', unit: 'A' },
     ]},
@@ -326,7 +327,7 @@
         return `<div class="field">${lbl}${ctl}${hint}</div>`;
       case 'other':
         ctl = `<div class="row-other single">
-                 <select id="${id}" name="${name}" data-other><option value="">Select…</option>${f.opts.map(o => `<option value="${esc(o)}">${esc(o)}${o !== NA && f.unit ? ' ' + f.unit : ''}</option>`).join('')}<option value="__other">Other…</option></select>
+                 <select id="${id}" name="${name}" data-other><option value="">Select…</option>${f.opts.map(o => `<option value="${esc(o)}">${esc(o)}${f.unit && /^[\d.]+$/.test(o) ? ' ' + f.unit : ''}</option>`).join('')}<option value="__other">Other…</option></select>
                  <input name="${name}__other" inputmode="decimal" placeholder="Custom ${f.unit || ''}" hidden aria-label="${name} custom value">
                </div>`;
         return `<div class="field"><label class="lbl" for="${id}">${esc(f.k)}</label>${ctl}${hint}</div>`;
@@ -714,8 +715,9 @@
   const pdfVal = (f, v) => !v ? '—' : (f.unit && /^[\d.]+$/.test(v) ? `${v} ${f.unit}` : v);
   const COLORS = { Green: [26, 127, 55], Yellow: [184, 134, 11], Red: [192, 38, 28], brand: [179, 38, 30], ink: [29, 36, 51], muted: [102, 112, 133], band: [238, 240, 243] };
 
-  $('pdfBtn').addEventListener('click', async () => {
-    const btn = $('pdfBtn');
+  // forCustomer = true leaves technician names out of the whole PDF
+  async function buildPdf(btn, forCustomer) {
+    const label = btn.textContent;
     const got = await fetchReportRows(btn, 'Building…');
     if (!got) return;
     btn.disabled = true; btn.textContent = 'Building PDF…';
@@ -756,8 +758,8 @@
       const multiCust = !f.cust;
       doc.autoTable({
         startY: y, margin: { left: M, right: M },
-        head: [[...(multiCust ? ['Customer'] : []), 'Date', 'Bldg', 'RTU', 'Technician', 'Heat', 'Filters', 'Needs attention']],
-        body: rows.map(r => [...(multiCust ? [r.Customer] : []), r['Date / Time'].slice(0, 10), r.Building, r.RTU, r.Technician,
+        head: [[...(multiCust ? ['Customer'] : []), 'Date', 'Bldg', 'RTU', ...(forCustomer ? [] : ['Technician']), 'Heat', 'Filters', 'Needs attention']],
+        body: rows.map(r => [...(multiCust ? [r.Customer] : []), r['Date / Time'].slice(0, 10), r.Building, r.RTU, ...(forCustomer ? [] : [r.Technician]),
           r[HEAT] || '—', r['Filter Condition'] || '—', issuesFor(r).map(i => i.replace(/ Condition:/, ':')).join('\n') || 'OK']),
         styles: { fontSize: 8, cellPadding: 4, textColor: COLORS.ink },
         headStyles: { fillColor: COLORS.brand, textColor: 255 },
@@ -788,7 +790,7 @@
         doc.autoTable({
           startY: y + 12, margin: { left: M, right: M }, pageBreak: 'avoid', rowPageBreak: 'avoid',
           head: [[{ content: `${r.Customer} — Building ${r.Building}, RTU ${r.RTU}`, colSpan: 2, styles: { halign: 'left' } },
-                  { content: `${r.Technician} · ${r['Date / Time']}`, colSpan: 2, styles: { halign: 'right', fontStyle: 'normal' } }]],
+                  { content: forCustomer ? r['Date / Time'] : `${r.Technician} · ${r['Date / Time']}`, colSpan: 2, styles: { halign: 'right', fontStyle: 'normal' } }]],
           body,
           styles: { fontSize: 8, cellPadding: 3, textColor: COLORS.ink, lineColor: [222, 226, 230], lineWidth: 0.5 },
           headStyles: { fillColor: COLORS.ink, textColor: 255 },
@@ -812,13 +814,15 @@
         doc.text(`Betz Heating & Air · RTU Heat Check Report · Generated ${made}`, M, H - 20);
         doc.text(`Page ${i} of ${n}`, W - M, H - 20, { align: 'right' });
       }
-      download(doc.output('blob'), `rtu-heat-check-${fileTag(f)}.pdf`);
+      download(doc.output('blob'), `rtu-heat-check-${fileTag(f)}${forCustomer ? '-customer' : ''}.pdf`);
       toast(`PDF ready — ${rows.length} unit${rows.length > 1 ? 's' : ''} ✓`);
     } catch (err) {
       console.error(err);
       toast('Could not build the PDF — check your connection and try again', 4000);
-    } finally { btn.disabled = false; btn.textContent = 'Download PDF'; }
-  });
+    } finally { btn.disabled = false; btn.textContent = label; }
+  }
+  $('pdfBtn').addEventListener('click', () => buildPdf($('pdfBtn'), false));
+  $('custPdfBtn').addEventListener('click', () => buildPdf($('custPdfBtn'), true));
 
   function chipFor(f, v) {
     if (!v) return '<span class="v" style="color:var(--muted);font-weight:400">—</span>';
