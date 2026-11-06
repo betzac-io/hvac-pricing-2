@@ -183,7 +183,7 @@
   ];
   // ===========================================
 
-  const KEYS = { session: 'betzRtuSession', queue: 'betzRtuQueue', draft: 'betzRtuDraft', lastCustomer: 'betzRtuLastCustomer' };
+  const KEYS = { session: 'betzRtuSession', queue: 'betzRtuQueue', draft: 'betzRtuDraft', lastCustomer: 'betzRtuLastCustomer', customCustomers: 'betzRtuCustomCustomers' };
   const $ = id => document.getElementById(id);
   const form = $('hcForm');
   const HEAT = 'Does Unit have Heat?';
@@ -211,6 +211,29 @@
     return res.json();
   }
 
+  // ---------- Customers ----------
+  function customerList() {
+    const extra = store.get(KEYS.customCustomers, []).filter(c => !CUSTOMERS.includes(c));
+    return [...CUSTOMERS, ...extra];
+  }
+  function rememberCustomer(name) {
+    if (!name) return;
+    store.set(KEYS.lastCustomer, name);
+    if (CUSTOMERS.includes(name)) return;
+    const extra = store.get(KEYS.customCustomers, []);
+    if (!extra.includes(name)) { extra.push(name); store.set(KEYS.customCustomers, extra.slice(-30)); }
+    const sel = el('Customer');
+    if (sel && ![...sel.options].some(o => o.value === name)) sel.add(new Option(name, name), sel.options.length - 1);
+  }
+  function setCustomer(name) {
+    const sel = el('Customer');
+    if (!name) { sel.value = ''; return; }
+    if (![...sel.options].some(o => o.value === name)) sel.add(new Option(name, name), sel.options.length - 1);
+    sel.value = name;
+    el('Customer__other').value = '';
+  }
+  const customerField = () => SECTIONS[0].fields[0];
+
   // ---------- Build form from SECTIONS ----------
   function fieldHTML(f) {
     const id = nid(), name = esc(f.k);
@@ -219,8 +242,10 @@
     let ctl = '';
     switch (f.t) {
       case 'combo':
-        ctl = `<input id="${id}" name="${name}" list="${id}-l" ${f.req ? 'required' : ''} placeholder="Pick or type a customer">
-               <datalist id="${id}-l">${f.opts.map(o => `<option value="${esc(o)}">`).join('')}</datalist>`;
+        ctl = `<div class="row-other single">
+                 <select id="${id}" name="${name}" data-other ${f.req ? 'required' : ''}><option value="">Select…</option>${customerList().map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('')}<option value="__other">Other…</option></select>
+                 <input name="${name}__other" placeholder="Customer name" hidden aria-label="New customer name">
+               </div>`;
         return `<div class="field"><label class="lbl" for="${id}">${esc(f.k)}${f.req ? ' <span class="req">*</span>' : ''}</label>${ctl}${hint}</div>`;
       case 'select':
         ctl = `<select id="${id}" name="${name}" ${f.req ? 'required' : ''}><option value="">Select…</option>${f.opts.map(o => `<option>${esc(o)}</option>`).join('')}</select>`;
@@ -269,6 +294,7 @@
         const q = el(f.k + '__qty').value, s = el(f.k + '__size').value.trim();
         return q || s ? `${q || '?'} × ${s || '?'}` : '';
       }
+      case 'combo':
       case 'other': {
         const v = el(f.k).value;
         return v === '__other' ? el(f.k + '__other').value.trim() : v;
@@ -323,8 +349,7 @@
   }
   function freshForm(keep = {}) {
     form.reset();
-    const cust = keep.Customer ?? store.get(KEYS.lastCustomer, '');
-    if (cust) el('Customer').value = cust;
+    setCustomer(keep.Customer ?? store.get(KEYS.lastCustomer, ''));
     if (keep.Building) el('Building').value = keep.Building;
     if (keep.RTU) el('RTU').value = keep.RTU;
     store.del(KEYS.draft);
@@ -418,7 +443,10 @@
   // ---------- Form events ----------
   form.addEventListener('input', e => { e.target.closest('.invalid, .seg')?.classList.remove('invalid'); e.target.classList.remove('invalid'); saveDraft(); updateSummary(); });
   form.addEventListener('change', e => {
-    if (e.target.name === 'Customer' && e.target.value.trim()) store.set(KEYS.lastCustomer, e.target.value.trim());
+    if (e.target.name === 'Customer' || e.target.name === 'Customer__other') {
+      const c = fieldValue(customerField());
+      if (c && c !== '__other') store.set(KEYS.lastCustomer, c);
+    }
     applyVisibility(); saveDraft();
   });
 
@@ -429,7 +457,7 @@
     const rec = item.record;
     if (!confirm(`Submit heat check?\n\n${rec.Customer} — Building ${rec.Building}, RTU ${rec.RTU}`)) return;
     const q = store.get(KEYS.queue, []); q.push(item); store.set(KEYS.queue, q);
-    store.set(KEYS.lastCustomer, item.record.Customer);
+    rememberCustomer(item.record.Customer);
 
     $('submitBtn').disabled = true; $('submitBtn').textContent = 'Sending…';
     const r = await flush();
@@ -449,7 +477,7 @@
 
   $('clearBtn').addEventListener('click', () => {
     if (confirm('Clear this unit? Customer and building stay filled in.'))
-      freshForm({ Customer: el('Customer').value, Building: el('Building').value });
+      freshForm({ Customer: fieldValue(customerField()), Building: el('Building').value });
   });
   $('queueBadge').addEventListener('click', async () => {
     const r = await flush();
