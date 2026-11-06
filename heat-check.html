@@ -812,7 +812,7 @@
     } catch { return null; }
   }
   const pdfVal = (f, v) => {
-    if (!v) return '—';
+    if (!v || v === NA) return '—';      // blank and Not Applicable both print as a dash
     if (f.t === 'qtySize') {               // "8 × 18x24x2" → "(8) 18x24x2"
       const m = /^(.*?)\s*×\s*(.*)$/.exec(v);
       if (m) { const q = m[1].trim(), sz = m[2].trim(); return `${q && q !== '?' ? `(${q}) ` : ''}${sz && sz !== '?' ? sz : 'size not entered'}`; }
