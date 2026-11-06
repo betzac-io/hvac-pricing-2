@@ -426,6 +426,8 @@
     e.preventDefault();
     if (!validate()) return;
     const item = collect();
+    const rec = item.record;
+    if (!confirm(`Submit heat check?\n\n${rec.Customer} — Building ${rec.Building}, RTU ${rec.RTU}`)) return;
     const q = store.get(KEYS.queue, []); q.push(item); store.set(KEYS.queue, q);
     store.set(KEYS.lastCustomer, item.record.Customer);
 
