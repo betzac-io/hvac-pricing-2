@@ -542,6 +542,22 @@
     }
     // Picking ECM/Direct Drive for the blower cap marks its condition Not Applicable
     if (e.target.name === CAP && e.target.value === ECM) setRadio(CAP_COND, NA);
+
+    // Not Applicable cascades: picking it fills the related questions; switching away clears those again
+    const NA_CASCADE = {
+      'Inducer Fan Motor 1 Run Capacitor Condition': ['Inducer Fan Motor 1 Run Capacitor Size',
+        'Inducer Fan Motor 2 Run Capacitor Condition', 'Inducer Fan Motor 2 Run Capacitor Size'],
+      'Gas Valve 2': ['Heat Exchanger 2 Condition', 'Spark Ignitor 2 Condition'],
+    };
+    if (NA_CASCADE[e.target.name]) {
+      const on = e.target.value === NA;
+      NA_CASCADE[e.target.name].forEach(k => {
+        const sel = form.querySelector(`select[name="${CSS.escape(k)}"]`);
+        if (sel) { if (on) sel.value = NA; else if (sel.value === NA) sel.value = ''; }
+        else if (on) setRadio(k, NA);
+        else if (radioVal(k) === NA) setRadio(k, '');
+      });
+    }
     applyVisibility(); saveDraft();
   });
 
