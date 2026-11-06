@@ -765,7 +765,28 @@
         headStyles: { fillColor: COLORS.brand, textColor: 255 },
         alternateRowStyles: { fillColor: [249, 250, 251] },
         didParseCell: d => { if (d.section === 'body' && d.column.index === d.table.columns.length - 1) {
-          d.cell.styles.textColor = d.cell.raw === 'OK' ? COLORS.Green : COLORS.Red; d.cell.styles.fontStyle = 'bold'; } }
+          d.cell.styles.textColor = d.cell.raw === 'OK' ? COLORS.Green : COLORS.Red; d.cell.styles.fontStyle = 'bold'; } },
+        // "Needs attention": draw each issue in its own color — Yellow items yellow, everything else red
+        willDrawCell: d => {
+          if (d.section !== 'body' || d.column.index !== d.table.columns.length - 1 || d.cell.raw === 'OK') return;
+          d.cell._lines = d.cell.text; d.cell.text = [];
+        },
+        didDrawCell: d => {
+          const lines = d.cell._lines; if (!lines) return;
+          const issues = String(d.cell.raw).split('\n');
+          const fs = d.cell.styles.fontSize, lh = fs * doc.getLineHeightFactor();
+          const x = d.cell.x + d.cell.padding('left');
+          let y = d.cell.y + d.cell.padding('top'), idx = 0, acc = '';
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(fs);
+          lines.forEach(line => {
+            const issue = issues[idx] || '';
+            doc.setTextColor(...(/: Yellow$/.test(issue) ? COLORS.Yellow : COLORS.Red));
+            doc.text(line, x, y, { baseline: 'top' });
+            y += lh;
+            acc = acc ? acc + ' ' + line : line;
+            if (acc.trim() === issue.trim()) { idx++; acc = ''; }
+          });
+        }
       });
 
       // One detail block per unit
