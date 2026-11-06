@@ -213,6 +213,10 @@
       { k: 'Filter Size 1', t: 'qtySize', opts: FILTER_SIZES },
       { k: 'Filter Size 2', t: 'qtySize', opts: FILTER_SIZES },
     ]},
+    { title: 'Electrical', fields: [
+      { k: 'High Voltage Condition', t: 'seg', opts: GR },
+      { k: 'Low Voltage Condition', t: 'seg', opts: GR },
+    ]},
     { title: 'Belt & Blower', fields: [
       { k: 'Belt Condition', t: 'seg', opts: [...GR, 'Direct Drive'] },
       { k: 'Belt Size', t: 'text' },
@@ -223,15 +227,13 @@
     ]},
     { title: 'Inducer', fields: [
       { k: 'Inducer Fan Motor 1 Run Capacitor Condition', t: 'seg', opts: [...GYR, NA] },
-      { k: 'Inducer Fan Motor 1 Run Capacitor Size', t: 'other', opts: ['3', '4', '5', '6', NA], unit: 'mf' },
+      { k: 'Inducer Fan Motor 1 Run Capacitor Size', t: 'other', opts: ['2', '3', '4', '5', '6', NA], unit: 'mf' },
       { k: 'Inducer Fan Motor 2 Run Capacitor Condition', t: 'seg', opts: [...GYR, NA] },
-      { k: 'Inducer Fan Motor 2 Run Capacitor Size', t: 'other', opts: ['3', '4', '5', '6', NA], unit: 'mf' },
+      { k: 'Inducer Fan Motor 2 Run Capacitor Size', t: 'other', opts: ['2', '3', '4', '5', '6', NA], unit: 'mf' },
     ]},
-    { title: 'Gas, Electrical & Safeties', fields: [
+    { title: 'Gas & Safeties', fields: [
       { k: 'Gas Valve 1', t: 'seg', opts: GR },
       { k: 'Gas Valve 2', t: 'seg', opts: [...GR, NA] },
-      { k: 'High Voltage Condition', t: 'seg', opts: GR },
-      { k: 'Low Voltage Condition', t: 'seg', opts: GR },
       { k: 'Heat Exchanger 1 Condition', t: 'seg', opts: GYR },
       { k: 'Heat Exchanger 2 Condition', t: 'seg', opts: [...GYR, NA] },
       { k: 'Spark Ignitor 1 Condition', t: 'seg', opts: GR },
@@ -459,6 +461,33 @@
     return !first;
   }
 
+  // Fields left blank (heat-only fields skipped on no-heat units)
+  const OPTIONAL = ['Other Notes', 'Filter Size 2'];   // never flagged as missing
+  function missingFields() {
+    const out = [], heat = hasHeat();
+    SECTIONS.forEach(s => {
+      if (!s.always && !heat) return;
+      s.fields.forEach(f => {
+        if (OPTIONAL.includes(f.k)) return;
+        const v = fieldValue(f);
+        let target = null;
+        if (f.t === 'qtySize') {
+          if (!el(f.k + '__qty').value) target = el(f.k + '__qty');
+          else if (!v || /×\s*\?$/.test(v)) target = el(f.k + '__size');
+        } else if (!v) {
+          target = f.t === 'seg' ? form.querySelector(`.seg[aria-label="${CSS.escape(f.k)}"]`) : el(f.k);
+        }
+        if (target) out.push({ k: f.k, target });
+      });
+    });
+    return out;
+  }
+  function markMissing(list) {
+    form.querySelectorAll('.invalid').forEach(e => e.classList.remove('invalid'));
+    list.forEach(m => m.target.classList.add('invalid'));
+    if (list[0]) list[0].target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
   // ---------- Offline-safe queue ----------
   function updateBadge() {
     const q = store.get(KEYS.queue, []);
@@ -574,7 +603,13 @@
     if (editing) return saveEdit();
     const item = collect();
     const rec = item.record;
-    if (!confirm(`Submit heat check?\n\n${rec.Customer} — Building ${rec.Building}, RTU ${rec.RTU}`)) return;
+    const unit = `${rec.Customer} — Building ${rec.Building}, RTU ${rec.RTU}`;
+    const missing = missingFields();
+    const list = missing.slice(0, 15).map(m => '• ' + m.k).join('\n') + (missing.length > 15 ? `\n• …and ${missing.length - 15} more` : '');
+    const msg = missing.length
+      ? `⚠️ INCOMPLETE — ${missing.length} field${missing.length > 1 ? 's are' : ' is'} not filled out:\n\n${list}\n\nSubmit anyway?\n\n${unit}`
+      : `Submit heat check?\n\n${unit}`;
+    if (!confirm(msg)) { if (missing.length) { markMissing(missing); toast('Missing fields are outlined in red'); } return; }
     const q = store.get(KEYS.queue, []); q.push(item); store.set(KEYS.queue, q);
     rememberCustomer(item.record.Customer);
 
@@ -752,7 +787,14 @@
       return { url, w: img.width, h: img.height };
     } catch { return null; }
   }
-  const pdfVal = (f, v) => !v ? '—' : (f.unit && /^[\d.]+$/.test(v) ? `${v} ${f.unit}` : v);
+  const pdfVal = (f, v) => {
+    if (!v) return '—';
+    if (f.t === 'qtySize') {               // "8 × 18x24x2" → "(8) 18x24x2"
+      const m = /^(.*?)\s*×\s*(.*)$/.exec(v);
+      if (m) { const q = m[1].trim(), sz = m[2].trim(); return `${q && q !== '?' ? `(${q}) ` : ''}${sz && sz !== '?' ? sz : 'size not entered'}`; }
+    }
+    return f.unit && /^[\d.]+$/.test(v) ? `${v} ${f.unit}` : v;
+  };
   const COLORS = { Green: [26, 127, 55], Yellow: [184, 134, 11], Red: [192, 38, 28], brand: [179, 38, 30], ink: [29, 36, 51], muted: [102, 112, 133], band: [238, 240, 243] };
 
   // forCustomer = true leaves technician names out of the whole PDF
