@@ -156,6 +156,22 @@
     </div>
   </div>
   <div id="repBody"></div>
+  <section class="card">
+    <h2>Reports</h2>
+    <label class="field"><span class="lbl">Customer</span>
+      <select id="expCust"><option value="">All customers</option></select></label>
+    <label class="field"><span class="lbl">Building</span>
+      <select id="expBldg"><option value="">All buildings</option></select></label>
+    <div class="row-other">
+      <label class="field" style="margin:0"><span class="lbl">From</span><input type="date" id="expFrom"></label>
+      <label class="field" style="margin:0"><span class="lbl">To</span><input type="date" id="expTo"></label>
+    </div>
+    <div class="row-other" style="margin-top:12px">
+      <button type="button" class="btn primary" id="pdfBtn">Download PDF</button>
+      <button type="button" class="btn secondary" id="exportBtn">Download CSV</button>
+    </div>
+    <div class="hint" style="margin-top:6px">PDF: printable summary + every unit's details. CSV: one row per unit for Excel / Google Sheets.</div>
+  </section>
 </main>
 
 <!-- ADMIN: UNIT DETAIL -->
@@ -196,15 +212,15 @@
     { title: 'Belt & Blower', fields: [
       { k: 'Belt Size', t: 'text' },
       { k: 'Belt Condition', t: 'seg', opts: GR },
-      { k: 'Blower Motor Run Capacitor', t: 'other', opts: ['5', '7.5', '10', '12.5', '15', '20'], unit: 'µF' },
+      { k: 'Blower Motor Run Capacitor', t: 'other', opts: ['5', '7.5', '10', '12.5', '15', '20'], unit: 'mf' },
       { k: 'Blower Motor Run Capacitor Condition', t: 'seg', opts: GYR },
       { k: 'Is Blower Wheel Clean', t: 'seg', opts: ['Yes', 'No'], bad: 'No' },
       { k: 'Blower Motor Amp Draw', t: 'number', unit: 'A' },
     ]},
     { title: 'Inducer', fields: [
-      { k: 'Inducer Fan Motor 1 Run Capacitor Size', t: 'other', opts: ['3', '4', '5', '6'], unit: 'µF' },
+      { k: 'Inducer Fan Motor 1 Run Capacitor Size', t: 'other', opts: ['3', '4', '5', '6'], unit: 'mf' },
       { k: 'Inducer Fan Motor 1 Run Capacitor Condition', t: 'seg', opts: GYR },
-      { k: 'Inducer Fan Motor 2 Run Capacitor Size', t: 'other', opts: ['3', '4', '5', '6', NA], unit: 'µF' },
+      { k: 'Inducer Fan Motor 2 Run Capacitor Size', t: 'other', opts: ['3', '4', '5', '6', NA], unit: 'mf' },
       { k: 'Inducer Fan Motor 2 Run Capacitor Condition', t: 'seg', opts: [...GYR, NA] },
     ]},
     { title: 'Gas, Electrical & Safeties', fields: [
@@ -487,7 +503,7 @@
         store.set(KEYS.session, session);
         $('pinInput').value = '';
         showView(homeView()); flush();
-        if (isAdmin()) loadDay();
+        if (isAdmin()) { loadDay(); loadReportCustomers(); }
       } else $('loginErr').textContent = 'PIN not recognized.';
     } catch {
       $('loginErr').textContent = 'No connection — need signal to log in the first time.';
@@ -558,6 +574,7 @@
   async function loadDay() {
     const date = $('repDate').value || todayISO();
     $('repDate').value = date;
+    $('expFrom').value = date; $('expTo').value = date;
     $('repBody').innerHTML = '<div class="empty">Loading…</div>';
     try {
       const res = await api({ action: 'adminDay', pin: session.pin, date });
@@ -614,6 +631,194 @@
   $('repDate').addEventListener('change', loadDay);
   $('prevDay').addEventListener('click', () => { $('repDate').value = shiftDay($('repDate').value || todayISO(), -1); loadDay(); });
   $('nextDay').addEventListener('click', () => { $('repDate').value = shiftDay($('repDate').value || todayISO(), 1); loadDay(); });
+
+  // ---- Reports: shared filters ----
+  const PDF_LIBS = [
+    'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js'
+  ];
+  range(1, 10).forEach(n => $('expBldg').add(new Option('Building ' + n, n)));
+
+  async function loadReportCustomers() {
+    const names = new Set(customerList());
+    try {
+      const res = await api({ action: 'adminCustomers', pin: session.pin });
+      if (res.ok) res.customers.forEach(c => names.add(c));
+    } catch {}
+    const sel = $('expCust'), keep = sel.value;
+    sel.length = 1;
+    [...names].sort((a, b) => a.localeCompare(b)).forEach(c => sel.add(new Option(c, c)));
+    sel.value = keep;
+  }
+
+  function reportFilters() {
+    const f = { cust: $('expCust').value, bldg: $('expBldg').value, from: $('expFrom').value, to: $('expTo').value };
+    if (f.from && f.to && f.from > f.to) [f.from, f.to] = [f.to, f.from];
+    return f;
+  }
+  const filterLabel = f => [f.cust || 'All customers', f.bldg ? 'Building ' + f.bldg : 'All buildings',
+    f.from === f.to ? f.from : `${f.from} to ${f.to}`].join(' · ');
+  const fileTag = f => [f.cust || 'all-customers', f.bldg ? 'bldg-' + f.bldg : '', f.from, f.to !== f.from ? f.to : '']
+    .filter(Boolean).join('-').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+  async function fetchReportRows(btn, busyText) {
+    const f = reportFilters();
+    if (!f.from || !f.to) { toast('Pick a From and To date'); return null; }
+    const label = btn.textContent; btn.disabled = true; btn.textContent = busyText;
+    try {
+      const res = await api({ action: 'adminRange', pin: session.pin, from: f.from, to: f.to });
+      if (!res.ok) { toast('Could not build report', 4000); return null; }
+      const rows = res.rows
+        .filter(r => (!f.cust || r.Customer === f.cust) && (!f.bldg || String(num(r.Building)) === f.bldg))
+        .sort((a, b) => a['Date / Time'].slice(0, 10).localeCompare(b['Date / Time'].slice(0, 10)) ||
+          a.Customer.localeCompare(b.Customer) || num(a.Building) - num(b.Building) || num(a.RTU) - num(b.RTU));
+      if (!rows.length) { toast('No heat checks match those filters'); return null; }
+      return { rows, f };
+    } catch {
+      toast('No connection — try again when you have signal', 4000); return null;
+    } finally { btn.disabled = false; btn.textContent = label; }
+  }
+
+  function download(blob, name) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }
+
+  // ---- CSV ----
+  const CSV_COLS = ['Date / Time', 'Technician', ...SECTIONS.flatMap(s => s.fields.map(f => f.k)), 'Needs Attention'];
+  const csvCell = v => { v = String(v ?? ''); return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  $('exportBtn').addEventListener('click', async () => {
+    const got = await fetchReportRows($('exportBtn'), 'Building…');
+    if (!got) return;
+    const lines = [CSV_COLS.map(csvCell).join(',')];
+    got.rows.forEach(r => lines.push(CSV_COLS.map(c => c === 'Needs Attention' ? issuesFor(r).join('; ') : r[c]).map(csvCell).join(',')));
+    download(new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }), `rtu-heat-checks-${fileTag(got.f)}.csv`);
+    toast(`Exported ${got.rows.length} unit${got.rows.length > 1 ? 's' : ''} ✓`);
+  });
+
+  // ---- PDF ----
+  const loadScript = src => new Promise((ok, fail) => {
+    if (document.querySelector(`script[src="${src}"]`)) return ok();
+    const t = document.createElement('script'); t.src = src; t.onload = ok; t.onerror = fail; document.head.appendChild(t);
+  });
+  async function logoData() {
+    try {
+      const blob = await (await fetch('logo.png')).blob();
+      const url = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); });
+      const img = await new Promise((r, x) => { const i = new Image(); i.onload = () => r(i); i.onerror = x; i.src = url; });
+      return { url, w: img.width, h: img.height };
+    } catch { return null; }
+  }
+  const pdfVal = (f, v) => !v ? '—' : (f.unit && /^[\d.]+$/.test(v) ? `${v} ${f.unit}` : v);
+  const COLORS = { Green: [26, 127, 55], Yellow: [184, 134, 11], Red: [192, 38, 28], brand: [179, 38, 30], ink: [29, 36, 51], muted: [102, 112, 133], band: [238, 240, 243] };
+
+  $('pdfBtn').addEventListener('click', async () => {
+    const btn = $('pdfBtn');
+    const got = await fetchReportRows(btn, 'Building…');
+    if (!got) return;
+    btn.disabled = true; btn.textContent = 'Building PDF…';
+    try {
+      for (const src of PDF_LIBS) await loadScript(src);
+      const { rows, f } = got;
+      const doc = new window.jspdf.jsPDF({ unit: 'pt', format: 'letter' });
+      const W = doc.internal.pageSize.getWidth(), M = 40;
+      let y = M;
+
+      // Header
+      const logo = await logoData();
+      if (logo) { const h = 40, w = h * logo.w / logo.h; doc.addImage(logo.url, 'PNG', M, y, w, h); }
+      const tx = logo ? M + 52 : M;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.setTextColor(...COLORS.ink);
+      doc.text('RTU Heat Check Report', tx, y + 16);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(...COLORS.muted);
+      doc.text('Betz Heating & Air', tx, y + 32);
+      y += 58;
+      doc.setFontSize(11); doc.setTextColor(...COLORS.ink); doc.text(filterLabel(f), M, y);
+      y += 16;
+
+      // Summary numbers
+      const withIssues = rows.filter(r => issuesFor(r).length).length;
+      const stats = [['Units checked', rows.length], ['Units with issues', withIssues],
+        ['Filters changed', rows.filter(r => r['Filter Condition'] === 'Changed').length], ['No-heat units', rows.filter(r => r[HEAT] === 'No').length]];
+      const bw = (W - 2 * M - 30) / 4;
+      stats.forEach(([l, n], i) => {
+        const x = M + i * (bw + 10);
+        doc.setFillColor(...COLORS.band); doc.roundedRect(x, y, bw, 46, 4, 4, 'F');
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
+        doc.setTextColor(...(i === 1 && n ? COLORS.Red : COLORS.ink)); doc.text(String(n), x + 10, y + 22);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...COLORS.muted); doc.text(l.toUpperCase(), x + 10, y + 37);
+      });
+      y += 62;
+
+      // Overview table
+      const multiCust = !f.cust;
+      doc.autoTable({
+        startY: y, margin: { left: M, right: M },
+        head: [[...(multiCust ? ['Customer'] : []), 'Date', 'Bldg', 'RTU', 'Technician', 'Heat', 'Filters', 'Needs attention']],
+        body: rows.map(r => [...(multiCust ? [r.Customer] : []), r['Date / Time'].slice(0, 10), r.Building, r.RTU, r.Technician,
+          r[HEAT] || '—', r['Filter Condition'] || '—', issuesFor(r).map(i => i.replace(/ Condition:/, ':')).join('\n') || 'OK']),
+        styles: { fontSize: 8, cellPadding: 4, textColor: COLORS.ink },
+        headStyles: { fillColor: COLORS.brand, textColor: 255 },
+        alternateRowStyles: { fillColor: [249, 250, 251] },
+        didParseCell: d => { if (d.section === 'body' && d.column.index === d.table.columns.length - 1) {
+          d.cell.styles.textColor = d.cell.raw === 'OK' ? COLORS.Green : COLORS.Red; d.cell.styles.fontStyle = 'bold'; } }
+      });
+
+      // One detail block per unit
+      doc.addPage(); y = M;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(...COLORS.ink); doc.text('Unit details', M, y); y += 10;
+      rows.forEach(r => {
+        const heat = r[HEAT] !== 'No';
+        const body = [];
+        SECTIONS.forEach(s => {
+          if (!s.always && !heat) return;
+          const fields = s.fields.filter(x => !['Customer', 'Building', 'RTU', 'Other Notes'].includes(x.k));
+          if (!fields.length) return;
+          body.push([{ content: s.title.toUpperCase(), colSpan: 4, styles: { fillColor: COLORS.band, fontStyle: 'bold', fontSize: 7, textColor: COLORS.muted } }]);
+          for (let i = 0; i < fields.length; i += 2) {
+            const a = fields[i], b = fields[i + 1];
+            body.push([a.k, pdfVal(a, String(r[a.k] ?? '')), b ? b.k : '', b ? pdfVal(b, String(r[b.k] ?? '')) : '']);
+          }
+        });
+        if (!heat) body.push([{ content: 'Unit has no heat — heat checks were skipped.', colSpan: 4, styles: { fontStyle: 'italic', textColor: COLORS.muted } }]);
+        body.push(['Other Notes', { content: r['Other Notes'] || '—', colSpan: 3 }]);
+        const fieldByKey = Object.fromEntries(SECTIONS.flatMap(s => s.fields.map(x => [x.k, x])));
+        doc.autoTable({
+          startY: y + 12, margin: { left: M, right: M }, pageBreak: 'avoid', rowPageBreak: 'avoid',
+          head: [[{ content: `${r.Customer} — Building ${r.Building}, RTU ${r.RTU}`, colSpan: 2, styles: { halign: 'left' } },
+                  { content: `${r.Technician} · ${r['Date / Time']}`, colSpan: 2, styles: { halign: 'right', fontStyle: 'normal' } }]],
+          body,
+          styles: { fontSize: 8, cellPadding: 3, textColor: COLORS.ink, lineColor: [222, 226, 230], lineWidth: 0.5 },
+          headStyles: { fillColor: COLORS.ink, textColor: 255 },
+          columnStyles: { 0: { cellWidth: 150, textColor: COLORS.muted }, 1: { cellWidth: 116, fontStyle: 'bold' }, 2: { cellWidth: 150, textColor: COLORS.muted }, 3: { fontStyle: 'bold' } },
+          didParseCell: d => {
+            if (d.section !== 'body' || (d.column.index !== 1 && d.column.index !== 3)) return;
+            const key = d.row.raw[d.column.index - 1], v = d.cell.raw, fld = fieldByKey[key];
+            if (typeof v !== 'string') return;
+            if (COLORS[v] && ['Green', 'Yellow', 'Red'].includes(v)) d.cell.styles.textColor = COLORS[v];
+            else if (fld && fld.bad && v === fld.bad) d.cell.styles.textColor = COLORS.Red;
+          }
+        });
+        y = doc.lastAutoTable.finalY;
+      });
+
+      // Footer on every page
+      const n = doc.getNumberOfPages(), H = doc.internal.pageSize.getHeight();
+      const made = new Date().toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+      for (let i = 1; i <= n; i++) {
+        doc.setPage(i); doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...COLORS.muted);
+        doc.text(`Betz Heating & Air · RTU Heat Check Report · Generated ${made}`, M, H - 20);
+        doc.text(`Page ${i} of ${n}`, W - M, H - 20, { align: 'right' });
+      }
+      download(doc.output('blob'), `rtu-heat-check-${fileTag(f)}.pdf`);
+      toast(`PDF ready — ${rows.length} unit${rows.length > 1 ? 's' : ''} ✓`);
+    } catch (err) {
+      console.error(err);
+      toast('Could not build the PDF — check your connection and try again', 4000);
+    } finally { btn.disabled = false; btn.textContent = 'Download PDF'; }
+  });
 
   function chipFor(f, v) {
     if (!v) return '<span class="v" style="color:var(--muted);font-weight:400">—</span>';
@@ -720,7 +925,7 @@
   session = store.get(KEYS.session, null);
   if (session && !session.role) session.role = 'tech';
   showView(homeView());
-  if (isAdmin()) loadDay();
+  if (isAdmin()) { loadDay(); loadReportCustomers(); }
   updateBadge(); if (session) flush();
 })();
 </script>
