@@ -211,7 +211,7 @@
     { title: 'Filters', always: true, fields: [
       { k: 'Filter Condition', t: 'seg', opts: ['Changed', 'Clean'] },
       { k: 'Filter Size 1', t: 'qtySize', opts: FILTER_SIZES },
-      { k: 'Filter Size 2', t: 'qtySize', opts: FILTER_SIZES },
+      { k: 'Filter Size 2', t: 'qtySize', opts: FILTER_SIZES, pdfRight: true },
     ]},
     { title: 'Electrical', fields: [
       { k: 'High Voltage Condition', t: 'seg', opts: GR },
@@ -232,17 +232,19 @@
       { k: 'Inducer Fan Motor 2 Run Capacitor Size', t: 'other', opts: ['2', '3', '4', '5', '6', NA], unit: 'mf' },
     ]},
     { title: 'Gas & Safeties', fields: [
-      { k: 'Gas Valve 1', t: 'seg', opts: GR },
-      { k: 'Gas Valve 2', t: 'seg', opts: [...GR, NA] },
       { k: 'Heat Exchanger 1 Condition', t: 'seg', opts: GYR },
       { k: 'Heat Exchanger 2 Condition', t: 'seg', opts: [...GYR, NA] },
-      { k: 'Spark Ignitor 1 Condition', t: 'seg', opts: GR },
-      { k: 'Spark Ignitor 2 Condition', t: 'seg', opts: [...GR, NA] },
-      { k: 'High Limit Condition', t: 'seg', opts: GR },
-      { k: 'Safeties Condition', t: 'seg', opts: GR },
+      { k: 'Gas Leaks Detected', t: 'seg', opts: ['Yes', 'No'], bad: 'Yes' },
       { k: 'Flame Sensor Condition', t: 'seg', opts: ['Sanded', 'Good', 'Bad'], bad: 'Bad',
         hint: 'Good = working but not easily accessible' },
-      { k: 'Gas Leaks Detected', t: 'seg', opts: ['Yes', 'No'], bad: 'Yes' },
+      { k: 'Pressure Switch 1', t: 'seg', opts: ['Good', 'Bad', NA], bad: 'Bad' },
+      { k: 'Pressure Switch 2', t: 'seg', opts: ['Good', 'Bad', NA], bad: 'Bad' },
+      { k: 'Spark Ignitor 1 Condition', t: 'seg', opts: GR },
+      { k: 'Spark Ignitor 2 Condition', t: 'seg', opts: [...GR, NA] },
+      { k: 'Gas Valve 1', t: 'seg', opts: GR },
+      { k: 'Gas Valve 2', t: 'seg', opts: [...GR, NA] },
+      { k: 'High Limit Condition', t: 'seg', opts: GR },
+      { k: 'Safeties Condition', t: 'seg', opts: GR },
       { k: 'Is Thermostat Working Properly', t: 'seg', opts: ['Yes', 'No'], bad: 'No' },
     ]},
     { title: 'Notes', always: true, fields: [
@@ -599,7 +601,8 @@
       'Inducer Fan Motor 1 Run Capacitor Condition': ['Inducer Fan Motor 1 Run Capacitor Size',
         'Inducer Fan Motor 2 Run Capacitor Condition', 'Inducer Fan Motor 2 Run Capacitor Size'],
       'Inducer Fan Motor 2 Run Capacitor Condition': ['Inducer Fan Motor 2 Run Capacitor Size'],
-      'Gas Valve 2': ['Heat Exchanger 2 Condition', 'Spark Ignitor 2 Condition'],
+      'Heat Exchanger 2 Condition': ['Pressure Switch 2', 'Spark Ignitor 2 Condition', 'Gas Valve 2'],
+      'Gas Valve 2': ['Heat Exchanger 2 Condition', 'Pressure Switch 2', 'Spark Ignitor 2 Condition'],
     };
     if (NA_CASCADE[e.target.name]) {
       const on = e.target.value === NA;
@@ -898,10 +901,14 @@
           const fields = s.fields.filter(x => !['Customer', 'Building', 'RTU', 'Other Notes'].includes(x.k));
           if (!fields.length) return;
           body.push([{ content: s.title.toUpperCase(), colSpan: 4, styles: { fillColor: COLORS.band, fontStyle: 'bold', fontSize: 7, textColor: COLORS.muted } }]);
-          for (let i = 0; i < fields.length; i += 2) {
-            const a = fields[i], b = fields[i + 1];
-            body.push([a.k, pdfVal(a, String(r[a.k] ?? '')), b ? b.k : '', b ? pdfVal(b, String(r[b.k] ?? '')) : '']);
-          }
+          // two fields per row; a field marked pdfRight always lands in the right-hand column
+          let row = [];
+          fields.forEach(x => {
+            if (x.pdfRight && row.length === 0) row.push('', '');
+            row.push(x.k, pdfVal(x, String(r[x.k] ?? '')));
+            if (row.length === 4) { body.push(row); row = []; }
+          });
+          if (row.length) body.push([...row, '', '']);
         });
         if (!heat) body.push([{ content: 'Unit has no heat — heat checks were skipped.', colSpan: 4, styles: { fontStyle: 'italic', textColor: COLORS.muted } }]);
         body.push(['Other Notes', { content: r['Other Notes'] || '—', colSpan: 3 }]);
