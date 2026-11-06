@@ -82,6 +82,37 @@
   .btn:disabled { opacity: .6; }
   .bar .primary { flex: 1; }
 
+  /* Admin report */
+  .datebar { display: flex; gap: 8px; align-items: center; }
+  .datebar input { flex: 1; }
+  .btn.sm { min-height: 46px; padding: 0 14px; font-size: 18px; }
+  .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+  .stat b { display: block; font-size: 24px; }
+  .stat span { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+  .stat.alert b { color: var(--red); }
+  .techline { font-size: 14px; color: var(--muted); margin: -4px 0 14px; }
+  .bldg { font-size: 13px; font-weight: 700; color: var(--muted); margin: 12px 0 2px; text-transform: uppercase; letter-spacing: .03em; }
+  .unit-row { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: none; border: 0;
+    border-top: 1px solid var(--line); padding: 12px 0; font: inherit; color: inherit; cursor: pointer; }
+  .unit-row .rtu { font-weight: 700; min-width: 64px; }
+  .unit-row .meta { flex: 1; font-size: 14px; color: var(--muted); }
+  .unit-row .chev { color: var(--muted); }
+  .tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--chip); color: var(--muted); margin-left: 4px; }
+  .badge-ok, .badge-bad { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+  .badge-ok { background: var(--chip); color: var(--green); }
+  .badge-bad { background: var(--bad-bg); color: var(--red); }
+  .empty { text-align: center; color: var(--muted); padding: 28px 0; }
+  .detail-head h2 { color: var(--ink); text-transform: none; letter-spacing: 0; font-size: 19px; margin: 0 0 4px; }
+  .detail-head .sub { color: var(--muted); font-size: 14px; }
+  .kv { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 0; border-top: 1px solid var(--line); font-size: 14px; }
+  .kv .k { color: var(--muted); }
+  .kv .v { font-weight: 600; text-align: right; white-space: pre-wrap; }
+  .chip { display: inline-block; padding: 2px 10px; border-radius: 999px; color: #fff; font-size: 13px; background: var(--ink); }
+  .chip.Green { background: var(--green); } .chip.Yellow { background: var(--yellow); }
+  .chip.Red, .chip.bad { background: var(--red); } .chip.na { background: var(--na); }
+  .detail-actions { display: flex; gap: 10px; margin-bottom: 14px; }
+  .detail-actions .btn { flex: 1; }
   #toast { position: fixed; left: 50%; bottom: 92px; transform: translateX(-50%); background: var(--ink); color: var(--bg);
     padding: 10px 16px; border-radius: 10px; font-weight: 600; font-size: 14px; max-width: 90vw; text-align: center;
     opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 10; }
@@ -114,6 +145,21 @@
 <main id="formView" hidden>
   <form id="hcForm" novalidate autocomplete="off"></form>
 </main>
+
+<!-- ADMIN: DAILY REPORT -->
+<main id="adminView" hidden>
+  <div class="card">
+    <div class="datebar">
+      <button type="button" class="btn secondary sm" id="prevDay" aria-label="Previous day">‹</button>
+      <input type="date" id="repDate" aria-label="Report date">
+      <button type="button" class="btn secondary sm" id="nextDay" aria-label="Next day">›</button>
+    </div>
+  </div>
+  <div id="repBody"></div>
+</main>
+
+<!-- ADMIN: UNIT DETAIL -->
+<main id="detailView" hidden></main>
 
 <div class="bar" id="bar" hidden>
   <button type="button" class="btn secondary" id="clearBtn">Clear</button>
@@ -188,6 +234,8 @@
   const form = $('hcForm');
   const HEAT = 'Does Unit have Heat?';
   let session = null;
+  let editing = null;      // admin: { rec } while editing a saved check
+  let dayRows = [];        // admin: checks for the report date
 
   const store = {
     get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
@@ -316,15 +364,17 @@
     updateSummary();
   }
 
+  const isFlagged = (f, v) => !!v && (v === 'Red' || v === 'Yellow' || (f.bad && v === f.bad));
+  function issuesFor(rec) {
+    const items = [], heat = rec[HEAT] !== 'No';
+    SECTIONS.forEach(s => { if (s.always || heat) s.fields.forEach(f => { const v = String(rec[f.k] ?? ''); if (isFlagged(f, v)) items.push(`${f.k}: ${v}`); }); });
+    return items;
+  }
   function updateSummary() {
     const items = [];
     SECTIONS.forEach(s => {
       if (!s.always && !hasHeat()) return;
-      s.fields.forEach(f => {
-        const v = fieldValue(f);
-        if (!v) return;
-        if (v === 'Red' || v === 'Yellow' || (f.bad && v === f.bad)) items.push(`${f.k}: ${v}`);
-      });
+      s.fields.forEach(f => { const v = fieldValue(f); if (isFlagged(f, v)) items.push(`${f.k}: ${v}`); });
     });
     $('summary').innerHTML = items.length
       ? items.map(i => `<li>${esc(i)}</li>`).join('')
@@ -333,6 +383,7 @@
 
   // ---------- Draft (survives app switching / dead screen) ----------
   function saveDraft() {
+    if (editing) return;
     const d = {};
     Array.from(form.elements).forEach(e => {
       if (!e.name) return;
@@ -407,12 +458,20 @@
   }
 
   // ---------- Login ----------
-  function showView(loggedIn) {
-    $('loginView').hidden = loggedIn;
-    $('formView').hidden = !loggedIn; $('bar').hidden = !loggedIn; $('logoutBtn').hidden = !loggedIn;
-    $('whoami').textContent = loggedIn ? session.name : 'Betz Heating & Air';
-    if (!loggedIn) setTimeout(() => $('pinInput').focus(), 50);
+  const isAdmin = () => session && session.role === 'admin';
+  // view: 'login' | 'form' (tech entry or admin edit) | 'report' | 'detail'
+  function showView(view) {
+    ['loginView', 'formView', 'adminView', 'detailView'].forEach(id => $(id).hidden = true);
+    $({ login: 'loginView', form: 'formView', report: 'adminView', detail: 'detailView' }[view]).hidden = false;
+    $('bar').hidden = view !== 'form';
+    $('logoutBtn').hidden = view === 'login';
+    $('whoami').textContent = session ? (isAdmin() ? 'Admin' : session.name) : 'Betz Heating & Air';
+    $('clearBtn').textContent = editing ? 'Cancel' : 'Clear';
+    $('submitBtn').textContent = editing ? 'Save changes' : 'Submit';
+    window.scrollTo(0, 0);
+    if (view === 'login') setTimeout(() => $('pinInput').focus(), 50);
   }
+  const homeView = () => session ? (isAdmin() ? 'report' : 'form') : 'login';
 
   $('loginForm').addEventListener('submit', async e => {
     e.preventDefault();
@@ -424,10 +483,11 @@
     try {
       const res = await api({ action: 'verifyPin', pin });
       if (res.ok) {
-        session = { name: res.name, pin };
+        session = { name: res.name, pin, role: res.role || 'tech' };
         store.set(KEYS.session, session);
         $('pinInput').value = '';
-        showView(true); flush();
+        showView(homeView()); flush();
+        if (isAdmin()) loadDay();
       } else $('loginErr').textContent = 'PIN not recognized.';
     } catch {
       $('loginErr').textContent = 'No connection — need signal to log in the first time.';
@@ -436,8 +496,9 @@
   });
 
   $('logoutBtn').addEventListener('click', () => {
-    if (!confirm('Log out? Your in-progress entry stays on this phone.')) return;
-    session = null; store.del(KEYS.session); showView(false);
+    if (!confirm(isAdmin() ? 'Log out of admin?' : 'Log out? Your in-progress entry stays on this phone.')) return;
+    if (editing) leaveEdit();
+    session = null; store.del(KEYS.session); showView('login');
   });
 
   // ---------- Form events ----------
@@ -453,6 +514,7 @@
   form.addEventListener('submit', async e => {
     e.preventDefault();
     if (!validate()) return;
+    if (editing) return saveEdit();
     const item = collect();
     const rec = item.record;
     if (!confirm(`Submit heat check?\n\n${rec.Customer} — Building ${rec.Building}, RTU ${rec.RTU}`)) return;
@@ -476,6 +538,7 @@
   });
 
   $('clearBtn').addEventListener('click', () => {
+    if (editing) { if (confirm('Discard your changes?')) { const id = editing.rec['Record ID']; leaveEdit(); showDetail(id); } return; }
     if (confirm('Clear this unit? Customer and building stay filled in.'))
       freshForm({ Customer: fieldValue(customerField()), Building: el('Building').value });
   });
@@ -485,12 +548,179 @@
   });
   window.addEventListener('online', flush);
 
+  // ================= ADMIN =================
+  const todayISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+  const shiftDay = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+  const timeOf = dt => { const m = /(\d{2}):(\d{2})/.exec(dt || ''); if (!m) return ''; const h = +m[1]; return `${(h % 12) || 12}:${m[2]} ${h < 12 ? 'AM' : 'PM'}`; };
+  const num = v => parseInt(v, 10) || 0;
+  const unitLabel = r => `${r.Customer} — Building ${r.Building}, RTU ${r.RTU}`;
+
+  async function loadDay() {
+    const date = $('repDate').value || todayISO();
+    $('repDate').value = date;
+    $('repBody').innerHTML = '<div class="empty">Loading…</div>';
+    try {
+      const res = await api({ action: 'adminDay', pin: session.pin, date });
+      if (!res.ok) { $('repBody').innerHTML = `<div class="empty">${res.error === 'bad_pin' ? 'Admin PIN no longer valid — log out and back in.' : 'Could not load report.'}</div>`; return; }
+      dayRows = res.rows;
+      renderDay(date);
+    } catch {
+      $('repBody').innerHTML = '<div class="empty">No connection — pull up again when you have signal.</div>';
+    }
+  }
+
+  function renderDay(date) {
+    const rows = dayRows;
+    const nice = new Date(date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+    if (!rows.length) { $('repBody').innerHTML = `<div class="empty">No heat checks on ${esc(nice)}.</div>`; return; }
+
+    const withIssues = rows.filter(r => issuesFor(r).length).length;
+    const noHeat = rows.filter(r => r[HEAT] === 'No').length;
+    const filters = rows.filter(r => r['Filter Condition'] === 'Changed').length;
+    const techs = {}; rows.forEach(r => { techs[r.Technician] = (techs[r.Technician] || 0) + 1; });
+
+    // Customer → Building → units
+    const groups = {};
+    rows.forEach(r => { ((groups[r.Customer] ||= {})[r.Building] ||= []).push(r); });
+
+    let html = `
+      <div class="stats">
+        <div class="stat"><b>${rows.length}</b><span>Units checked</span></div>
+        <div class="stat ${withIssues ? 'alert' : ''}"><b>${withIssues}</b><span>Units with issues</span></div>
+        <div class="stat"><b>${filters}</b><span>Filters changed</span></div>
+        <div class="stat"><b>${noHeat}</b><span>No-heat units</span></div>
+      </div>
+      <div class="techline">${esc(nice)} · ${Object.entries(techs).map(([t, n]) => `${esc(t)} (${n})`).join(' · ')}</div>`;
+
+    Object.keys(groups).sort().forEach(cust => {
+      html += `<section class="card"><h2>${esc(cust)}</h2>`;
+      Object.keys(groups[cust]).sort((a, b) => num(a) - num(b)).forEach(b => {
+        html += `<div class="bldg">Building ${esc(b)}</div>`;
+        groups[cust][b].sort((x, y) => num(x.RTU) - num(y.RTU)).forEach(r => {
+          const n = issuesFor(r).length;
+          html += `<button type="button" class="unit-row" data-id="${esc(r['Record ID'])}">
+            <span class="rtu">RTU ${esc(r.RTU)}</span>
+            <span class="meta">${esc(r.Technician)} · ${timeOf(r['Date / Time'])}${r[HEAT] === 'No' ? '<span class="tag">No heat</span>' : ''}</span>
+            ${n ? `<span class="badge-bad">${n} issue${n > 1 ? 's' : ''}</span>` : '<span class="badge-ok">OK</span>'}
+            <span class="chev">›</span></button>`;
+        });
+      });
+      html += '</section>';
+    });
+    $('repBody').innerHTML = html;
+  }
+
+  $('repBody').addEventListener('click', e => { const b = e.target.closest('.unit-row'); if (b) showDetail(b.dataset.id); });
+  $('repDate').addEventListener('change', loadDay);
+  $('prevDay').addEventListener('click', () => { $('repDate').value = shiftDay($('repDate').value || todayISO(), -1); loadDay(); });
+  $('nextDay').addEventListener('click', () => { $('repDate').value = shiftDay($('repDate').value || todayISO(), 1); loadDay(); });
+
+  function chipFor(f, v) {
+    if (!v) return '<span class="v" style="color:var(--muted);font-weight:400">—</span>';
+    let cls = '';
+    if (['Green', 'Yellow', 'Red'].includes(v)) cls = v; else if (v === NA) cls = 'na'; else if (f.bad && v === f.bad) cls = 'bad';
+    return cls ? `<span class="v"><span class="chip ${cls}">${esc(v)}</span></span>` : `<span class="v">${esc(v)}${f.unit && /^[\d.]+$/.test(v) ? ' ' + f.unit : ''}</span>`;
+  }
+
+  function showDetail(id) {
+    const r = dayRows.find(x => x['Record ID'] === id);
+    if (!r) { showView('report'); return; }
+    const issues = issuesFor(r), heat = r[HEAT] !== 'No';
+    let html = `
+      <div class="detail-actions">
+        <button type="button" class="btn secondary" id="backBtn">‹ Back</button>
+        <button type="button" class="btn primary" id="editBtn">Edit</button>
+      </div>
+      <section class="card detail-head"><h2>${esc(unitLabel(r))}</h2>
+        <div class="sub">${esc(r.Technician)} · ${esc(r['Date / Time'])}</div></section>
+      <section class="card"><h2>Needs attention</h2><ul id="dsum" style="list-style:none;margin:0;padding:0">${
+        issues.length ? issues.map(i => `<li style="background:var(--bad-bg);color:var(--red);font-weight:600;font-size:14px;padding:8px 10px;border-radius:8px;margin-bottom:6px">${esc(i)}</li>`).join('')
+                      : '<li style="color:var(--muted)">Nothing flagged Red, Yellow, or failed</li>'}</ul></section>`;
+    SECTIONS.forEach(s => {
+      if (!s.always && !heat) return;
+      const fields = s.fields.filter(f => !['Customer', 'Building', 'RTU'].includes(f.k));
+      if (!fields.length) return;
+      html += `<section class="card"><h2>${esc(s.title)}</h2>${fields.map(f => `<div class="kv"><span class="k">${esc(f.k)}</span>${chipFor(f, String(r[f.k] ?? ''))}</div>`).join('')}</section>`;
+    });
+    if (!heat) html += '<section class="card"><div class="hint" style="font-size:14px">Unit has no heat — heat checks were skipped.</div></section>';
+    $('detailView').innerHTML = html;
+    $('backBtn').onclick = () => showView('report');
+    $('editBtn').onclick = () => startEdit(r);
+    showView('detail');
+  }
+
+  // ---- Edit: load a saved check into the same form techs use ----
+  function setFieldValue(f, v) {
+    v = v == null ? '' : String(v);
+    switch (f.t) {
+      case 'seg': form.querySelectorAll(`input[type=radio][name="${CSS.escape(f.k)}"]`).forEach(r => r.checked = r.value === v); break;
+      case 'combo': setCustomer(v); break;
+      case 'qtySize': {
+        const m = /^(.*?)\s*×\s*(.*)$/.exec(v);
+        const q = m ? m[1].trim() : '', sz = m ? m[2].trim() : v;
+        el(f.k + '__qty').value = q === '?' ? '' : q;
+        el(f.k + '__size').value = sz === '?' ? '' : sz;
+        break;
+      }
+      case 'other': {
+        const sel = el(f.k);
+        if (!v) sel.value = '';
+        else if (f.opts.includes(v)) sel.value = v;
+        else { sel.value = '__other'; el(f.k + '__other').value = v; }
+        break;
+      }
+      default: el(f.k).value = v;
+    }
+  }
+
+  function startEdit(r) {
+    editing = { rec: r };
+    form.reset();
+    SECTIONS.forEach(s => s.fields.forEach(f => setFieldValue(f, r[f.k])));
+    $('nowOut').textContent = `Editing check by ${r.Technician} · ${r['Date / Time']}`;
+    applyVisibility();
+    showView('form');
+  }
+
+  function leaveEdit() {
+    editing = null;
+    form.reset();
+    $('nowOut').textContent = 'Stamped when you submit';
+    const d = store.get(KEYS.draft, null);
+    if (d) restore(d); else setCustomer(store.get(KEYS.lastCustomer, ''));
+    applyVisibility();
+  }
+
+  async function saveEdit() {
+    const record = {}, heat = hasHeat();
+    SECTIONS.forEach(s => s.fields.forEach(f => { record[f.k] = (s.always || heat) ? fieldValue(f) : ''; }));
+    if (!confirm(`Save changes?\n\n${unitLabel(record)}`)) return;
+    const id = editing.rec['Record ID'];
+    $('submitBtn').disabled = true; $('submitBtn').textContent = 'Saving…';
+    try {
+      const res = await api({ action: 'adminUpdate', pin: session.pin, id, record });
+      if (!res.ok) { toast(res.error === 'not_found' ? 'That check was deleted from the sheet' : 'Could not save changes', 4000); return; }
+      const i = dayRows.findIndex(x => x['Record ID'] === id);
+      if (i > -1) dayRows[i] = res.record || { ...dayRows[i], ...record };
+      leaveEdit();
+      renderDay($('repDate').value);
+      showDetail(id);
+      toast('Changes saved ✓');
+    } catch {
+      toast('No connection — changes not saved yet. Try again.', 4000);
+    } finally {
+      $('submitBtn').disabled = false; $('submitBtn').textContent = editing ? 'Save changes' : 'Submit';
+    }
+  }
+
   // ---------- Init ----------
   buildForm();
   const draft = store.get(KEYS.draft, null);
   if (draft) { restore(draft); applyVisibility(); } else freshForm();
   session = store.get(KEYS.session, null);
-  showView(!!session);
+  if (session && !session.role) session.role = 'tech';
+  showView(homeView());
+  if (isAdmin()) loadDay();
   updateBadge(); if (session) flush();
 })();
 </script>
