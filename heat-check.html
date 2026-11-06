@@ -67,7 +67,7 @@
   .seg input[value="Green"]:checked + span { background: var(--green); }
   .seg input[value="Yellow"]:checked + span { background: var(--yellow); }
   .seg input[value="Red"]:checked + span, .seg input[data-bad]:checked + span { background: var(--red); }
-  .seg input[value="Not Applicable"]:checked + span { background: var(--na); }
+  .seg input[value="Not Applicable"]:checked + span, .seg input[value="Direct Drive"]:checked + span { background: var(--na); }
   .seg input[value="Not Applicable"] + span { font-size: 13px; }
 
   #summary { list-style: none; margin: 0; padding: 0; }
@@ -212,15 +212,15 @@
     ]},
     { title: 'Belt & Blower', fields: [
       { k: 'Belt Size', t: 'text' },
-      { k: 'Belt Condition', t: 'seg', opts: GR },
+      { k: 'Belt Condition', t: 'seg', opts: [...GR, 'Direct Drive'] },
       { k: 'Blower Motor Run Capacitor', t: 'other', opts: ['5', '7.5', '10', '12.5', '15', '20', 'ECM/Direct Drive'], unit: 'mf' },
       { k: 'Blower Motor Run Capacitor Condition', t: 'seg', opts: [...GYR, NA] },
-      { k: 'Is Blower Wheel Clean', t: 'seg', opts: ['Yes', 'No'], bad: 'No' },
+      { k: 'Is Blower Wheel Clean', t: 'seg', opts: GYR },
       { k: 'Blower Motor Amp Draw', t: 'number', unit: 'A' },
     ]},
     { title: 'Inducer', fields: [
-      { k: 'Inducer Fan Motor 1 Run Capacitor Size', t: 'other', opts: ['3', '4', '5', '6'], unit: 'mf' },
-      { k: 'Inducer Fan Motor 1 Run Capacitor Condition', t: 'seg', opts: GYR },
+      { k: 'Inducer Fan Motor 1 Run Capacitor Size', t: 'other', opts: ['3', '4', '5', '6', NA], unit: 'mf' },
+      { k: 'Inducer Fan Motor 1 Run Capacitor Condition', t: 'seg', opts: [...GYR, NA] },
       { k: 'Inducer Fan Motor 2 Run Capacitor Size', t: 'other', opts: ['3', '4', '5', '6', NA], unit: 'mf' },
       { k: 'Inducer Fan Motor 2 Run Capacitor Condition', t: 'seg', opts: [...GYR, NA] },
     ]},
@@ -524,6 +524,12 @@
     if (e.target.name === 'Customer' || e.target.name === 'Customer__other') {
       const c = fieldValue(customerField());
       if (c && c !== '__other') store.set(KEYS.lastCustomer, c);
+    }
+    // Belt Condition = Direct Drive fills Belt Size; switching away clears it again
+    if (e.target.name === 'Belt Condition') {
+      const size = el('Belt Size');
+      if (e.target.value === 'Direct Drive') size.value = 'Direct Drive';
+      else if (size.value === 'Direct Drive') size.value = '';
     }
     applyVisibility(); saveDraft();
   });
@@ -848,7 +854,7 @@
   function chipFor(f, v) {
     if (!v) return '<span class="v" style="color:var(--muted);font-weight:400">—</span>';
     let cls = '';
-    if (['Green', 'Yellow', 'Red'].includes(v)) cls = v; else if (v === NA) cls = 'na'; else if (f.bad && v === f.bad) cls = 'bad';
+    if (['Green', 'Yellow', 'Red'].includes(v)) cls = v; else if (v === NA || v === 'Direct Drive') cls = 'na'; else if (f.bad && v === f.bad) cls = 'bad';
     return cls ? `<span class="v"><span class="chip ${cls}">${esc(v)}</span></span>` : `<span class="v">${esc(v)}${f.unit && /^[\d.]+$/.test(v) ? ' ' + f.unit : ''}</span>`;
   }
 
