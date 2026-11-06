@@ -450,10 +450,15 @@
     const d = new Date(), p = n => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
   }
+  // Works with either version of the Apps Script: older ones call the Notes column "Other Notes"
+  const fromSheet = r => { if (r && (r.Notes === undefined || r.Notes === '') && r['Other Notes']) r.Notes = r['Other Notes']; return r; };
+  const toSheet = rec => { rec['Other Notes'] = rec.Notes; return rec; };
+
   function collect() {
     const rec = { 'Date / Time': stamp(), 'Technician': session.name };
     const heat = hasHeat();
     SECTIONS.forEach(s => s.fields.forEach(f => { rec[f.k] = shown(s, f, heat) ? fieldValue(f) : ''; }));
+    toSheet(rec);
     return {
       id: crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(16).slice(2),
       pin: session.pin,
@@ -674,7 +679,7 @@
     try {
       const res = await api({ action: 'adminDay', pin: session.pin, date });
       if (!res.ok) { $('repBody').innerHTML = `<div class="empty">${res.error === 'bad_pin' ? 'Admin PIN no longer valid — log out and back in.' : 'Could not load report.'}</div>`; return; }
-      dayRows = res.rows;
+      dayRows = res.rows.map(fromSheet);
       renderDay(date);
     } catch {
       $('repBody').innerHTML = '<div class="empty">No connection — pull up again when you have signal.</div>';
@@ -763,7 +768,7 @@
     try {
       const res = await api({ action: 'adminRange', pin: session.pin, from: f.from, to: f.to });
       if (!res.ok) { toast('Could not build report', 4000); return null; }
-      const rows = res.rows
+      const rows = res.rows.map(fromSheet)
         .filter(r => (!f.cust || r.Customer === f.cust) && (!f.bldg || String(num(r.Building)) === f.bldg))
         .sort((a, b) => a['Date / Time'].slice(0, 10).localeCompare(b['Date / Time'].slice(0, 10)) ||
           a.Customer.localeCompare(b.Customer) || num(a.Building) - num(b.Building) || num(a.RTU) - num(b.RTU));
@@ -1040,6 +1045,7 @@
   async function saveEdit() {
     const record = {}, heat = hasHeat();
     SECTIONS.forEach(s => s.fields.forEach(f => { record[f.k] = shown(s, f, heat) ? fieldValue(f) : ''; }));
+    toSheet(record);
     if (!confirm(`Save changes?\n\n${unitLabel(record)}`)) return;
     const id = editing.rec['Record ID'];
     $('submitBtn').disabled = true; $('submitBtn').textContent = 'Saving…';
@@ -1047,7 +1053,7 @@
       const res = await api({ action: 'adminUpdate', pin: session.pin, id, record });
       if (!res.ok) { toast(res.error === 'not_found' ? 'That check was deleted from the sheet' : 'Could not save changes', 4000); return; }
       const i = dayRows.findIndex(x => x['Record ID'] === id);
-      if (i > -1) dayRows[i] = res.record || { ...dayRows[i], ...record };
+      if (i > -1) dayRows[i] = fromSheet(res.record || { ...dayRows[i], ...record });
       leaveEdit();
       renderDay($('repDate').value);
       showDetail(id);
