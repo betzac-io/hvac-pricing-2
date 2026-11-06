@@ -405,6 +405,15 @@
     $('summary').innerHTML = items.length
       ? items.map(i => `<li>${esc(i)}</li>`).join('')
       : '<li class="ok">Nothing flagged Red, Yellow, or failed</li>';
+    // Other Notes becomes required while anything Needs Attention
+    const need = items.length > 0, notes = el('Other Notes');
+    notes.closest('.field').querySelector('.lbl').innerHTML = 'Other Notes' + (need ? ' <span class="req">*</span>' : '');
+    notes.placeholder = need ? 'Required — describe what needs attention' : '';
+  }
+  // Same rule as the "Needs attention" list: Red, Yellow, or a failed answer
+  function notesRequired() {
+    const heat = hasHeat();
+    return SECTIONS.some(s => (s.always || heat) && s.fields.some(f => isFlagged(f, fieldValue(f))));
   }
 
   // ---------- Draft (survives app switching / dead screen) ----------
@@ -457,8 +466,14 @@
       const target = f.t === 'seg' ? form.querySelector(`.seg[aria-label="${CSS.escape(f.k)}"]`) : el(f.k);
       target.classList.add('invalid'); first = first || target;
     }));
-    if (first) { first.scrollIntoView({ behavior: 'smooth', block: 'center' }); toast('Fill in the required fields'); }
-    return !first;
+    if (first) { first.scrollIntoView({ behavior: 'smooth', block: 'center' }); toast('Fill in the required fields'); return false; }
+    if (notesRequired() && !el('Other Notes').value.trim()) {
+      const n = el('Other Notes');
+      n.classList.add('invalid'); n.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      toast('Other Notes is required when anything needs attention', 4000);
+      return false;
+    }
+    return true;
   }
 
   // Fields left blank (heat-only fields skipped on no-heat units)
