@@ -206,23 +206,23 @@
       { k: 'Does Unit have Heat?', t: 'seg', opts: ['Yes', 'No'], req: true },
     ]},
     { title: 'Filters', always: true, fields: [
+      { k: 'Filter Condition', t: 'seg', opts: ['Changed', 'Clean'] },
       { k: 'Filter Size 1', t: 'qtySize' },
       { k: 'Filter Size 2', t: 'qtySize' },
-      { k: 'Filter Condition', t: 'seg', opts: ['Changed', 'Clean'] },
     ]},
     { title: 'Belt & Blower', fields: [
-      { k: 'Belt Size', t: 'text' },
       { k: 'Belt Condition', t: 'seg', opts: [...GR, 'Direct Drive'] },
-      { k: 'Blower Motor Run Capacitor', t: 'other', opts: ['5', '7.5', '10', '12.5', '15', '20', 'ECM/Direct Drive'], unit: 'mf' },
+      { k: 'Belt Size', t: 'text' },
       { k: 'Blower Motor Run Capacitor Condition', t: 'seg', opts: [...GYR, NA] },
+      { k: 'Blower Motor Run Capacitor', t: 'other', opts: ['5', '7.5', '10', '12.5', '15', '20', 'ECM/Direct Drive'], unit: 'mf' },
       { k: 'Is Blower Wheel Clean', t: 'seg', opts: GYR },
       { k: 'Blower Motor Amp Draw', t: 'number', unit: 'A' },
     ]},
     { title: 'Inducer', fields: [
-      { k: 'Inducer Fan Motor 1 Run Capacitor Size', t: 'other', opts: ['3', '4', '5', '6', NA], unit: 'mf' },
       { k: 'Inducer Fan Motor 1 Run Capacitor Condition', t: 'seg', opts: [...GYR, NA] },
-      { k: 'Inducer Fan Motor 2 Run Capacitor Size', t: 'other', opts: ['3', '4', '5', '6', NA], unit: 'mf' },
+      { k: 'Inducer Fan Motor 1 Run Capacitor Size', t: 'other', opts: ['3', '4', '5', '6', NA], unit: 'mf' },
       { k: 'Inducer Fan Motor 2 Run Capacitor Condition', t: 'seg', opts: [...GYR, NA] },
+      { k: 'Inducer Fan Motor 2 Run Capacitor Size', t: 'other', opts: ['3', '4', '5', '6', NA], unit: 'mf' },
     ]},
     { title: 'Gas, Electrical & Safeties', fields: [
       { k: 'Gas Valve 1', t: 'seg', opts: GR },
@@ -525,12 +525,23 @@
       const c = fieldValue(customerField());
       if (c && c !== '__other') store.set(KEYS.lastCustomer, c);
     }
-    // Belt Condition = Direct Drive fills Belt Size; switching away clears it again
+    // Belt Condition = Direct Drive fills Belt Size and marks the blower cap ECM/Direct Drive + Not Applicable;
+    // switching away clears whatever was auto-filled (anything the tech typed or picked is left alone)
+    const CAP = 'Blower Motor Run Capacitor', CAP_COND = 'Blower Motor Run Capacitor Condition', DD = 'Direct Drive', ECM = 'ECM/Direct Drive';
+    const setRadio = (name, v) => form.querySelectorAll(`input[type=radio][name="${CSS.escape(name)}"]`).forEach(r => r.checked = r.value === v);
     if (e.target.name === 'Belt Condition') {
       const size = el('Belt Size');
-      if (e.target.value === 'Direct Drive') size.value = 'Direct Drive';
-      else if (size.value === 'Direct Drive') size.value = '';
+      if (e.target.value === DD) {
+        size.value = DD;
+        el(CAP).value = ECM;
+        setRadio(CAP_COND, NA);
+      } else {
+        if (size.value === DD) size.value = '';
+        if (el(CAP).value === ECM) { el(CAP).value = ''; if (radioVal(CAP_COND) === NA) setRadio(CAP_COND, ''); }
+      }
     }
+    // Picking ECM/Direct Drive for the blower cap marks its condition Not Applicable
+    if (e.target.name === CAP && e.target.value === ECM) setRadio(CAP_COND, NA);
     applyVisibility(); saveDraft();
   });
 
