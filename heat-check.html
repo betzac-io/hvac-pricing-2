@@ -245,10 +245,10 @@
       { k: 'Gas Valve 2', t: 'seg', opts: [...GR, NA] },
       { k: 'High Limit Condition', t: 'seg', opts: GR },
       { k: 'Safeties Condition', t: 'seg', opts: GR },
-      { k: 'Is Thermostat Working Properly', t: 'seg', opts: ['Yes', 'No'], bad: 'No' },
     ]},
-    { title: 'Notes', always: true, fields: [
-      { k: 'Other Notes', t: 'textarea' },
+    { title: 'Thermostat & Notes', always: true, fields: [
+      { k: 'Is Thermostat Working Properly', t: 'seg', opts: ['Yes', 'No'], bad: 'No', heatOnly: true },
+      { k: 'Notes', t: 'textarea' },
     ]},
   ];
   // ===========================================
@@ -354,7 +354,7 @@
   function buildForm() {
     form.innerHTML =
       `<div class="card"><div class="field" style="margin:0"><span class="lbl">Date / Time</span><div id="nowOut" class="hint" style="font-size:15px;color:inherit">Stamped when you submit</div></div></div>` +
-      SECTIONS.map((s, i) => `<section class="card" data-sec="${i}" ${s.always ? 'data-always' : ''}><h2>${esc(s.title)}</h2>${s.fields.map(fieldHTML).join('')}</section>`).join('') +
+      SECTIONS.map((s, i) => `<section class="card" data-sec="${i}" ${s.always ? 'data-always' : ''}><h2>${esc(s.title)}</h2>${s.fields.map(f => f.heatOnly ? `<div data-heat-only>${fieldHTML(f)}</div>` : fieldHTML(f)).join('')}</section>`).join('') +
       `<section class="card"><h2>Needs attention</h2><ul id="summary"></ul></section>`;
   }
 
@@ -384,6 +384,7 @@
   function applyVisibility() {
     const show = hasHeat();
     form.querySelectorAll('section[data-sec]:not([data-always])').forEach(s => { s.hidden = !show; });
+    form.querySelectorAll('[data-heat-only]').forEach(d => { d.hidden = !show; });
     form.querySelectorAll('select[data-other]').forEach(sel => {
       const other = sel.parentElement.querySelector('input');
       const on = sel.value === '__other';
@@ -392,30 +393,30 @@
     updateSummary();
   }
 
+  const shown = (s, f, heat) => heat || (s.always && !f.heatOnly);
   const isFlagged = (f, v) => !!v && (v === 'Red' || v === 'Yellow' || (f.bad && v === f.bad));
   function issuesFor(rec) {
     const items = [], heat = rec[HEAT] !== 'No';
-    SECTIONS.forEach(s => { if (s.always || heat) s.fields.forEach(f => { const v = String(rec[f.k] ?? ''); if (isFlagged(f, v)) items.push(`${f.k}: ${v}`); }); });
+    SECTIONS.forEach(s => { s.fields.forEach(f => { if (!shown(s, f, heat)) return; const v = String(rec[f.k] ?? ''); if (isFlagged(f, v)) items.push(`${f.k}: ${v}`); }); });
     return items;
   }
   function updateSummary() {
-    const items = [];
+    const items = [], heat = hasHeat();
     SECTIONS.forEach(s => {
-      if (!s.always && !hasHeat()) return;
-      s.fields.forEach(f => { const v = fieldValue(f); if (isFlagged(f, v)) items.push(`${f.k}: ${v}`); });
+      s.fields.forEach(f => { if (!shown(s, f, heat)) return; const v = fieldValue(f); if (isFlagged(f, v)) items.push(`${f.k}: ${v}`); });
     });
     $('summary').innerHTML = items.length
       ? items.map(i => `<li>${esc(i)}</li>`).join('')
       : '<li class="ok">Nothing flagged Red, Yellow, or failed</li>';
-    // Other Notes becomes required while anything Needs Attention
-    const need = items.length > 0, notes = el('Other Notes');
-    notes.closest('.field').querySelector('.lbl').innerHTML = 'Other Notes' + (need ? ' <span class="req">*</span>' : '');
+    // Notes becomes required while anything Needs Attention
+    const need = items.length > 0, notes = el('Notes');
+    notes.closest('.field').querySelector('.lbl').innerHTML = 'Notes' + (need ? ' <span class="req">*</span>' : '');
     notes.placeholder = need ? 'Required — describe what needs attention' : '';
   }
   // Same rule as the "Needs attention" list: Red, Yellow, or a failed answer
   function notesRequired() {
     const heat = hasHeat();
-    return SECTIONS.some(s => (s.always || heat) && s.fields.some(f => isFlagged(f, fieldValue(f))));
+    return SECTIONS.some(s => s.fields.some(f => shown(s, f, heat) && isFlagged(f, fieldValue(f))));
   }
 
   // ---------- Draft (survives app switching / dead screen) ----------
@@ -452,7 +453,7 @@
   function collect() {
     const rec = { 'Date / Time': stamp(), 'Technician': session.name };
     const heat = hasHeat();
-    SECTIONS.forEach(s => s.fields.forEach(f => { rec[f.k] = (s.always || heat) ? fieldValue(f) : ''; }));
+    SECTIONS.forEach(s => s.fields.forEach(f => { rec[f.k] = shown(s, f, heat) ? fieldValue(f) : ''; }));
     return {
       id: crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(16).slice(2),
       pin: session.pin,
@@ -469,23 +470,22 @@
       target.classList.add('invalid'); first = first || target;
     }));
     if (first) { first.scrollIntoView({ behavior: 'smooth', block: 'center' }); toast('Fill in the required fields'); return false; }
-    if (notesRequired() && !el('Other Notes').value.trim()) {
-      const n = el('Other Notes');
+    if (notesRequired() && !el('Notes').value.trim()) {
+      const n = el('Notes');
       n.classList.add('invalid'); n.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      toast('Other Notes is required when anything needs attention', 4000);
+      toast('Notes are required when anything needs attention', 4000);
       return false;
     }
     return true;
   }
 
   // Fields left blank (heat-only fields skipped on no-heat units)
-  const OPTIONAL = ['Other Notes', 'Filter Size 2'];   // never flagged as missing
+  const OPTIONAL = ['Notes', 'Filter Size 2'];   // never flagged as missing
   function missingFields() {
     const out = [], heat = hasHeat();
     SECTIONS.forEach(s => {
-      if (!s.always && !heat) return;
       s.fields.forEach(f => {
-        if (OPTIONAL.includes(f.k)) return;
+        if (!shown(s, f, heat) || OPTIONAL.includes(f.k)) return;
         const v = fieldValue(f);
         let target = null;
         if (f.t === 'qtySize') {
@@ -896,11 +896,16 @@
       rows.forEach(r => {
         const heat = r[HEAT] !== 'No';
         const body = [];
+        let skippedNoted = false;
         SECTIONS.forEach(s => {
-          if (!s.always && !heat) return;
-          const fields = s.fields.filter(x => !['Customer', 'Building', 'RTU', 'Other Notes'].includes(x.k));
-          if (!fields.length) return;
-          body.push([{ content: s.title.toUpperCase(), colSpan: 4, styles: { fillColor: COLORS.band, fontStyle: 'bold', fontSize: 7, textColor: COLORS.muted } }]);
+          if (!s.always && !heat) {
+            if (!skippedNoted) { skippedNoted = true; body.push([{ content: 'Unit has no heat — heat checks were skipped.', colSpan: 4, styles: { fontStyle: 'italic', textColor: COLORS.muted } }]); }
+            return;
+          }
+          const hasNotes = s.fields.some(x => x.k === 'Notes');
+          const fields = s.fields.filter(x => shown(s, x, heat) && !['Customer', 'Building', 'RTU', 'Notes'].includes(x.k));
+          if (!fields.length && !hasNotes) return;
+          body.push([{ content: s.title.toUpperCase(), colSpan: 4, styles: { fillColor: COLORS.band, fontStyle: 'bold', fontSize: 8.5, textColor: COLORS.ink } }]);
           // two fields per row; a field marked pdfRight always lands in the right-hand column
           let row = [];
           fields.forEach(x => {
@@ -909,9 +914,8 @@
             if (row.length === 4) { body.push(row); row = []; }
           });
           if (row.length) body.push([...row, '', '']);
+          if (hasNotes) body.push(['Notes', { content: r.Notes || '—', colSpan: 3, styles: r.Notes ? { textColor: COLORS.Red } : {} }]);
         });
-        if (!heat) body.push([{ content: 'Unit has no heat — heat checks were skipped.', colSpan: 4, styles: { fontStyle: 'italic', textColor: COLORS.muted } }]);
-        body.push(['Other Notes', { content: r['Other Notes'] || '—', colSpan: 3 }]);
         const fieldByKey = Object.fromEntries(SECTIONS.flatMap(s => s.fields.map(x => [x.k, x])));
         doc.autoTable({
           startY: y + 12, margin: { left: M, right: M }, pageBreak: 'avoid', rowPageBreak: 'avoid',
@@ -971,13 +975,18 @@
       <section class="card"><h2>Needs attention</h2><ul id="dsum" style="list-style:none;margin:0;padding:0">${
         issues.length ? issues.map(i => `<li style="background:var(--bad-bg);color:var(--red);font-weight:600;font-size:14px;padding:8px 10px;border-radius:8px;margin-bottom:6px">${esc(i)}</li>`).join('')
                       : '<li style="color:var(--muted)">Nothing flagged Red, Yellow, or failed</li>'}</ul></section>`;
+    let skippedNoted = false;
     SECTIONS.forEach(s => {
-      if (!s.always && !heat) return;
-      const fields = s.fields.filter(f => !['Customer', 'Building', 'RTU'].includes(f.k));
+      if (!s.always && !heat) {
+        if (!skippedNoted) { skippedNoted = true; html += '<section class="card"><div class="hint" style="font-size:14px">Unit has no heat — heat checks were skipped.</div></section>'; }
+        return;
+      }
+      const fields = s.fields.filter(f => shown(s, f, heat) && !['Customer', 'Building', 'RTU'].includes(f.k));
       if (!fields.length) return;
-      html += `<section class="card"><h2>${esc(s.title)}</h2>${fields.map(f => `<div class="kv"><span class="k">${esc(f.k)}</span>${chipFor(f, String(r[f.k] ?? ''))}</div>`).join('')}</section>`;
+      html += `<section class="card"><h2>${esc(s.title)}</h2>${fields.map(f => f.k === 'Notes'
+        ? `<div class="kv"><span class="k">Notes</span><span class="v" style="${r.Notes ? 'color:var(--red)' : 'color:var(--muted);font-weight:400'}">${esc(r.Notes || '—')}</span></div>`
+        : `<div class="kv"><span class="k">${esc(f.k)}</span>${chipFor(f, String(r[f.k] ?? ''))}</div>`).join('')}</section>`;
     });
-    if (!heat) html += '<section class="card"><div class="hint" style="font-size:14px">Unit has no heat — heat checks were skipped.</div></section>';
     $('detailView').innerHTML = html;
     $('backBtn').onclick = () => showView('report');
     $('editBtn').onclick = () => startEdit(r);
@@ -1030,7 +1039,7 @@
 
   async function saveEdit() {
     const record = {}, heat = hasHeat();
-    SECTIONS.forEach(s => s.fields.forEach(f => { record[f.k] = (s.always || heat) ? fieldValue(f) : ''; }));
+    SECTIONS.forEach(s => s.fields.forEach(f => { record[f.k] = shown(s, f, heat) ? fieldValue(f) : ''; }));
     if (!confirm(`Save changes?\n\n${unitLabel(record)}`)) return;
     const id = editing.rec['Record ID'];
     $('submitBtn').disabled = true; $('submitBtn').textContent = 'Saving…';
