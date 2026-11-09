@@ -325,7 +325,7 @@
 <script>
 // Paste the Apps Script web app URL (ends in /exec) between the quotes:
 window.FC_LIVE = true;
-window.FC_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxvxfIovytjYtC3DomlWZ03Wt6d6rNbbJEM8c3Rej0Y8xGV9vVlSaLUDTrQdctwi3lS/exec';
+window.FC_SCRIPT_URL = 'PASTE_FIELD_CHECKS_WEB_APP_URL_HERE';
 (() => {
   // LIVE when the page sets window.FC_LIVE (and FC_SCRIPT_URL, the Apps Script /exec URL); otherwise the sample-data prototype
   const LIVE = !!window.FC_LIVE;
@@ -1251,10 +1251,11 @@ window.FC_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxvxfIovytjYtC3D
         <div class="muted">${esc(S.visit.cust)} · ${esc(S.visit.bldg)}</div>
       </section>
       ${note('<b>Inspection = inventory.</b> Saving adds or updates the system on this building’s equipment list. Dropdowns come from the Lists (Admin → Lists). Model, serial and the location fields are optional but show in the incomplete warning.' + (CAN_READ ? ' <b>Try it:</b> photograph a real data plate in the Data plate slot and the label fields fill in.' : ''))}
+      <section class="card stack"><div class="sec-head" style="margin:0"><h2>Photos</h2><span class="shared">Data plate and whole unit are required</span></div>
+        ${CAN_READ ? '<div class="muted" style="font-size:13px">Start with the data plate: the fields below fill in from the label.</div>' : ''}<div class="photos" id="photos"></div></section>
       <section class="card ocr" id="ocr" hidden></section>
       <section class="card stack"><h2>System information</h2>${INSP.map(c => inspField(c, s[c.k])).join('')}</section>
-      <section class="card stack"><h2>Condition</h2>${INSP_COND.map(c => inspField(c, prev ? prev.answers[c.k] : s[c.k])).join('')}</section>
-      <section class="card stack"><div class="sec-head" style="margin:0"><h2>Photos</h2><span class="shared">Data plate and whole unit are required</span></div><div class="photos" id="photos"></div></section>`;
+      <section class="card stack"><h2>Condition</h2>${INSP_COND.map(c => inspField(c, prev ? prev.answers[c.k] : s[c.k])).join('')}</section>`;
     $('bot').innerHTML = `<div class="barbot"><div class="barbot-in"><button type="button" class="btn" data-act="back">Cancel</button><button type="button" class="btn primary" data-act="inspectSave">Save to equipment list</button></div></div>`;
     S.tagKey = null; S.dirty = false; S.iAttnManual = undefined; inspAuto(); drawPhotos();
   }
