@@ -215,6 +215,7 @@ select:focus,input:focus{border-color:var(--accent2);}
   <div class="tab" onclick="switchTab('repair')">Service Repair</div>
   <div class="tab" onclick="switchTab('commissions')">Commissions</div>
   <div class="tab" onclick="switchTab('heatcheck')">Heat Check</div>
+  <div class="tab" onclick="switchTab('fieldchecks')">Field Checks</div>
 </div>
 
 <!-- CALCULATOR TAB -->
@@ -258,6 +259,10 @@ select:focus,input:focus{border-color:var(--accent2);}
       <a href="heat-check.html" target="_blank" style="background:var(--accent);color:#fff;border:none;border-radius:10px;padding:14px 28px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;text-decoration:none;display:inline-block;">Open Heat Check →</a>
     </div>
   </div>
+</div>
+
+<!-- FIELD CHECKS TAB -->
+<div id="tab-fieldchecks" class="section">
   <div class="card">
     <div class="card-title">Field Checks</div>
     <div style="text-align:center;padding:20px 0;">
@@ -681,7 +686,7 @@ function setFieldStatus(id,ok,msg){
 
 // ─── TABS ─────────────────────────────────────────────────────────────────────
 function switchTab(tab){
-  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['calculator','quote','repair','commissions','heatcheck'][i]===tab));
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['calculator','quote','repair','commissions','heatcheck','fieldchecks'][i]===tab));
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
   if(tab==='quote') renderQuote();
