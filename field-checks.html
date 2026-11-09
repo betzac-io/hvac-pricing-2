@@ -311,10 +311,18 @@
   input[type=date] { min-width: 0; width: 100%; -webkit-appearance: none; appearance: none; }
   .flagchk input:disabled { opacity: 1; }
   .flagchk.auto-on { border-color: var(--red); background: var(--bad-bg); }
+  .qbadge { border: 0; border-radius: 999px; padding: 6px 10px; font-size: 12px; font-weight: 700; background: #fff3cd; color: #7a5600; cursor: pointer; white-space: nowrap; }
+  .qbadge.bad { background: #fff; color: var(--red); }
+  .qlist { list-style: none; padding: 0; margin: 10px 0; display: grid; gap: 8px; }
+  .qlist li { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+  .qerr { color: var(--red); font-size: 13px; }
+  .top .title strong, .top .title small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .top-in { gap: 8px; }
 </style></head><body>
 <header class="top"><div class="top-in">
   <button type="button" class="home" data-act="home" aria-label="Home: back to visit setup"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5M5.5 9.5V20h4.5v-6h4v6h4.5V9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg></button>
   <div class="title"><strong id="app-title">Field Checks</strong><small>Betz Heating &amp; Air</small></div>
+  <button type="button" class="qbadge" id="qbadge" data-act="queue" hidden></button>
   <span class="who" id="who" hidden></span>
 </div></header>
 
@@ -711,7 +719,7 @@ window.FC_LIVE = true;
       if (!visibleField(f, heat)) return; const v = rec.answers[f.id], sv = evaluate(f, v, get); if (sv) out.push({ t: issueText(f, v, get), s: sv, l: f.l }); }); });
     return dropAttn(out);
   }
-  const statusPill = rec => { const n = issuesOf(rec).length; return n ? `<span class="pill-bad">${n} issue${n > 1 ? 's' : ''}</span>` : '<span class="pill-ok">OK</span>'; };
+  const statusPill = rec => { if (rec.queued) return '<span class="pill-warn">Waiting to upload</span>'; const n = issuesOf(rec).length; return n ? `<span class="pill-bad">${n} issue${n > 1 ? 's' : ''}</span>` : '<span class="pill-ok">OK</span>'; };
 
 
   // =====================================================================
@@ -719,12 +727,14 @@ window.FC_LIVE = true;
   // =====================================================================
   const API = { pin: '', name: '', role: '' };
   const store = { get: k => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} } };
-  async function api(action, body = {}) {
+  async function api(action, body = {}, opt = {}) {
     if (!/^https:\/\//.test(window.FC_SCRIPT_URL || '')) { const e = new Error('The Apps Script URL is missing. Check that field-checks-config.js is uploaded next to field-checks.html and has the /exec URL.'); e.code = 'no_url'; throw e; }
-    let r;
-    try { r = await fetch(window.FC_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action, pin: API.pin, ...body }) }); }
-    catch { const e = new Error('No connection. Check your signal and try again.'); e.code = 'network'; throw e; }
-    let j; try { j = await r.json(); } catch { const e = new Error('The server sent an unexpected reply.'); e.code = 'bad_reply'; throw e; }
+    let r, j; const ctl = new AbortController(), timer = opt.timeout ? setTimeout(() => ctl.abort(), opt.timeout) : null;
+    try {
+      try { r = await fetch(window.FC_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action, pin: opt.pin || API.pin, ...body }), signal: ctl.signal }); }
+      catch { const e = new Error(ctl.signal.aborted ? 'The connection is too slow right now.' : 'No connection. Check your signal and try again.'); e.code = ctl.signal.aborted ? 'timeout' : 'network'; throw e; }
+      try { j = await r.json(); } catch { const e = new Error(ctl.signal.aborted ? 'The connection is too slow right now.' : 'The server sent an unexpected reply.'); e.code = ctl.signal.aborted ? 'timeout' : 'bad_reply'; throw e; }
+    } finally { if (timer) clearTimeout(timer); }
     if (!j.ok) { const e = new Error(j.message || ({ bad_pin: 'That PIN is not recognized.', admin_only: 'Admin only.' })[j.error] || j.error || 'Something went wrong.'); e.code = j.error; throw e; }
     return j;
   }
@@ -796,8 +806,9 @@ window.FC_LIVE = true;
       const j = await api('status', { customer: S.visit.cust, building: S.visit.bldg, checkType: S.visit.check });
       RECORDS.splice(0, RECORDS.length, ...RECORDS.filter(r => !(r.customer === S.visit.cust && r.building === S.visit.bldg && r.check === S.visit.check)));
       Object.values(j.done || {}).forEach(r => RECORDS.push(recFromRow(r)));
+      await qRefresh(); mergeQueued();
       S.statusKey = key;
-    } catch (e) { S.statusKey = key; toast('Could not load what is already done: ' + e.message, 5000); }
+    } catch (e) { S.statusKey = key; await qRefresh(); mergeQueued(); if (!QUEUE.length || !RETRYABLE.includes(e.code)) toast('Could not load what is already done: ' + e.message, 5000); else toast('No signal: showing what is saved on this phone', 3500); }
     finally { S.statusLoading = null; }
     if (S.role === 'tech' && S.view === 'visit' && statusKey() === key) render();
   }
@@ -807,14 +818,25 @@ window.FC_LIVE = true;
     Object.entries(j.settings || {}).forEach(([k, v]) => { if (SETTINGS[k] && v !== '' && !isNaN(Number(v))) SETTINGS[k].v = Number(v); });
     if (j.photoRules) PHOTO_RULES.splice(0, PHOTO_RULES.length, ...j.photoRules);
     SYSTEMS.splice(0, SYSTEMS.length, ...(j.systems || []).map(sysFromRow));
+    QUEUE.forEach(q => { const r = q.payload.system; if (r && !sysById(r['System ID'])) SYSTEMS.push(sysFromRow(r)); });
     CAN_READ = !!j.labelReader;
   }
   async function signIn(pin, quiet) {
     API.pin = pin;
     try {
-      const v = await api('verifyPin'); API.name = v.name; API.role = v.role;
-      applyBoot(await api('bootstrap'));
+      let v, boot;
+      try {
+        v = await api('verifyPin', {}, { timeout: 20000 }); boot = await api('bootstrap', {}, { timeout: 25000 });
+        store.set('fc_boot', JSON.stringify({ pin, v, boot }));
+      } catch (e) {   // no signal: open with the lists and systems saved from the last sign-in on this phone
+        let c = null; try { c = JSON.parse(store.get('fc_boot') || 'null'); } catch {}
+        if (!RETRYABLE.includes(e.code) || !c || c.pin !== pin) throw e;
+        v = c.v; boot = c.boot; setTimeout(() => toast('No signal: working from what was saved on this phone', 4000), 300);
+      }
+      API.name = v.name; API.role = v.role;
+      applyBoot(boot);
       store.set('fc_pin', pin);
+      await qRefresh(); setTimeout(() => flushQueue(), 500);
       S.role = v.role === 'admin' ? 'admin' : 'tech'; S.view = 'visit'; S.admin = 'report'; S.statusKey = null;
       const last = (() => { try { return JSON.parse(store.get('fc_visit') || 'null'); } catch { return null; } })();
       if (last && (LISTS['Customers'] || []).includes(last.cust)) Object.assign(S.visit, last);
@@ -842,6 +864,99 @@ window.FC_LIVE = true;
         <button type="button" class="btn" data-act="signout">Sign out</button>
         <button type="button" class="btn ghost" data-act="closeSheet">Close</button></div>`);
   }
+
+
+  // ---------------------------------------------------------------- UPLOAD QUEUE (weak / no signal)
+  // Every submit is stored on the phone first, then sent. If sending fails or takes too long it stays queued
+  // and is retried automatically (on sign-in, when signal returns, every minute, and after each save).
+  // The server ignores a Record ID it already has, so a retry never creates a duplicate row.
+  const RETRYABLE = ['network', 'timeout', 'bad_reply', 'server_error'];
+  const QDB = (() => {
+    let dbp = null;
+    const open = () => dbp || (dbp = new Promise((res, rej) => {
+      if (!window.indexedDB) return rej(new Error('no indexeddb'));
+      const r = indexedDB.open('field-checks', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('queue', { keyPath: 'id' });
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    }));
+    const tx = async (mode, fn) => { const db = await open(); return new Promise((res, rej) => { const t = db.transaction('queue', mode), st = t.objectStore('queue'); const out = fn(st); t.oncomplete = () => res(out && out.result); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error); }); };
+    return { put: it => tx('readwrite', st => st.put(it)), del: id => tx('readwrite', st => st.delete(id)), all: () => tx('readonly', st => st.getAll()) };
+  })();
+  let QUEUE = [];   // in-memory copy for drawing
+  async function qRefresh() { try { QUEUE = (await QDB.all()) || []; } catch { QUEUE = []; } QUEUE.sort((a, b) => a.queuedAt - b.queuedAt); drawBadge(); return QUEUE; }
+  function drawBadge() {
+    const b = $('qbadge'); if (!b) return;
+    const n = QUEUE.length, bad = QUEUE.filter(q => q.error).length;
+    b.hidden = !LIVE || !n; b.textContent = bad ? `⚠ ${n} not sent` : `⬆ ${n} waiting`; b.setAttribute('aria-label', bad ? `${n} saved checks could not be uploaded` : `${n} saved checks waiting to upload`); b.classList.toggle('bad', !!bad);
+  }
+  const sendTimeout = payload => 20000 + (payload.photos || []).filter(p => p.data).length * 4000;
+  // Store, then try to send. Returns { sent, queued, j } or throws for errors a retry will not fix.
+  async function submitQueued(payload, meta) {
+    const item = { id: payload.id, pin: API.pin, payload, meta: { ...meta, tech: API.name }, queuedAt: Date.now(), tries: 0 };
+    let stored = true;
+    try { await QDB.put(item); } catch { stored = false; }
+    if (stored) { QUEUE = QUEUE.filter(q => q.id !== item.id).concat(item); drawBadge(); }
+    if (navigator.onLine === false && stored) return { queued: true };
+    try {
+      const j = await api('submit', payload, { timeout: stored ? sendTimeout(payload) : 0 });
+      if (stored) { await QDB.del(item.id).catch(() => {}); await qRefresh(); }
+      flushQueue();
+      return { sent: true, j };
+    } catch (e) {
+      if (stored && RETRYABLE.includes(e.code)) return { queued: true };
+      if (stored) { await QDB.del(item.id).catch(() => {}); await qRefresh(); }
+      throw e;
+    }
+  }
+  // A newer save for the same system + check replaces one still waiting on the phone
+  async function supersede(systemId, check) {
+    const old = QUEUE.find(q => q.meta.systemId === systemId && q.meta.check === check);
+    if (!old) return null;
+    await QDB.del(old.id).catch(() => {}); await qRefresh();
+    return old;
+  }
+  let flushing = false;
+  async function flushQueue(manual) {
+    if (!LIVE || !API.pin || flushing) return;
+    await qRefresh(); if (!QUEUE.length) return;
+    flushing = true; let sent = 0, stuck = false;
+    for (const it of QUEUE.slice()) {
+      try {
+        await api('submit', it.payload, { timeout: sendTimeout(it.payload), pin: it.pin || API.pin });
+        await QDB.del(it.id); sent++;
+        const r = RECORDS.find(x => x.id === it.id); if (r) r.queued = false;
+      } catch (e) {
+        if (RETRYABLE.includes(e.code)) { stuck = true; break; }   // still no signal: try again later
+        it.error = e.message; it.tries++; await QDB.put(it).catch(() => {});   // the sheet refused it: needs a person
+      }
+    }
+    flushing = false; await qRefresh();
+    if (sent) { toast(`${sent} saved check${sent > 1 ? 's' : ''} uploaded`); if (S.role === 'tech' && S.view === 'visit') render(); }
+    else if (manual && stuck) toast('Still no connection. They will upload when you have signal.', 4000);
+  }
+  // Show queued checks on the system list even after a reload
+  function mergeQueued() {
+    QUEUE.forEach(q => {
+      const m = q.meta, sysRow = q.payload.system;
+      if (sysRow && !sysById(sysRow['System ID'])) SYSTEMS.push(sysFromRow(sysRow));
+      if (m.customer !== S.visit.cust || m.building !== S.visit.bldg || m.check !== S.visit.check) return;
+      const sys = sysById(m.systemId); if (!sys) return;
+      if (m.check === 'Inspection') { const next = sysFromRow(sysRow); Object.assign(sys, next); }
+      const rec = addRecord(sys, m.check, m.tech, new Date(q.queuedAt), m.answers, q.payload.photos.map(p => ({ url: p.data || '', fileId: p.fileId, tag: p.tag })), { id: q.id });
+      rec.queued = true;
+    });
+  }
+  function queueSheet() {
+    sheet(`<h3>Saved on this phone</h3>
+      <div class="muted">These checks upload by themselves when there is signal and the app is open.</div>
+      <ul class="qlist">${QUEUE.map(q => `<li><b>${esc(q.meta.label)}</b><span class="muted">${esc(CHECK_LABEL[q.meta.check] || q.meta.check)} · saved ${when(new Date(q.queuedAt))}</span>
+        ${q.error ? `<span class="qerr">Not accepted: ${esc(q.error)}</span><button type="button" class="linkbtn" data-act="qDrop" data-id="${esc(q.id)}">Remove this one</button>` : ''}</li>`).join('')}</ul>
+      <div class="sheet-actions"><button type="button" class="btn" data-act="closeSheet">Close</button><button type="button" class="btn primary" data-act="qTry">Upload now</button></div>`);
+  }
+  window.addEventListener('online', () => flushQueue());
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') flushQueue(); });
+  setInterval(() => { if (QUEUE.length) flushQueue(); }, 60000);
+  window.addEventListener('beforeunload', e => { if (S.busy) { e.preventDefault(); e.returnValue = ''; } });
 
   // =====================================================================
   //  RENDER ROOT
@@ -873,7 +988,7 @@ window.FC_LIVE = true;
       const ok = hasList(s.type, v.check), rec = ok && !insp && recFor(s.id, v.check);
       let right;
       if (!ok) right = `<span class="pill-off">${esc(whyNot(s.type, v.check))}</span>`;
-      else if (insp) right = doneOf(s) ? '<span class="pill-ok">Inventoried</span>' : (s === next ? '<span class="pill-next">Next</span>' : '<span class="pill-todo">Needs inventory</span>');
+      else if (insp) right = recFor(s.id, 'Inspection')?.queued ? '<span class="pill-warn">Waiting to upload</span>' : doneOf(s) ? '<span class="pill-ok">Inventoried</span>' : (s === next ? '<span class="pill-next">Next</span>' : '<span class="pill-todo">Needs inventory</span>');
       else right = rec ? statusPill(rec) : (s === next ? '<span class="pill-next">Next</span>' : '<span class="pill-todo">Not started</span>');
       const sub = rec ? `Checked ${tm(rec.time)} by ${esc(rec.tech)}${sysSub(s) ? ' · ' + esc(sysSub(s)) : ''}` : esc(sysSub(s) || 'No details yet');
       return `<button type="button" class="unit ${s === next ? 'is-next' : ''}" data-act="openSys" data-id="${s.id}" ${ok ? '' : 'disabled'}>
@@ -1163,16 +1278,20 @@ window.FC_LIVE = true;
       issues = dropAttn(issues).map(x => x.t);
       const { rec, cols } = toCols(sections, answers, heat);
       Object.assign(rec, { 'Customer': s.customer, 'Building': s.building, 'System ID': s.id, 'System Number': s.number, 'System Type': s.type, 'Heat Source': heat, 'Needs Attention': issues.join('; ') });
-      busy(true);
+      busy(true, S.editing ? 'Saving…' : 'Sending…');
       try {
         if (S.editing) {
           await api('adminUpdate', { checklist: S.editing.tab, id: S.editing.id, record: rec, columns: cols });
           if (answers.heatSource) s.heat = answers.heatSource;
         } else {
-          const prev = recFor(s.id, S.check), id = S.pendingId || (S.pendingId = uuid());
-          const j = await api('submit', { id, checklist: tabName(s.type, S.check), record: rec, columns: cols, photos: photoPayload(S.photos), system: sysToRow({ ...s, heat }), replaceId: prev ? prev.id : '' });
+          let prev = recFor(s.id, S.check); const id = S.pendingId || (S.pendingId = uuid());
+          const old = await supersede(s.id, S.check);
+          const replaceId = old ? old.payload.replaceId : prev && !prev.queued ? prev.id : '';
+          const res = await submitQueued({ id, checklist: tabName(s.type, S.check), record: rec, columns: cols, photos: photoPayload(S.photos), system: sysToRow({ ...s, heat }), replaceId },
+            { systemId: s.id, check: S.check, customer: s.customer, building: s.building, label: `System ${s.number} · ${s.type} · ${s.building}`, answers });
           s.heat = heat; S.pendingId = null;
-          addRecord(s, S.check, API.name, parseStamp(j.time), answers, S.photos.map(p => ({ ...p })), { id });
+          const nr = addRecord(s, S.check, API.name, res.j ? parseStamp(res.j.time) : new Date(), answers, S.photos.map(p => ({ ...p })), { id });
+          nr.queued = !!res.queued; S.queuedNow = !!res.queued;
           S.statusKey = statusKey();
         }
       } catch (e) { saveFailed(e); return; }
@@ -1187,6 +1306,7 @@ window.FC_LIVE = true;
     if (!LIVE) addRecord(s, S.check, 'Mike T', new Date(), answers, S.photos.slice());
     S.view = 'visit'; render(); window.scrollTo(0, 0);
     const nxt = document.querySelector('.unit.is-next .name');
+    if (LIVE && S.queuedNow) { S.queuedNow = false; toast(`No signal. System ${s.number} is saved on this phone and will upload when you have signal.`, 5000); return; }
     toast(`System ${s.number} saved${S.photos.length ? ` with ${S.photos.length} photo${S.photos.length > 1 ? 's' : ''}` : ''}${nxt ? ' · next up: ' + nxt.firstChild.textContent.trim() : ' · building complete'}`);
   }
 
@@ -1283,16 +1403,19 @@ window.FC_LIVE = true;
       busy(true);
       try {
         const prev = s && recFor(s.id, 'Inspection'), id = S.pendingId || (S.pendingId = uuid());
-        const j = await api('submit', { id, checklist: 'Inspection', isInventory: true, record: rec, columns: Object.keys(rec), photos: photoPayload(S.photos), system: sysToRow(next), replaceId: prev ? prev.id : '' });
-        saved = { id, time: parseStamp(j.time) }; S.pendingId = null;
+        const old = await supersede(next.id, 'Inspection');
+        const replaceId = old ? old.payload.replaceId : prev && !prev.queued ? prev.id : '';
+        const res = await submitQueued({ id, checklist: 'Inspection', isInventory: true, record: rec, columns: Object.keys(rec), photos: photoPayload(S.photos), system: sysToRow(next), replaceId },
+          { systemId: next.id, check: 'Inspection', customer: next.customer, building: next.building, label: `System ${next.number} · ${next.type} · ${next.building}`, answers: vals });
+        saved = { id, time: res.j ? parseStamp(res.j.time) : new Date(), queued: !!res.queued }; S.pendingId = null;
       } catch (e) { saveFailed(e); return; }
       busy(false);
     }
     if (isNew) { s = next; SYSTEMS.push(s); } else Object.assign(s, next);
     S.dirty = false;
-    addRecord(s, 'Inspection', LIVE ? API.name : 'Mike T', saved.time, vals, S.photos.map(p => ({ ...p })), { id: saved.id });
+    addRecord(s, 'Inspection', LIVE ? API.name : 'Mike T', saved.time, vals, S.photos.map(p => ({ ...p })), { id: saved.id }).queued = !!saved.queued;
     S.view = 'visit'; render(); window.scrollTo(0, 0);
-    toast(`System ${s.number} saved to ${S.visit.bldg}'s equipment list`);
+    toast(saved.queued ? `No signal. System ${s.number} is saved on this phone and will upload when you have signal.` : `System ${s.number} saved to ${S.visit.bldg}'s equipment list`, saved.queued ? 5000 : 2800);
   }
 
   // ---------------------------------------------------------------- PHOTOS
@@ -1580,12 +1703,19 @@ Rules: copy model and serial character for character and list any field with unr
       case 'cancelEdit': S.editing = null; S.admin = 'detail'; render(); window.scrollTo(0, 0); break;
       case 'preview': S.admin = 'preview'; render(); window.scrollTo(0, 0); break;
       case 'csv': csvDownload(); break;
+      case 'queue': qRefresh().then(queueSheet); break;
+      case 'qTry': $('sheet').innerHTML = ''; flushQueue(true); break;
+      case 'qDrop': { const id = t.dataset.id; sheet(`<h3>Remove this check?</h3><div class="warn">It has not been uploaded. Removing it deletes it from this phone for good.</div>
+        <div class="sheet-actions"><button type="button" class="btn" data-act="queue">Keep it</button><button type="button" class="btn primary" data-act="qDropYes" data-id="${esc(id)}">Remove</button></div>`); break; }
+      case 'qDropYes': QDB.del(t.dataset.id).then(qRefresh).then(() => { const r = RECORDS.find(x => x.id === t.dataset.id); if (r) RECORDS.splice(RECORDS.indexOf(r), 1); render(); toast('Removed'); }); break;
       case 'print': window.print(); break;
       case 'signin': { const p = $('pin').value.trim(); if (!p) return; t.disabled = true; t.textContent = 'Signing in…'; signIn(p); break; }
       case 'who': whoMenu(); break;
       case 'switchRole': S.role = S.role === 'admin' ? 'tech' : 'admin'; S.view = 'visit'; S.admin = 'report'; S.editing = null; render(); window.scrollTo(0, 0); break;
       case 'reload': { $('sheet').innerHTML = ''; toast('Reloading…'); api('bootstrap').then(j => { applyBoot(j); S.statusKey = null; S.adminKey = null; render(); toast('Lists and systems reloaded'); }).catch(e => toast(e.message, 5000)); break; }
-      case 'signout': store.set('fc_pin', null); Object.assign(API, { pin: '', name: '', role: '' }); RECORDS.length = 0; S.adminRecs = []; S.view = 'login'; render(); break;
+      case 'signout': if (QUEUE.length && !t.dataset.ok) { sheet(`<h3>Checks are still waiting to upload</h3><div class="warn">${QUEUE.length} saved check${QUEUE.length > 1 ? 's have' : ' has'} not uploaded yet. They stay on this phone and upload the next time someone signs in here.</div>
+        <div class="sheet-actions"><button type="button" class="btn" data-act="closeSheet">Stay signed in</button><button type="button" class="btn primary" data-act="signout" data-ok="1">Sign out</button></div>`); break; }
+        store.set('fc_pin', null); store.set('fc_boot', null); Object.assign(API, { pin: '', name: '', role: '' }); RECORDS.length = 0; S.adminRecs = []; S.view = 'login'; render(); break;
       case 'listDel': LISTS[t.dataset.k].splice(+t.dataset.i, 1); render(); break;
       case 'listAdd': { const inp = $('add-' + t.dataset.k.replace(/\s/g, '_')), v = inp.value.trim(); if (!v) return; const L = LISTS[t.dataset.k];
         if (L.some(x => x.toLowerCase() === v.toLowerCase())) { toast(v + ' is already on the list'); return; } L.push(v); sortLists(); render(); toast('Added ' + v); break; }
