@@ -322,10 +322,9 @@
 <div id="bot"></div>
 <div id="sheet"></div>
 <div id="toast" role="status" aria-live="polite"></div>
+<script src="field-checks-config.js"></script>
 <script>
-// Paste the Apps Script web app URL (ends in /exec) between the quotes:
 window.FC_LIVE = true;
-window.FC_SCRIPT_URL = 'PASTE_FIELD_CHECKS_WEB_APP_URL_HERE';
 (() => {
   // LIVE when the page sets window.FC_LIVE (and FC_SCRIPT_URL, the Apps Script /exec URL); otherwise the sample-data prototype
   const LIVE = !!window.FC_LIVE;
@@ -721,7 +720,7 @@ window.FC_SCRIPT_URL = 'PASTE_FIELD_CHECKS_WEB_APP_URL_HERE';
   const API = { pin: '', name: '', role: '' };
   const store = { get: k => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} } };
   async function api(action, body = {}) {
-    if (!/^https:\/\//.test(window.FC_SCRIPT_URL || '')) { const e = new Error('The Apps Script URL has not been pasted into field-checks.html yet.'); e.code = 'no_url'; throw e; }
+    if (!/^https:\/\//.test(window.FC_SCRIPT_URL || '')) { const e = new Error('The Apps Script URL is missing. Check that field-checks-config.js is uploaded next to field-checks.html and has the /exec URL.'); e.code = 'no_url'; throw e; }
     let r;
     try { r = await fetch(window.FC_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action, pin: API.pin, ...body }) }); }
     catch { const e = new Error('No connection. Check your signal and try again.'); e.code = 'network'; throw e; }
