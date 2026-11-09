@@ -320,6 +320,7 @@
   .top-in { gap: 8px; }
   .na-val { padding: 10px 12px; border-radius: 10px; background: var(--chip); color: var(--muted); font-size: 14px; }
   #part-wrap .seg label { flex: 1 1 30%; }
+  .reports .hint { font-size: 12.5px; }
 </style></head><body>
 <header class="top"><div class="top-in">
   <button type="button" class="home" data-act="home" aria-label="Home: back to visit setup"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5M5.5 9.5V20h4.5v-6h4v6h4.5V9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg></button>
@@ -700,7 +701,7 @@ window.FC_LIVE = true;
   //  STATE & UTILITIES
   // =====================================================================
   const S = { role: 'tech', view: LIVE ? 'login' : 'visit', visit: { cust: LIVE ? '' : 'Redstone', bldg: LIVE ? '' : 'Building 1', check: 'Heating' }, extraBldgs: {}, adminRecs: [], sys: null, sections: [], fmap: {}, photos: [], admin: 'report',
-    af: { cust: '', check: '', bldg: '' }, rec: null, custVersion: true, addOpen: false, editing: null };
+    af: { cust: '', check: '', bldg: '' }, ex: { cust: '', bldg: '', check: '', from: '', to: '' }, rec: null, custVersion: true, addOpen: false, editing: null };
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const tm = d => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -1648,8 +1649,8 @@ Rules: copy model and serial character for character and list any field with unr
     finally { S.adminLoading = null; }
     if (S.role === 'admin' && S.admin === 'report') render();
   }
-  function csvDownload() {
-    const rows = filtered(); if (!rows.length) { toast('No checks to download'); return; }
+  function csvDownload(rows, tag) {
+    if (!rows.length) { toast('No checks match the report filters'); return; }
     const lead = ['Date / Time', 'Technician', 'Customer', 'Building', 'System Number', 'System Type', 'Check', 'Heat Source', 'Needs Attention'];
     const cols = [...lead], data = rows.map(r => {
       const s = sysById(r.systemId), o = { 'Date / Time': ymd(r.time) + ' ' + r.time.toTimeString().slice(0, 5), 'Technician': r.tech, 'Customer': r.customer, 'Building': r.building,
@@ -1661,7 +1662,146 @@ Rules: copy model and serial character for character and list any field with unr
     const q = v => { v = String(v ?? ''); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
     const csv = [cols.map(q).join(','), ...data.map(o => cols.map(c => q(o[c])).join(','))].join('\r\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv' }));
-    a.download = `field-checks-${S.af.from || ymd(new Date())}${S.af.to && S.af.to !== S.af.from ? '-to-' + S.af.to : ''}.csv`; document.body.appendChild(a); a.click(); a.remove();
+    a.download = `field-checks-${tag}.csv`; document.body.appendChild(a); a.click(); a.remove();
+    toast(`Exported ${rows.length} check${rows.length > 1 ? 's' : ''}`);
+  }
+
+  // ---------------------------------------------------------------- REPORTS CARD (exports, with their own filters)
+  const PDF_LIBS = ['https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js'];
+  const loadScript = src => new Promise((ok, fail) => { if (document.querySelector(`script[src="${src}"]`)) return ok(); const t = document.createElement('script'); t.src = src; t.onload = ok; t.onerror = fail; document.head.appendChild(t); });
+  function saveBlob(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
+  const exTag = () => { const e = S.ex; return [e.cust, e.bldg, e.check, e.from === e.to ? e.from : `${e.from}-to-${e.to}`].filter(Boolean).join('-').replace(/[^\w-]+/g, '-').toLowerCase(); };
+  const exLabel = () => { const e = S.ex, d = x => new Date(x + 'T12:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    return [e.cust || 'All customers', e.bldg, e.check ? CHECK_LABEL[e.check] : 'All checks', e.from === e.to ? d(e.from) : `${d(e.from)} – ${d(e.to)}`].filter(Boolean).join(' · '); };
+  function reportsCard() {
+    const e = S.ex; e.from ||= ymd(new Date()); e.to ||= e.from;
+    const custs = [...new Set([...(LISTS['Customers'] || []), ...SYSTEMS.map(x => x.customer)])].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+    const bldgs = e.cust ? buildingsOf(e.cust) : [];
+    return `<section class="card stack reports"><h2>Reports</h2>
+      <div class="grid2"><label class="fl">Customer<select data-ex="cust"><option value="">All customers</option>${custs.map(c => `<option ${c === e.cust ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>
+        <label class="fl">Building<select data-ex="bldg" ${e.cust ? '' : 'disabled'}><option value="">All buildings</option>${bldgs.map(b => `<option ${b === e.bldg ? 'selected' : ''}>${esc(b)}</option>`).join('')}</select></label></div>
+      <label class="fl">Check type<select data-ex="check"><option value="">All checks</option>${CHECKS.map(c => `<option value="${c}" ${c === e.check ? 'selected' : ''}>${CHECK_LABEL[c]}</option>`).join('')}</select></label>
+      <div class="grid2"><label class="fl">From<input type="date" data-ex="from" value="${e.from}"></label><label class="fl">To<input type="date" data-ex="to" value="${e.to}"></label></div>
+      <div class="grid2"><button type="button" class="btn primary" data-act="pdf">Download PDF</button><button type="button" class="btn primary" data-act="custpdf">Customer PDF</button></div>
+      <button type="button" class="btn" data-act="csv">Download CSV</button>
+      <div class="hint">PDF: summary plus every system's details and photos. Customer PDF: the same without technician names, with issue photos only. CSV: one row per check for Excel / Google Sheets.</div></section>`;
+  }
+  async function exportRows() {
+    const e = S.ex; let recs;
+    if (LIVE) {
+      const j = await api('adminRange', { from: e.from <= e.to ? e.from : e.to, to: e.from <= e.to ? e.to : e.from });
+      (j.systems || []).forEach(r => { const x = sysFromRow(r), cur = sysById(x.id); if (cur) Object.assign(cur, x); else SYSTEMS.push(x); });
+      recs = (j.rows || []).map(recFromRow);
+    } else recs = RECORDS.slice();
+    return recs.filter(r => (!e.cust || r.customer === e.cust) && (!e.bldg || r.building === e.bldg) && (!e.check || r.check === e.check))
+      .sort((a, b) => a.customer.localeCompare(b.customer) || a.building.localeCompare(b.building, undefined, { numeric: true }) || byNum(sysById(a.systemId).number, sysById(b.systemId).number) || a.time - b.time);
+  }
+  async function runExport(btn, kind) {
+    if (btn.disabled) return; const label = btn.textContent; btn.disabled = true; btn.textContent = 'Building…';
+    try {
+      const rows = await exportRows();
+      if (kind === 'csv') csvDownload(rows, exTag());
+      else await buildPdf(rows, kind === 'custpdf', btn);
+    } catch (err) { console.error(err); toast(err.message && err.code ? err.message : 'Could not build the report. Check your connection and try again.', 4500); }
+    finally { btn.disabled = false; btn.textContent = label; }
+  }
+  async function logoData() {
+    try { const blob = await (await fetch('logo.png')).blob(); if (!/image/.test(blob.type)) return null;
+      const url = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); });
+      const img = await new Promise((r, x) => { const i = new Image(); i.onload = () => r(i); i.onerror = x; i.src = url; }); return { url, w: img.width, h: img.height }; } catch { return null; }
+  }
+  const imgSize = url => new Promise(r => { const i = new Image(); i.onload = () => r({ w: i.width, h: i.height }); i.onerror = () => r(null); i.src = url; });
+  const PC = { green: [26, 127, 55], yellow: [184, 134, 11], red: [192, 38, 28], brand: [179, 38, 30], ink: [29, 36, 51], muted: [102, 112, 133], band: [238, 240, 243] };
+  // forCustomer: no technician names, issue photos only
+  async function buildPdf(rows, forCustomer, btn) {
+    if (!rows.length) { toast('No checks match the report filters'); return; }
+    btn.textContent = 'Loading photos…';
+    const photosOf = r => (forCustomer ? r.photos.filter(p => p.tag.startsWith('Issue:')) : r.photos);
+    if (LIVE) await ensurePhotos(rows.flatMap(photosOf));
+    btn.textContent = 'Building PDF…';
+    for (const src of PDF_LIBS) await loadScript(src);
+    const doc = new window.jspdf.jsPDF({ unit: 'pt', format: 'letter' });
+    const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 40;
+    let y = M;
+    const checks = [...new Set(rows.map(r => r.check))];
+    const title = checks.length === 1 ? ({ Cooling: 'Cooling Maintenance', Heating: 'Heating Maintenance', Filters: 'Filter Change', Inspection: 'Equipment Inspection' })[checks[0]] + ' Report' : 'Field Check Report';
+    const logo = await logoData();
+    if (logo) { const h = 40, w = h * logo.w / logo.h; doc.addImage(logo.url, 'PNG', M, y, w, h); }
+    const tx = logo ? M + 52 : M;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.setTextColor(...PC.ink); doc.text(title, tx, y + 16);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(...PC.muted); doc.text('Betz Heating & Air', tx, y + 32);
+    y += 58; doc.setFontSize(11); doc.setTextColor(...PC.ink); doc.text(exLabel(), M, y); y += 16;
+    const iss = new Map(rows.map(r => [r, issuesOf(r)]));
+    const stats = [['Systems checked', rows.length], ['With issues', rows.filter(r => iss.get(r).length).length],
+      ['Filters changed', rows.filter(r => r.answers.filterCond === 'Changed').length], ['No-heat systems', rows.filter(r => (r.answers.heatSource || '') === 'None').length]];
+    const bw = (W - 2 * M - 30) / 4;
+    stats.forEach(([l, n], i) => { const x = M + i * (bw + 10);
+      doc.setFillColor(...PC.band); doc.roundedRect(x, y, bw, 46, 4, 4, 'F');
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.setTextColor(...(i === 1 && n ? PC.red : PC.ink)); doc.text(String(n), x + 10, y + 22);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...PC.muted); doc.text(l.toUpperCase(), x + 10, y + 37); });
+    y += 62;
+    const multiCust = new Set(rows.map(r => r.customer)).size > 1, multiCheck = checks.length > 1;
+    const sev = new Map();
+    doc.autoTable({
+      startY: y, margin: { left: M, right: M },
+      head: [[...(multiCust ? ['Customer'] : []), 'Date', 'Bldg', 'System', 'Type', ...(multiCheck ? ['Check'] : []), ...(forCustomer ? [] : ['Technician']), 'Age', 'Needs attention']],
+      body: rows.map(r => { const s = sysById(r.systemId), list = iss.get(r); const txt = list.map(x => x.t).join('\n') || 'OK'; sev.set(txt, list);
+        return [...(multiCust ? [r.customer] : []), ymd(r.time), r.building.replace(/^Building\s+/i, ''), s.number + (s.suite ? `\nSuite ${s.suite}` : ''), TYPE_SHORT[s.type] || s.type,
+          ...(multiCheck ? [r.check] : []), ...(forCustomer ? [] : [r.tech]), sysAge(s) != null ? sysAge(s) + ' yrs' : '—', txt]; }),
+      styles: { fontSize: 8, cellPadding: 4, textColor: PC.ink }, headStyles: { fillColor: PC.brand, textColor: 255 }, alternateRowStyles: { fillColor: [249, 250, 251] },
+      didParseCell: d => { if (d.section === 'body' && d.column.index === d.table.columns.length - 1) { d.cell.styles.textColor = d.cell.raw === 'OK' ? PC.green : PC.red; d.cell.styles.fontStyle = 'bold'; } },
+      willDrawCell: d => { if (d.section !== 'body' || d.column.index !== d.table.columns.length - 1 || d.cell.raw === 'OK') return; d.cell._lines = d.cell.text; d.cell.text = []; },
+      didDrawCell: d => {   // each issue in its own color: yellow items yellow, the rest red
+        const lines = d.cell._lines; if (!lines) return;
+        const list = sev.get(d.cell.raw) || [], fs = d.cell.styles.fontSize, lh = fs * doc.getLineHeightFactor(), x = d.cell.x + d.cell.padding('left');
+        let yy = d.cell.y + d.cell.padding('top'), idx = 0, acc = '';
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(fs);
+        lines.forEach(line => { const it = list[idx]; doc.setTextColor(...(it && it.s === 'yellow' ? PC.yellow : PC.red)); doc.text(line, x, yy, { baseline: 'top' }); yy += lh;
+          acc = acc ? acc + ' ' + line : line; if (it && acc.trim() === it.t.trim()) { idx++; acc = ''; } });
+      },
+    });
+    doc.addPage(); y = M;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(...PC.ink); doc.text('System details', M, y); y += 10;
+    for (const r of rows) {
+      const s = sysById(r.systemId), body = [], cls = {};
+      answerSections(r).forEach(([t, items]) => {
+        const notes = items.filter(i => i[2] === 'notes'), rest = items.filter(i => i[2] !== 'notes');
+        body.push([{ content: t.toUpperCase(), colSpan: 4, styles: { fillColor: PC.band, fontStyle: 'bold', fontSize: 8.5, textColor: PC.ink } }]);
+        for (let i = 0; i < rest.length; i += 2) {
+          const a = rest[i], b = rest[i + 1], row = [a[0], a[1] && a[1] !== NA ? a[1] : '—', b ? b[0] : '', b ? (b[1] && b[1] !== NA ? b[1] : '—') : ''];
+          cls[body.length] = [a[2], b && b[2]]; body.push(row);
+        }
+        notes.forEach(n => body.push(['Notes', { content: n[1] || '—', colSpan: 3, styles: n[1] ? { textColor: PC.red } : {} }]));
+      });
+      doc.autoTable({
+        startY: y + 12, margin: { left: M, right: M }, pageBreak: 'avoid', rowPageBreak: 'avoid',
+        head: [[{ content: `${r.customer} — ${r.building}, System ${s.number} · ${s.type}${s.suite ? ' · Suite ' + s.suite : ''}`, colSpan: 2, styles: { halign: 'left' } },
+          { content: `${CHECK_LABEL[r.check]} · ${forCustomer ? '' : r.tech + ' · '}${ymd(r.time)} ${tm(r.time)}`, colSpan: 2, styles: { halign: 'right', fontStyle: 'normal' } }]],
+        body, styles: { fontSize: 8, cellPadding: 3, textColor: PC.ink, lineColor: [222, 226, 230], lineWidth: 0.5 }, headStyles: { fillColor: PC.ink, textColor: 255 },
+        columnStyles: { 0: { cellWidth: 150, textColor: PC.muted }, 1: { cellWidth: 116, fontStyle: 'bold' }, 2: { cellWidth: 150, textColor: PC.muted }, 3: { fontStyle: 'bold' } },
+        didParseCell: d => { if (d.section !== 'body' || (d.column.index !== 1 && d.column.index !== 3)) return; const c = (cls[d.row.index] || [])[d.column.index === 1 ? 0 : 1];
+          if (c === 'red' || c === 'yellow' || c === 'green') d.cell.styles.textColor = PC[c]; },
+      });
+      y = doc.lastAutoTable.finalY;
+      const ph = photosOf(r).filter(p => p.url);
+      if (ph.length) {   // photos under the system, three across
+        const gw = (W - 2 * M - 20) / 3, gh = gw * 0.75;
+        y += 8; if (y + gh + 20 > H - 40) { doc.addPage(); y = M; }
+        for (let i = 0; i < ph.length; i++) {
+          const col = i % 3; if (col === 0 && i) { y += gh + 22; if (y + gh + 20 > H - 40) { doc.addPage(); y = M; } }
+          const x = M + col * (gw + 10), sz = await imgSize(ph[i].url);
+          let w = gw, h = gh; if (sz) { const k = Math.min(gw / sz.w, gh / sz.h); w = sz.w * k; h = sz.h * k; }
+          try { doc.addImage(ph[i].url, 'JPEG', x + (gw - w) / 2, y + (gh - h) / 2, w, h); } catch {}
+          doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...PC.muted); doc.text(ph[i].tag.replace(/^Issue: /, ''), x, y + gh + 10, { maxWidth: gw });
+        }
+        y += gh + 16;
+      }
+    }
+    const n = doc.getNumberOfPages(), made = new Date().toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+    for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...PC.muted);
+      doc.text(`Betz Heating & Air · ${title} · Generated ${made}`, M, H - 20); doc.text(`Page ${i} of ${n}`, W - M, H - 20, { align: 'right' }); }
+    saveBlob(doc.output('blob'), `${title.toLowerCase().replace(/\s+/g, '-')}-${exTag()}${forCustomer ? '-customer' : ''}.pdf`);
+    toast(`PDF ready: ${rows.length} system${rows.length > 1 ? 's' : ''}`);
   }
   const filtered = () => (LIVE ? S.adminRecs : RECORDS).filter(r => (!S.af.cust || r.customer === S.af.cust) && (!S.af.bldg || r.building === S.af.bldg) && (!S.af.check || r.check === S.af.check));
   function renderReport() {
@@ -1673,7 +1813,7 @@ Rules: copy model and serial character for character and list any field with unr
     const custs = [...new Set([...SYSTEMS.map(s => s.customer), ...(LIVE ? S.adminRecs.map(r => r.customer) : [])])].sort(), bldgs = S.af.cust ? buildingsOf(S.af.cust) : [];
     $('app').innerHTML = `
       ${adminTabs('report')}
-      ${note('<b>One report for every system type and check type.</b> Filter, tap a system for details and edits, or preview the customer PDF.')}
+      ${note('<b>One report for every system type and check type.</b> The list is for looking up and editing checks; the Reports card at the bottom downloads PDFs and CSVs with its own filters.')}
       <section class="card stack">
         <div class="grid2"><label class="fl">Customer<select data-af="cust"><option value="">All customers</option>${custs.map(c => `<option ${c === S.af.cust ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>
           <label class="fl">Building<select data-af="bldg" ${S.af.cust ? '' : 'disabled'}><option value="">All buildings</option>${bldgs.map(b => `<option ${b === S.af.bldg ? 'selected' : ''}>${esc(b)}</option>`).join('')}</select></label></div>
@@ -1689,8 +1829,7 @@ Rules: copy model and serial character for character and list any field with unr
         <button type="button" class="unit" data-act="openRec" data-id="${r.id}"><span class="name">System ${esc(s.number)} ${typeChip(s.type)}</span>
           <span class="sub">${CHECK_LABEL[r.check]}${r.answers.heatSource ? ' · ' + esc(r.answers.heatSource) : ''} · ${esc(r.tech)} · ${when(r.time)}${r.photos.length ? ` · ${r.photos.length} photo${r.photos.length > 1 ? 's' : ''}` : ''}</span>
           <span class="right">${statusPill(r)}<span class="chev">›</span></span></button>`; }).join('')}`).join('')}</section>`).join('') || '<section class="card muted">No checks match these filters.</section>'}
-      <section class="card stack"><h2>Reports</h2><div class="grid2"><button type="button" class="btn primary" data-act="preview">PDF report</button><button type="button" class="btn" data-act="csv">Download CSV</button></div>
-        <div class="muted">PDF report opens the internal or customer version; tap Save as PDF there. Both use the filters above.</div></section>`;
+      ${reportsCard()}`;
     if (loading) loadAdmin();
   }
   // System info grouped the way the inventory screen shows it (split systems by component)
@@ -1834,7 +1973,9 @@ Rules: copy model and serial character for character and list any field with unr
       case 'editRec': openCheck(S.rec.systemId, S.rec); break;
       case 'cancelEdit': S.editing = null; S.admin = 'detail'; render(); window.scrollTo(0, 0); break;
       case 'preview': S.admin = 'preview'; render(); window.scrollTo(0, 0); break;
-      case 'csv': csvDownload(); break;
+      case 'csv': runExport(t, 'csv'); break;
+      case 'pdf': runExport(t, 'pdf'); break;
+      case 'custpdf': runExport(t, 'custpdf'); break;
       case 'queue': qRefresh().then(queueSheet); break;
       case 'qTry': $('sheet').innerHTML = ''; flushQueue(true); break;
       case 'qDrop': { const id = t.dataset.id; sheet(`<h3>Remove this check?</h3><div class="warn">It has not been uploaded. Removing it deletes it from this phone for good.</div>
@@ -1866,6 +2007,7 @@ Rules: copy model and serial character for character and list any field with unr
     if (t.dataset.visit) { if (t.value === '__new') { sheet(`<h3>New building</h3><label class="fl">Building name<input id="new-bldg" placeholder="e.g. Building 3"></label><div class="sheet-actions"><button type="button" class="btn" data-act="closeSheet">Cancel</button><button type="button" class="btn primary" id="new-bldg-go">Add</button></div>`);
         $('new-bldg-go').onclick = () => { const b = $('new-bldg').value.trim(); if (!b) return; (S.extraBldgs[S.visit.cust] ||= []).push(b); S.visit.bldg = b; $('sheet').innerHTML = ''; render(); }; t.value = S.visit.bldg; return; }
       S.visit[t.dataset.visit] = t.value; render(); return; }
+    if (t.dataset.ex) { S.ex[t.dataset.ex] = t.value; if (t.dataset.ex === 'cust') S.ex.bldg = ''; if (['cust', 'bldg'].includes(t.dataset.ex)) render(); return; }
     if (t.dataset.af) { S.af[t.dataset.af] = t.value; if (t.dataset.af === 'cust') S.af.bldg = ''; render(); return; }
     if (t.dataset.setting) { SETTINGS[t.dataset.setting].v = Number(t.value); toast('Threshold updated'); return; }
     if (t.id === 'cust-version') { S.custVersion = t.checked; render(); return; }
