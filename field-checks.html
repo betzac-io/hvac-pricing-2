@@ -1,0 +1,1635 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#b3261e"><title>Field Checks</title><style>
+
+  /* Layout: one phone-width app column (centered on desktop) under a thin prototype control bar. */
+  :root {
+    --bg: #eef0f3; --card: #ffffff; --ink: #1c2230; --muted: #667085; --line: #d6dae1; --chip: #eceff3;
+    --brand: #b3261e; --brand-ink: #ffffff; --proto: #243040; --proto-ink: #e8edf3;
+    --green: #1a7f37; --yellow: #a87503; --red: #c0261c; --na: #6b7280;
+    --ok-bg: #e7f4eb; --warn-bg: #fbf3df; --bad-bg: #fcebea; --paper: #ffffff; --paper-ink: #1c2230;
+    --t-rtu: #475569; --t-sgas: #c2410c; --t-selec: #9a6a00; --t-hp: #0f766e; --t-uh: #7c3aed; --t-mini: #2563eb; --t-ref: #0e7490;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #0e1116; --card: #181c24; --ink: #e7e9ee; --muted: #9aa3b2; --line: #2e3542; --chip: #232936;
+    --brand: #c8382f; --proto: #070a0e; --proto-ink: #d7dde6;
+    --green: #3fb767; --yellow: #d9a52e; --red: #ef5a4f; --na: #8b93a1;
+    --ok-bg: #13291b; --warn-bg: #33290f; --bad-bg: #3b1a17; --paper: #f7f7f5; --paper-ink: #1c2230;
+    --t-rtu: #94a3b8; --t-sgas: #fb923c; --t-selec: #facc15; --t-hp: #2dd4bf; --t-uh: #a78bfa; --t-mini: #60a5fa; --t-ref: #22d3ee;
+    color-scheme: dark } }
+  :root[data-theme="dark"] {
+    --bg: #0e1116; --card: #181c24; --ink: #e7e9ee; --muted: #9aa3b2; --line: #2e3542; --chip: #232936;
+    --brand: #c8382f; --proto: #070a0e; --proto-ink: #d7dde6;
+    --green: #3fb767; --yellow: #d9a52e; --red: #ef5a4f; --na: #8b93a1;
+    --ok-bg: #13291b; --warn-bg: #33290f; --bad-bg: #3b1a17; --paper: #f7f7f5; --paper-ink: #1c2230;
+    --t-rtu: #94a3b8; --t-sgas: #fb923c; --t-selec: #facc15; --t-hp: #2dd4bf; --t-uh: #a78bfa; --t-mini: #60a5fa; --t-ref: #22d3ee;
+    color-scheme: dark }
+
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font: 16px/1.4 var(--font); }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--proto); }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+  /* Prototype bar */
+  .proto { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 6; background: var(--proto); color: var(--proto-ink);
+    padding-block: 8px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .proto-in { max-width: 560px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 13px; }
+  .proto-tag { font-weight: 700; letter-spacing: .06em; text-transform: uppercase; font-size: 11px; opacity: .8; margin-right: auto; }
+  .toggle { display: inline-flex; background: rgba(255,255,255,.08); border-radius: 999px; padding: 3px; gap: 2px; }
+  .toggle button { border: 0; background: none; color: inherit; padding: 5px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .toggle button.on { background: var(--proto-ink); color: var(--proto); }
+  .chk { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  .chk input { accent-color: var(--brand); width: 16px; height: 16px; }
+
+  /* App header */
+  .top { background: var(--brand); color: var(--brand-ink);
+    padding-block: 12px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .top-in { max-width: 560px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .top strong { display: block; font-size: 18px; }
+  .top small { opacity: .85; font-size: 12px; }
+  .who { font-size: 13px; font-weight: 600; background: rgba(255,255,255,.18); padding: 5px 11px; border-radius: 999px; white-space: nowrap; }
+
+  main { max-width: 560px; margin: 0 auto; padding-block: 12px 120px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 12px; }
+  .note { font-size: 13px; color: var(--muted); border-left: 3px solid var(--line); padding: 2px 0 2px 10px; }
+  .note b { color: var(--ink); }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-width: 0; }
+  h2 { margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--brand); }
+  h3 { margin: 0; font-size: 19px; text-wrap: balance; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 380px) { .grid2 { grid-template-columns: 1fr; } }
+  label.fl, .fl { display: grid; gap: 5px; font-size: 13px; font-weight: 600; color: var(--muted); min-width: 0; }
+  input:not([type=radio]):not([type=checkbox]), select, textarea { width: 100%; min-height: 44px; padding: 9px 10px; border: 1px solid var(--line);
+    border-radius: 8px; background: var(--card); color: var(--ink); font-size: 16px; font-weight: 400; }
+  textarea { min-height: 88px; resize: vertical; }
+  .stack { display: grid; gap: 12px; }
+
+  /* Segmented buttons */
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+  .seg label { flex: 1 1 0; min-width: 64px; position: relative; }
+  .seg input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+  .seg span { display: flex; align-items: center; justify-content: center; text-align: center; min-height: 44px; padding: 4px 8px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--chip); font-weight: 600; font-size: 14px; line-height: 1.15; }
+  .seg input:focus-visible + span { outline: 2px solid var(--brand); outline-offset: 1px; }
+  .seg input:checked + span { color: #fff; border-color: transparent; background: var(--ink); }
+  .seg input:checked + span { color: var(--card); }
+  .seg input:checked[data-tone="green"] + span { background: var(--green); color: #fff; }
+  .seg input:checked[data-tone="yellow"] + span { background: var(--yellow); color: #fff; }
+  .seg input:checked[data-tone="red"] + span { background: var(--red); color: #fff; }
+  .seg input:checked[data-tone="na"] + span { background: var(--na); color: #fff; }
+  .seg.big span { min-height: 50px; font-size: 15px; }
+  .seg button { flex: 1 1 0; min-height: 48px; border: 1px solid var(--line); border-radius: 8px; background: var(--chip); font-weight: 700; cursor: pointer; }
+  .seg button.on { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); }
+
+  /* Chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+    background: var(--chip); color: var(--muted); white-space: nowrap; }
+  .type { --tc: var(--t-rtu); color: var(--tc); background: color-mix(in srgb, var(--tc) 14%, var(--card)); }
+  .type::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--tc); }
+  .type[data-t="Split Gas System"] { --tc: var(--t-sgas); } .type[data-t="Split Electric System"] { --tc: var(--t-selec); }
+  .type[data-t="Heat Pump"] { --tc: var(--t-hp); } .type[data-t="Unit Heater"] { --tc: var(--t-uh); }
+  .type[data-t="Mini-Split"] { --tc: var(--t-mini); } .type[data-t="Refrigeration"] { --tc: var(--t-ref); }
+  .pill-ok, .pill-bad, .pill-warn, .pill-todo, .pill-next, .pill-off { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+  .pill-ok { background: var(--ok-bg); color: var(--green); } .pill-bad { background: var(--bad-bg); color: var(--red); }
+  .pill-warn { background: var(--warn-bg); color: var(--yellow); } .pill-todo { background: var(--chip); color: var(--muted); }
+  .pill-next { background: var(--brand); color: var(--brand-ink); } .pill-off { background: transparent; color: var(--muted); font-weight: 600; }
+
+  /* Unit list */
+  .list-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+  .progress { height: 6px; border-radius: 999px; background: var(--chip); overflow: hidden; margin-bottom: 6px; }
+  .progress i { display: block; height: 100%; background: var(--green); border-radius: 999px; }
+  .unit { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 10px; width: 100%; text-align: left;
+    background: none; border: 0; border-top: 1px solid var(--line); padding: 12px 2px; cursor: pointer; color: inherit; }
+  .unit:disabled { cursor: default; opacity: .55; }
+  .unit .name { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 16px; min-width: 0; flex-wrap: wrap; }
+  .unit .sub { grid-column: 1; font-size: 13px; color: var(--muted); }
+  .unit .right { grid-row: 1 / span 2; grid-column: 2; display: flex; align-items: center; gap: 6px; }
+  .unit.is-next { background: color-mix(in srgb, var(--brand) 6%, transparent); border-radius: 8px; }
+  .chev { color: var(--muted); font-size: 20px; line-height: 1; }
+
+  .btn { border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 10px; min-height: 46px; padding: 0 16px; font-weight: 700; cursor: pointer; }
+  .btn.primary { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
+  .btn.ghost { background: transparent; border-style: dashed; color: var(--muted); width: 100%; margin-top: 10px; }
+  .btn.sm { min-height: 36px; padding: 0 12px; font-size: 14px; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .linkbtn { background: none; border: 0; color: var(--brand); font-weight: 700; padding: 4px 0; cursor: pointer; }
+
+  /* Checklist */
+  .check-head { display: grid; gap: 6px; }
+  .jump { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+  .jump::-webkit-scrollbar { display: none; }
+  .jump button { flex: none; border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .jump button .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--line); margin-right: 6px; vertical-align: middle; }
+  .jump button.done .dot { background: var(--green); } .jump button.flag .dot { background: var(--red); }
+  .sec-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .shared { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+  .shared b { color: var(--ink); font-weight: 700; }
+  .field { display: grid; gap: 6px; margin-bottom: 14px; }
+  .field:last-child { margin-bottom: 0; }
+  .field > .fl { color: var(--ink); font-size: 14px; }
+  .req { color: var(--red); }
+  .hint { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .row-qty { display: grid; grid-template-columns: 88px 1fr; gap: 8px; }
+  .row-amp { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+  .unit-in { position: relative; }
+  .unit-in input { padding-right: 46px; }
+  .unit-in em { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-style: normal; color: var(--muted); font-size: 14px; pointer-events: none; }
+  .invalid { outline: 2px solid var(--red); outline-offset: 2px; border-radius: 8px; }
+  #na-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  #na-list li, .issue { font-size: 14px; font-weight: 600; padding: 8px 10px; border-radius: 8px; background: var(--bad-bg); color: var(--red); }
+  #na-list li.y, .issue.y { background: var(--warn-bg); color: var(--yellow); }
+  #na-list li.none { background: var(--chip); color: var(--muted); font-weight: 500; }
+
+  .barbot { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; background: var(--card); border-top: 1px solid var(--line);
+    padding-top: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .barbot-in { max-width: 560px; margin: 0 auto; display: flex; gap: 10px; align-items: center; }
+  .barbot-in .btn.primary { flex: 1; }
+  .barbot .count { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 92px; }
+
+  /* Sheet (in-page confirm) */
+  .scrim { position: fixed; inset: 0; z-index: 20; background: rgba(10, 14, 20, .45); display: flex; align-items: flex-end; justify-content: center; }
+  .sheet { background: var(--card); width: 100%; max-width: 560px; border-radius: 16px 16px 0 0; display: grid; gap: 12px;
+    padding-top: 18px; padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    padding-left: max(18px, env(safe-area-inset-left, 0px)); padding-right: max(18px, env(safe-area-inset-right, 0px)); max-height: 85vh; overflow: auto; }
+  .sheet h3 { font-size: 18px; }
+  .sheet ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 14px; display: grid; gap: 2px; }
+  .sheet .warn { background: var(--warn-bg); color: var(--yellow); font-weight: 700; padding: 8px 10px; border-radius: 8px; font-size: 14px; }
+  .sheet .stop { background: var(--bad-bg); color: var(--red); font-weight: 700; padding: 8px 10px; border-radius: 8px; font-size: 14px; }
+  .sheet-actions { display: flex; gap: 10px; } .sheet-actions .btn { flex: 1; }
+
+  /* Admin */
+  .tabs { display: flex; gap: 4px; background: var(--chip); border-radius: 10px; padding: 4px; }
+  .tabs button { flex: 1; border: 0; background: none; border-radius: 7px; padding: 9px; font-weight: 700; color: var(--muted); cursor: pointer; }
+  .tabs button.on { background: var(--card); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+  .tile b { display: block; font-size: 24px; font-variant-numeric: tabular-nums; }
+  .tile span { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+  .tile.alert b { color: var(--red); }
+  .cust-h { font-size: 17px; font-weight: 800; margin: 2px 0 4px; }
+  .bldg-h { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 10px; }
+  .kv { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
+  .kv .k { color: var(--muted); } .kv .v { font-weight: 700; text-align: right; }
+  .v.green { color: var(--green); } .v.yellow { color: var(--yellow); } .v.red, .v.notes { color: var(--red); } .v.na { color: var(--muted); font-weight: 400; }
+  .list-ed { display: grid; gap: 8px; }
+  .list-ed .chips .chip { font-size: 13px; padding: 5px 6px 5px 11px; color: var(--ink); }
+  .list-ed .chip button { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 15px; line-height: 1; padding: 0 4px; }
+  .add-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+
+  /* Report preview (paper) */
+  .paper { background: var(--paper); color: var(--paper-ink); border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,.18), 0 10px 30px -12px rgba(0,0,0,.25);
+    padding: 22px 18px; font-size: 12px; min-width: 0; }
+  .paper h4 { margin: 0; font-size: 18px; }
+  .paper .ph { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; border-bottom: 2px solid #b3261e; padding-bottom: 10px; margin-bottom: 12px; }
+  .paper .co { font-weight: 800; color: #b3261e; font-size: 13px; }
+  .paper .meta { color: #5b6473; font-size: 11.5px; }
+  .paper .ptiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; }
+  .paper .ptiles div { background: #eef0f3; border-radius: 4px; padding: 6px 8px; }
+  .paper .ptiles b { display: block; font-size: 16px; } .paper .ptiles span { font-size: 9px; text-transform: uppercase; color: #5b6473; font-weight: 700; }
+  .ptable-wrap { overflow-x: auto; margin-bottom: 14px; }
+  .paper table { width: 100%; border-collapse: collapse; min-width: 440px; }
+  .paper th { background: #b3261e; color: #fff; text-align: left; padding: 5px 6px; font-size: 10.5px; }
+  .paper td { padding: 5px 6px; border-bottom: 1px solid #e3e6ea; vertical-align: top; }
+  .paper td .r { color: #c0261c; font-weight: 700; display: block; } .paper td .y { color: #a87503; font-weight: 700; display: block; } .paper td .ok { color: #1a7f37; font-weight: 700; }
+  .punit { border: 1px solid #dfe3e8; margin-bottom: 10px; }
+  .punit .uh { background: #1c2230; color: #fff; display: flex; justify-content: space-between; gap: 8px; padding: 5px 8px; font-weight: 700; font-size: 11.5px; flex-wrap: wrap; }
+  .punit .uh span { font-weight: 400; }
+  .punit .band { background: #eef0f3; font-weight: 800; font-size: 10px; letter-spacing: .04em; padding: 3px 8px; text-transform: uppercase; }
+  .punit .pgrid { display: grid; grid-template-columns: 1fr 1fr; }
+  .punit .pkv { display: flex; justify-content: space-between; gap: 6px; padding: 3px 8px; border-top: 1px solid #eef0f3; font-size: 10.5px; }
+  .punit .pkv span:first-child { color: #5b6473; } .punit .pkv b.green { color: #1a7f37; } .punit .pkv b.yellow { color: #a87503; } .punit .pkv b.red { color: #c0261c; }
+  .punit .pnotes { padding: 4px 8px; border-top: 1px solid #eef0f3; font-size: 10.5px; color: #c0261c; font-weight: 700; }
+  @media (max-width: 420px) { .punit .pgrid { grid-template-columns: 1fr; } .paper .ptiles { grid-template-columns: repeat(2, 1fr); } }
+
+  /* Photos */
+  .photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
+  .ph-item { position: relative; border-radius: 8px; overflow: hidden; background: var(--chip); border: 1px solid var(--line); display: grid; min-width: 0; }
+  .ph-item img { display: block; width: 100%; max-width: 100%; aspect-ratio: 1; object-fit: cover; cursor: zoom-in; }
+  .ph-item select { min-height: 34px; font-size: 12px; padding: 4px 6px; border: 0; border-top: 1px solid var(--line); border-radius: 0; }
+  .ph-item .cap { font-size: 11.5px; font-weight: 600; padding: 5px 7px; border-top: 1px solid var(--line); color: var(--ink); line-height: 1.25; }
+  .ph-item .x { position: absolute; top: 4px; right: 4px; width: 28px; height: 28px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; font-size: 16px; line-height: 1; cursor: pointer; }
+  .ph-item .kb { position: absolute; left: 4px; top: 4px; font-size: 10.5px; font-weight: 700; background: rgba(0,0,0,.6); color: #fff; padding: 2px 6px; border-radius: 999px; }
+  .addph { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; aspect-ratio: 1;
+    border: 1.5px dashed var(--line); border-radius: 8px; color: var(--muted); font-weight: 700; font-size: 13px; cursor: pointer; text-align: center; padding: 6px; }
+  .addph:hover { border-color: var(--brand); color: var(--brand); }
+  .addph b { font-size: 26px; line-height: 1; font-weight: 400; }
+  .addph input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  .addph:focus-within { outline: 2px solid var(--brand); outline-offset: 2px; }
+  .fphoto { justify-self: start; font-size: 13.5px; }
+  .lb { align-items: center; padding: 16px; flex-direction: column; gap: 10px; }
+  .lb img { max-width: 100%; max-height: 75vh; border-radius: 8px; }
+  .lb .cap { color: #fff; font-weight: 600; font-size: 14px; text-align: center; }
+  .auto { border-color: var(--green) !important; box-shadow: 0 0 0 2px color-mix(in srgb, var(--green) 30%, transparent); }
+  .auto.unsure { border-color: var(--yellow) !important; box-shadow: 0 0 0 2px color-mix(in srgb, var(--yellow) 35%, transparent); }
+  .ocr { border-color: color-mix(in srgb, var(--green) 45%, var(--line)); background: color-mix(in srgb, var(--green) 6%, var(--card)); display: grid; gap: 8px; }
+  .ocr.busy { border-color: var(--line); background: var(--card); }
+  .ocr.err { border-color: color-mix(in srgb, var(--red) 40%, var(--line)); background: var(--bad-bg); }
+  .ocr .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+  .ocr .extra { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: 13.5px; }
+  .ocr .extra dt { color: var(--muted); } .ocr .extra dd { margin: 0; font-weight: 700; }
+  .ocr .unsure-msg { background: var(--warn-bg); color: var(--yellow); font-weight: 700; font-size: 13.5px; padding: 6px 9px; border-radius: 8px; }
+  .spin { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid var(--line); border-top-color: var(--brand); animation: spin .8s linear infinite; flex: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .readlbl { border: 0; border-top: 1px solid var(--line); background: var(--brand); color: var(--brand-ink); font-weight: 700; font-size: 12.5px; min-height: 34px; cursor: pointer; }
+  .pphotos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 6px 8px 8px; border-top: 1px solid #eef0f3; }
+  .pphotos figure { margin: 0; min-width: 0; } .pphotos img { display: block; width: 100%; max-width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 3px; }
+  .pphotos figcaption { font-size: 9.5px; color: #5b6473; margin-top: 2px; }
+  #toast { position: fixed; left: 50%; bottom: calc(88px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 30;
+    background: var(--ink); color: var(--card); padding: 10px 16px; border-radius: 10px; font-weight: 600; font-size: 14px; max-width: 90vw; text-align: center;
+    opacity: 0; pointer-events: none; transition: opacity .2s; }
+  #toast.show { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+  .seg.four button, .seg.four { }
+  .seg.small span { min-height: 38px; font-size: 14px; }
+  .seg.wrap label { flex: 1 1 30%; }
+  .type[data-t="RTU"] { --tc: var(--t-rtu); }
+  .type[data-t="Residential Split System"] { --tc: var(--t-sgas); }
+  .type[data-t="Commercial Split System"] { --tc: var(--t-selec); }
+  .type[data-t="Unit Heater"] { --tc: var(--t-uh); }
+  .type[data-t="Mini-Split"] { --tc: var(--t-mini); }
+  .type[data-t="Refrigeration"] { --tc: var(--t-ref); }
+  .draft-tag { font-size: 13px; color: var(--yellow); background: var(--warn-bg); border-radius: 8px; padding: 6px 10px; }
+  .chip.draft { background: var(--warn-bg); color: var(--yellow); }
+  .shared.hs { background: var(--chip); }
+  .sec-head .tags { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+  .fl.sm { font-size: 13px; gap: 4px; }
+  .cap-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; }
+  .cap-row .fl { min-width: 0; }
+  .cap-out { font-size: 13px; font-weight: 700; padding: 6px 8px; border-radius: 8px; white-space: nowrap; align-self: end; min-height: 0; }
+  .cap-out:empty { padding: 0; }
+  .cap-out.green { background: var(--ok-bg); color: var(--green); }
+  .cap-out.yellow { background: var(--warn-bg); color: var(--yellow); }
+  .cap-out.red { background: var(--bad-bg); color: var(--red); }
+  #dummy{}
+  [id$="-dout"] { display: flex; flex-wrap: wrap; gap: 6px; }
+  .sublbl { font-size: 13px; font-weight: 600; color: var(--muted); margin-top: 4px; }
+  .na-chk { white-space: nowrap; }
+  .calc { font-size: 22px; font-weight: 700; padding: 8px 12px; border-radius: 10px; background: var(--chip); justify-self: start; min-width: 90px; text-align: center; }
+  .calc.green { background: var(--ok-bg); color: var(--green); }
+  .calc.yellow { background: var(--warn-bg); color: var(--yellow); }
+  .calc.red { background: var(--bad-bg); color: var(--red); }
+  .v.yellow { color: var(--yellow); font-weight: 700; } .v.red { color: var(--red); font-weight: 700; } .v.na { color: var(--na); } .v.notes { color: var(--red); white-space: pre-wrap; }
+  .jump button.flag .dot { background: var(--red); }
+  .req-photo { color: var(--red) !important; font-weight: 700; }
+  .addph.req { border-color: var(--red); color: var(--red); }
+  .addph small { display: block; font-size: 11px; font-weight: 700; }
+  .paper td span.y { color: #a87503; display: block; } .paper td span.r { color: #c0261c; display: block; } .paper td span.ok { color: #1a7f37; }
+  .punit .pkv b.yellow { color: #a87503; } .punit .pkv b.red { color: #c0261c; } .punit .pkv b.green { color: #1a7f37; }
+  .row-set { display: grid; grid-template-columns: 1fr 90px; align-items: center; gap: 10px; }
+  .grid3 { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .rule { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  [hidden] { display: none !important; }
+  .paper td:last-child { min-width: 200px; } .paper th:last-child { min-width: 200px; }
+  .top .title { flex: 1; min-width: 0; }
+  .top .home { display: grid; place-items: center; width: 44px; height: 44px; margin-left: -8px; border: 0; border-radius: 12px; background: rgba(255,255,255,.14); color: inherit; cursor: pointer; }
+  .top .home:hover { background: rgba(255,255,255,.24); }
+  .top .home:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  .flagchk { align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 15px; }
+  .flagchk input { width: 22px; height: 22px; flex: none; margin-top: 1px; accent-color: var(--red); }
+  .flagchk:has(input:checked) { border-color: var(--red); background: var(--bad-bg); }
+  .field > span.fl { display: block; }
+  .loading-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; }
+  .login { max-width: 380px; margin: 24px auto 0; width: 100%; }
+  .login input { font-size: 22px; letter-spacing: .2em; text-align: center; }
+  .login-msg { color: var(--red); font-size: 14px; min-height: 1em; }
+  .who[data-act] { cursor: pointer; }
+  @media print {
+    .proto, .top, #bot, #sheet, #toast, .noprint, .tabs, .note { display: none !important; }
+    body, html { background: #fff !important; }
+    main, .paper { padding: 0 !important; max-width: none !important; width: 100% !important; margin: 0 !important; }
+    .paper table { width: 100% !important; }
+    .paper { box-shadow: none !important; border: 0 !important; padding: 0 !important; }
+    .ptable-wrap { overflow: visible !important; }
+    .punit { break-inside: avoid-page; }
+    .pphotos figure { break-inside: avoid; }
+  }
+  input[type=date] { min-width: 0; width: 100%; -webkit-appearance: none; appearance: none; }
+  .flagchk input:disabled { opacity: 1; }
+  .flagchk.auto-on { border-color: var(--red); background: var(--bad-bg); }
+</style></head><body>
+<header class="top"><div class="top-in">
+  <button type="button" class="home" data-act="home" aria-label="Home: back to visit setup"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5M5.5 9.5V20h4.5v-6h4v6h4.5V9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg></button>
+  <div class="title"><strong id="app-title">Field Checks</strong><small>Betz Heating &amp; Air</small></div>
+  <span class="who" id="who" hidden></span>
+</div></header>
+
+<main id="app"></main>
+<div id="bot"></div>
+<div id="sheet"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script>
+// Paste the Apps Script web app URL (ends in /exec) between the quotes:
+window.FC_LIVE = true;
+window.FC_SCRIPT_URL = 'PASTE_FIELD_CHECKS_WEB_APP_URL_HERE';
+(() => {
+  // LIVE when the page sets window.FC_LIVE (and FC_SCRIPT_URL, the Apps Script /exec URL); otherwise the sample-data prototype
+  const LIVE = !!window.FC_LIVE;
+  const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id-' + Date.now().toString(36) + Math.random().toString(36).slice(2));
+  // =====================================================================
+  //  FIELD LIBRARY
+  // =====================================================================
+  const NA = 'Not Applicable';
+  const GYR = ['Green', 'Yellow', 'Red'], GB = ['Good', 'Bad'];
+  const HEATED = ['Gas', 'Electric', 'Heat Pump'];
+  const n_ = (n, i) => (n > 1 ? ' ' + i : '');
+
+  // Field types: seg, list (dropdown + other, from a list), qty, num (number, optional N/A), text, textarea,
+  // cap (rated + reading, auto condition), outcap (single/dual outdoor run capacitor), calc (temperature split)
+  const F = {
+    heat: opts => ({ id: 'heatSource', l: 'Heat Source', t: 'seg', o: opts, hint: 'Pre-selected from the system. Changing it shows the sections for that heat source.' }),
+    filterCond: () => ({ id: 'filterCond', l: 'Filter Condition', t: 'seg', o: ['Changed', 'Clean'] }),
+    filter: (i, opt) => ({ id: 'filter' + i, l: 'Filter Size ' + i, t: 'qty', list: 'Filter Sizes', opt }),
+    hv: () => ({ id: 'hv', l: 'High Voltage Condition', t: 'seg', o: GB, bad: ['Bad'] }),
+    lv: () => ({ id: 'lv', l: 'Low Voltage Condition', t: 'seg', o: GB, bad: ['Bad'] }),
+    blowerCap: () => ({ id: 'blowerCap', l: 'Blower Motor Run Capacitor', t: 'cap', list: 'Blower Cap Sizes', hint: 'Rated size and measured reading; condition is set automatically. ECM / Direct Drive / 3-phase = no capacitor.' }),
+    wheel: () => ({ id: 'wheel', l: 'Is Blower Wheel Clean', t: 'seg', o: GYR }),
+    attn: () => ({ id: 'attn', l: 'System Needs Attention', t: 'flag', text: 'Something concerning or wrong', opt: true }),
+    amps: () => ({ id: 'blowerAmps', l: 'Blower Motor Amp Draw', t: 'num', unit: 'A' }),
+  };
+  const blowerFields = () => [F.blowerCap(), F.wheel(), F.amps()];
+
+  const SEC = {
+    heat: (opts) => ({ key: 'heat', title: 'Heat Source', always: true, fields: [F.heat(opts)] }),
+    filters: () => ({ key: 'filters', title: 'Filters', fields: [F.filterCond(), F.filter(1), F.filter(2, true)] }),
+    electrical: hs => ({ key: 'electrical', title: 'Electrical', hs, fields: [F.hv(), F.lv()] }),
+    beltBlower: hs => ({ key: 'belt-blower', title: 'Belt & Blower', hs, fields: [
+      { id: 'beltCond', l: 'Belt Condition', t: 'seg', o: ['Green', 'Red', 'Direct Drive'],
+        fills: { when: 'Direct Drive', set: { beltSize: 'Direct Drive', blowerCap: { rated: 'ECM/Direct Drive/3phase' } } } },
+      { id: 'beltSize', l: 'Belt Size', t: 'text', ph: 'e.g. A42' }, ...blowerFields()] }),
+    blower: hs => ({ key: 'blower', title: 'Blower', hs, fields: blowerFields() }),
+    inducer: (n, hs, naFirst) => ({ key: 'inducer', title: 'Inducer', hs, fields: Array.from({ length: n }, (_, k) => {
+      const i = k + 1, set = {}, allowNA = i > 1 || naFirst || n > 1;
+      set['indAmps' + i] = NA;
+      for (let j = i + 1; j <= n; j++) { set['ind' + j] = { rated: NA }; set['indAmps' + j] = NA; }
+      return [{ id: 'ind' + i, l: 'Inducer Fan Motor' + n_(n, i) + ' Run Capacitor', t: 'cap', list: 'Inducer Cap Sizes', allowNA,
+        fills: allowNA ? { when: NA, set } : null },
+        { id: 'indAmps' + i, l: 'Inducer Fan Motor' + n_(n, i) + ' Amp Draw', t: 'num', unit: 'A', na: allowNA }];
+    }).flat() }),
+    gas: (n, ign, hs) => {
+      const stage2 = { hx2: NA, ps2: NA, ig2: NA, gv2: NA }, f = [];
+      const two = i => i > 1;
+      for (let i = 1; i <= n; i++) f.push({ id: 'hx' + i, l: 'Heat Exchanger' + n_(n, i) + ' Condition', t: 'seg', o: two(i) ? [...GYR, NA] : GYR, fills: i === 2 ? { when: NA, set: { ps2: NA, ig2: NA, gv2: NA } } : null });
+      f.push({ id: 'gasLeak', l: 'Gas Leaks Detected', t: 'seg', o: ['No', 'Yes'], bad: ['Yes'] });
+      f.push({ id: 'flame', l: 'Flame Sensor Condition', t: 'seg', o: ['Sanded', 'Good', 'Bad'], bad: ['Bad'], hint: 'Good = working but not easily accessible' });
+      for (let i = 1; i <= n; i++) f.push({ id: 'ps' + i, l: 'Pressure Switch' + n_(n, i), t: 'seg', o: [...GB, NA], bad: ['Bad'] });
+      for (let i = 1; i <= n; i++) f.push({ id: 'ig' + i, l: ign + n_(n, i) + ' Condition', t: 'seg', o: two(i) ? [...GB, NA] : GB, bad: ['Bad'] });
+      for (let i = 1; i <= n; i++) f.push({ id: 'gv' + i, l: 'Gas Valve' + n_(n, i), t: 'seg', o: two(i) ? [...GB, NA] : GB, bad: ['Bad'], fills: i === 2 ? { when: NA, set: { hx2: NA, ps2: NA, ig2: NA } } : null });
+      f.push({ id: 'limit', l: 'High Limit Condition', t: 'seg', o: GB, bad: ['Bad'] }, { id: 'safeties', l: 'Safeties Condition', t: 'seg', o: GB, bad: ['Bad'] });
+      return { key: 'gas', title: 'Gas & Safeties', hs, fields: f };
+    },
+    venting: hs => ({ key: 'venting', title: 'Combustion & Venting', hs, fields: [
+      { id: 'co', l: 'Carbon Monoxide Leaks Detected', t: 'seg', o: ['No', 'Yes'], bad: ['Yes'] },
+      { id: 'vent', l: 'Vent Stack Attached and Free of Debris', t: 'seg', o: ['Yes', 'No'], bad: ['No'] }] }),
+    elecHeat: (title, hs) => ({ key: 'electric-heat', title, hs, fields: [
+      { id: 'kit', l: 'Heat Kit Size', t: 'list', list: 'Heat Kit Sizes', unit: 'kW' },
+      ...[1, 2, 3, 4].map(i => ({ id: 'el' + i, l: 'Heating Element ' + i + ' Amp Draw', t: 'num', unit: 'A', na: i > 1, zeroBad: true, hint: i === 2 ? 'A reading of 0 is flagged Red' : '',
+        fills: i < 4 ? { when: NA, set: Object.fromEntries([...Array(4 - i)].map((_, k) => ['el' + (i + 1 + k), NA])) } : null })),
+      { id: 'relays', l: 'Relays Condition', t: 'seg', o: GB, bad: ['Bad'] },
+      { id: 'elimit', l: 'High Limit Switch Condition', t: 'seg', o: GB, bad: ['Bad'] }] }),
+    hpHeat: ({ circuits, comps, temps, suction }, hs) => {
+      const f = [
+        { id: 'evapClean', l: 'Is Evaporator Coil Clean?', t: 'seg', o: GYR },
+        { id: 'rv', l: 'Reversing Valve', t: 'seg', o: GB, bad: ['Bad'] },
+        { id: 'defrost', l: 'Defrost Cycle', t: 'seg', o: GB, bad: ['Bad'] },
+        { id: 'odCoil', l: 'Outdoor Coil', t: 'seg', o: GYR },
+        ...outcaps(circuits)];
+      for (let i = 1; i <= circuits; i++) f.push({ id: 'hpFanAmps' + i, l: 'Condenser Fan Motor' + n_(circuits, i) + ' Amp Draw', t: 'num', unit: 'A', na: i > 1 });
+      for (let i = 1; i <= comps; i++) {
+        const set = {}; for (let j = i + 1; j <= comps; j++) set['comp' + j] = NA;
+        f.push({ id: 'comp' + i, l: 'Compressor' + n_(comps, i) + ' Run Amps', t: 'num', unit: 'A', na: i > 1, fills: i > 1 && i < comps ? { when: NA, set } : null,
+          hint: i === 2 && comps > 2 ? 'Not Applicable here also marks the higher compressors Not Applicable' : '' });
+      }
+      if (suction) for (let i = 1; i <= circuits; i++) f.push(
+        { id: 'hpSuction' + i, l: 'Suction Pressure' + n_(circuits, i), t: 'num', unit: 'psig', na: i > 1 },
+        { id: 'hpSuperheat' + i, l: 'Superheat' + n_(circuits, i), t: 'num', unit: '°F', na: i > 1 });
+      f.push({ id: 'oat', l: 'Outdoor Air Temperature', t: 'num', unit: '°F', hint: 'Gives the readings context: heat pump output drops as it gets colder outside' });
+      if (temps) f.push(
+        { id: 'hpReturn', l: 'Return Air Temperature', t: 'num', unit: '°F' },
+        { id: 'hpSupply', l: 'Supply Air Temperature', t: 'num', unit: '°F' },
+        { id: 'hpRise', l: 'Temperature Rise', t: 'calc', mode: 'hprise', from: ['hpSupply', 'hpReturn'], hint: 'Supply − return, with auxiliary heat off. Calculated.' });
+      return { key: 'heat-pump', title: 'Heat Pump', hs, fields: f };
+    },
+    circuit: n => {
+      const f = [];
+      for (let i = 1; i <= n; i++) {
+        const s = n_(n, i), na = i > 1;
+        const set = { ['outcap' + i]: { kind: NA }, ['compAmps' + i]: NA, ['fanAmps' + i]: NA, ['suction' + i]: NA, ['liquid' + i]: NA, ['superheat' + i]: NA, ['subcool' + i]: NA };
+        f.push({ id: 'contactor' + i, l: 'Contactor' + s, t: 'seg', o: na ? [...GYR, NA] : GYR, fills: na ? { when: NA, set } : null, hint: na ? 'Not Applicable marks the rest of circuit 2 Not Applicable' : '' },
+          ...outcaps(1, i, n, na),
+          { id: 'compAmps' + i, l: 'Compressor Amp Draw' + s, t: 'num', unit: 'A', na },
+          { id: 'fanAmps' + i, l: 'Condenser Fan Amp Draw' + s, t: 'num', unit: 'A', na },
+          { id: 'suction' + i, l: 'Suction Pressure' + s, t: 'num', unit: 'psig', na },
+          { id: 'liquid' + i, l: 'Liquid Pressure' + s, t: 'num', unit: 'psig', na },
+          { id: 'superheat' + i, l: 'Superheat' + s, t: 'num', unit: '°F', na },
+          { id: 'subcool' + i, l: 'Subcooling' + s, t: 'num', unit: '°F', na });
+      }
+      f.push({ id: 'refAdded', l: 'Refrigerant Added', t: 'num', unit: 'lbs', opt: true });
+      return { key: 'circuit', title: 'Refrigeration Circuit', fields: f };
+    },
+    coils: pan => ({ key: 'coils', title: 'Coils & Drain', fields: [
+      { id: 'evapCoil', l: 'Evaporator Coil Condition', t: 'seg', o: GYR },
+      { id: 'condCoil', l: 'Condenser Coil Condition', t: 'seg', o: GYR },
+      { id: 'condCleaned', l: 'Condenser Coil Cleaned', t: 'seg', o: ['Yes', 'No'] },
+      { id: 'drain', l: 'Condensate Drain', t: 'seg', o: ['Clear', 'Slow', 'Clogged'], warn: ['Slow'], bad: ['Clogged'] },
+      ...(pan ? [{ id: 'pan', l: 'Drain Pan Condition', t: 'seg', o: GYR }, { id: 'float', l: 'Float / Safety Switch', t: 'seg', o: [...GB, NA], bad: ['Bad'] }] : [])] }),
+    airflow: () => ({ key: 'airflow', title: 'Airflow', fields: [
+      { id: 'coolReturn', l: 'Return Air Temperature', t: 'num', unit: '°F' },
+      { id: 'coolSupply', l: 'Supply Air Temperature', t: 'num', unit: '°F' },
+      { id: 'coolSplit', l: 'Temperature Split', t: 'calc', mode: 'cool', from: ['coolReturn', 'coolSupply'], hint: 'Return − supply. Calculated.' }] }),
+    hpCool: () => ({ key: 'heat-pump-cool', title: 'Heat Pump', hs: ['Heat Pump'], fields: [{ id: 'rvCool', l: 'Reversing Valve (cooling mode)', t: 'seg', o: GB, bad: ['Bad'] }] }),
+    duct: hs => ({ key: 'duct', title: 'Ductwork', hs, fields: [{ id: 'duct', l: 'Ductwork Condition', t: 'seg', o: ['Good', 'Deteriorating', 'Bad'], warn: ['Deteriorating'], bad: ['Bad'] }] }),
+    tstat: hs => ({ key: 'tstat', title: 'Thermostat & Notes', always: true, fields: [
+      { id: 'tstat', l: 'Is Thermostat Working Properly', t: 'seg', o: GB, bad: ['Bad'], hs },
+      F.attn(),
+      { id: 'notes', l: 'Notes', t: 'textarea', opt: true }] }),
+  };
+  function outcaps(circuits, only, total, naFirst) {
+    const list = [];
+    const from = only || 1, to = only || circuits, n = total || circuits;
+    for (let i = from; i <= to; i++) list.push({ id: 'outcap' + i, l: 'Outdoor Run Capacitor' + n_(n, i), t: 'outcap', allowNA: naFirst || i > 1,
+      hint: 'Single: compressor and condenser fan capacitors (fan can be ECM). Dual: one size like 45+5 with both readings.' });
+    return list;
+  }
+
+  const CHECKLISTS = {
+    'RTU|Heating': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None']), SEC.filters(), SEC.electrical(HEATED), SEC.beltBlower(HEATED), SEC.inducer(2, ['Gas']),
+      SEC.gas(2, 'Spark Ignitor', ['Gas']), SEC.elecHeat('Electric / Auxiliary Heat', ['Electric', 'Heat Pump']), SEC.hpHeat({ circuits: 2, comps: 4, temps: true }, ['Heat Pump']), SEC.tstat(HEATED)],
+    'Residential Split System|Heating': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None']), SEC.filters(), SEC.electrical(HEATED), SEC.blower(HEATED), SEC.inducer(1, ['Gas']),
+      SEC.gas(1, 'Hot Surface Ignitor', ['Gas']), SEC.venting(['Gas']), SEC.elecHeat('Electric / Auxiliary Heat', ['Electric', 'Heat Pump']), SEC.hpHeat({ circuits: 1, comps: 1, suction: true }, ['Heat Pump']),
+      SEC.duct(HEATED), SEC.tstat(HEATED)],
+    'Commercial Split System|Heating': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None']), SEC.filters(), SEC.electrical(HEATED), SEC.beltBlower(HEATED), SEC.inducer(2, ['Gas']),
+      SEC.gas(2, 'Spark Ignitor', ['Gas']), SEC.elecHeat('Electric / Auxiliary Heat', ['Electric', 'Heat Pump']), SEC.hpHeat({ circuits: 2, comps: 2, temps: true, suction: true }, ['Heat Pump']), SEC.tstat(HEATED)],
+    'Unit Heater|Heating': () => [SEC.heat(['Gas', 'Electric']), SEC.electrical(), SEC.beltBlower(), SEC.inducer(1, ['Gas'], true), SEC.gas(1, 'Ignitor', ['Gas']), SEC.venting(['Gas']),
+      SEC.elecHeat('Electric Heat', ['Electric']), SEC.tstat()],
+    'RTU|Cooling': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None']), SEC.filters(), SEC.electrical(), SEC.beltBlower(), SEC.circuit(2), SEC.coils(false), SEC.airflow(), SEC.hpCool(), SEC.tstat()],
+    'Residential Split System|Cooling': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None']), SEC.filters(), SEC.electrical(), SEC.blower(), SEC.circuit(1), SEC.coils(true), SEC.airflow(), SEC.hpCool(), SEC.duct(), SEC.tstat()],
+    'Commercial Split System|Cooling': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None']), SEC.filters(), SEC.electrical(), SEC.beltBlower(), SEC.circuit(2), SEC.coils(true), SEC.airflow(), SEC.hpCool(), SEC.duct(), SEC.tstat()],
+    'RTU|Filters': () => [SEC.filters(), { key: 'notes', title: 'Notes', fields: [F.attn(), { id: 'notes', l: 'Notes', t: 'textarea', opt: true }] }],
+    'Residential Split System|Filters': () => CHECKLISTS['RTU|Filters'](),
+    'Commercial Split System|Filters': () => CHECKLISTS['RTU|Filters'](),
+  };
+  const CHECKS = ['Cooling', 'Heating', 'Filters', 'Inspection'];
+  const CHECK_LABEL = { Cooling: 'Cooling maintenance', Heating: 'Heating maintenance', Filters: 'Filter change', Inspection: 'Inspection' };
+  const DRAFT = { Cooling: true };
+  const TYPE_SHORT = { 'RTU': 'RTU', 'Residential Split System': 'Res Split', 'Commercial Split System': 'Com Split', 'Unit Heater': 'Unit Heater', 'Mini-Split': 'Mini-Split', 'Refrigeration': 'Refrigeration' };
+  const tabName = (type, check) => check === 'Inspection' ? 'Inspection' : check === 'Filters' ? 'Filters' : `${TYPE_SHORT[type] || type} – ${check}`;
+  const hasList = (type, check) => check === 'Inspection' || !!CHECKLISTS[type + '|' + check];
+  const whyNot = (type, check) => {
+    if (type === 'Unit Heater' && check === 'Cooling') return 'No cooling on unit heaters';
+    if (type === 'Unit Heater' && check === 'Filters') return 'No filters';
+    if (type === 'Mini-Split' || type === 'Refrigeration') return 'Inventory only';
+    return 'No checklist';
+  };
+  const USAGE = {};
+  Object.entries(CHECKLISTS).forEach(([k, fn]) => { const [type] = k.split('|'); fn().forEach(s => { (USAGE[s.key] ||= new Set()).add(TYPE_SHORT[type]); }); });
+
+  // =====================================================================
+  //  LISTS, SETTINGS, PHOTO RULES (would live in the spreadsheet)
+  // =====================================================================
+  const LISTS = {
+    'Customers': ['Redstone', 'Presidential', 'Indian Trail', 'United Notions', 'Quebec', 'Integrity Porter'],
+    'System Types': ['RTU', 'Residential Split System', 'Commercial Split System', 'Unit Heater', 'Mini-Split', 'Refrigeration'],
+    'Outdoor Locations': ['Roof', 'Ground', 'Stand'],
+    'Indoor Locations': ['Above Ceiling', 'Closet'],
+    'Manufacturers': ['Trane', 'Carrier', 'Lennox', 'York', 'Rheem', 'Goodman', 'Modine', 'Reznor'],
+    'Overall Status': ['Disconnect On', 'Disconnect Off', 'Abandoned'],
+    'Refrigerant Types': ['R22', 'R410a', 'R454b', 'R32'],
+    'Filter Sizes': ['14x24x1', '15x20x2', '16x16x2', '16x20x2', '16x24x2', '16x25x2', '18x20x2', '18x24x2', '20x20x2', '20x24x2', '20x25x2', '24x24x2', '20x20x1', '16x25x1'],
+    'Blower Cap Sizes': ['5', '7.5', '10', '12.5', '15', '20', 'ECM/Direct Drive/3phase'],
+    'Inducer Cap Sizes': ['2', '3', '4', '5', '6', NA],
+    'Condenser Fan Cap Sizes': ['3', '4', '5', '7.5', '10', 'ECM'],
+    'Heat Kit Sizes': ['5', '7.5', '10', '15', '20'],
+  };
+  const SETTINGS = {
+    CapYellowPct: { v: 6, l: 'Capacitor Yellow: % below rated' }, CapRedPct: { v: 10, l: 'Capacitor Red: % below rated' }, CapHighPct: { v: 10, l: 'Capacitor Red: % above rated' },
+    CoolSplitGreenMin: { v: 16, l: 'Cooling split Green from (°F)' }, CoolSplitGreenMax: { v: 22, l: 'Cooling split Green to (°F)' },
+    CoolSplitYellowMin: { v: 14, l: 'Cooling split Red below (°F)' }, CoolSplitYellowMax: { v: 25, l: 'Cooling split Red above (°F)' },
+    HPRiseGreenMin: { v: 20, l: 'Heat pump rise Green from (°F)' }, HPRiseYellowMin: { v: 15, l: 'Heat pump rise Red below (°F)' },
+  };
+  const set_ = k => Number(SETTINGS[k].v);
+  // Size lists are always shown in order, wherever a value is typed in the sheet
+  const dims = v => String(v).toLowerCase().split(/\s*x\s*/).map(Number);
+  const byDims = (a, b) => { const x = dims(a), y = dims(b); for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] ?? -1) - (y[i] ?? -1); if (d || isNaN(d)) return isNaN(d) ? String(a).localeCompare(String(b)) : d; } return 0; };
+  const numFirst = list => { const n = list.filter(v => isFinite(parseFloat(v)) && /^\s*[\d.]+\s*$/.test(v)).sort((a, b) => parseFloat(a) - parseFloat(b)); return [...n, ...list.filter(v => !n.includes(v))]; };
+  function sortLists() {
+    if (LISTS['Filter Sizes']) { const ok = LISTS['Filter Sizes'].filter(v => dims(v).every(n => !isNaN(n))); LISTS['Filter Sizes'] = [...ok.sort(byDims), ...LISTS['Filter Sizes'].filter(v => !ok.includes(v))]; }
+    ['Blower Cap Sizes', 'Inducer Cap Sizes', 'Condenser Fan Cap Sizes', 'Heat Kit Sizes'].forEach(k => { if (LISTS[k]) LISTS[k] = numFirst(LISTS[k]); });
+  }
+  sortLists();
+  const PHOTO_RULES = [
+    { checklist: '*Heating', field: 'Heat Exchanger*', when: 'Red' },
+    { checklist: 'Inspection', field: 'Data plate', when: 'Always' },
+    { checklist: 'Inspection', field: 'Unit', when: 'Always' },
+  ];
+  const wild = (pat, s) => new RegExp('^' + pat.split('*').map(x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*') + '$', 'i').test(s);
+
+  // =====================================================================
+  //  SAMPLE DATA
+  // =====================================================================
+  let sid = 0;
+  const SYS = (customer, building, number, type, heat, more = {}) => ({ id: LIVE ? uuid() : 's' + (++sid), customer, building, number: String(number), type, heat, suite: '', area: '', outdoor: '', indoor: '',
+    make: '', model: '', serial: '', size: '', mfg: '', refrigerant: '', overallStatus: '', visual: '', operational: '', notes: '', ...more });
+  const SYSTEMS = LIVE ? [] : [
+    SYS('Redstone', 'Building 1', 1, 'RTU', 'Gas', { make: 'Trane', model: 'YCD150', serial: '21334KUE5F', mfg: 'Aug 2021', refrigerant: 'R410a', outdoor: 'Roof', area: 'Main office', size: '12.5 ton' }),
+    SYS('Redstone', 'Building 1', 2, 'Residential Split System', 'Gas', { suite: '100A', make: 'Rheem', model: 'R96VA0802317MSA', mfg: 'Mar 2017', refrigerant: 'R410a', indoor: 'Closet', outdoor: 'Ground' }),
+    SYS('Redstone', 'Building 1', 3, 'RTU', 'Gas', { make: 'Trane', model: 'TCD090', serial: '19082HJ21A', mfg: 'Feb 2019', refrigerant: 'R410a', outdoor: 'Roof' }),
+    SYS('Redstone', 'Building 1', 4, 'RTU', 'Electric', { make: 'Carrier', model: '48TCED08', mfg: 'Jun 2012', refrigerant: 'R410a', outdoor: 'Roof' }),
+    SYS('Redstone', 'Building 1', 5, 'RTU', 'Heat Pump', { make: 'Carrier', model: '50TCQ08', mfg: 'Apr 2015', refrigerant: 'R410a', outdoor: 'Roof' }),
+    SYS('Redstone', 'Building 1', 6, 'RTU', 'None', { make: 'Trane', model: 'TSC060', mfg: '2009', refrigerant: 'R22', outdoor: 'Roof', area: 'Server room' }),
+    SYS('Redstone', 'Building 2', 1, 'RTU', 'Gas', { make: 'Trane', model: 'YCD150', mfg: '2020', refrigerant: 'R410a' }),
+    SYS('Redstone', 'Building 2', 2, 'Commercial Split System', 'Gas', { area: 'Lobby', make: 'Trane', model: 'TWE120', mfg: '2018', refrigerant: 'R410a' }),
+    SYS('Presidential', 'Tower A', 1, 'Residential Split System', 'Heat Pump', { suite: '110', make: 'Trane', model: '4TWR6036', mfg: 'May 2016', refrigerant: 'R410a', indoor: 'Above Ceiling', outdoor: 'Stand' }),
+    SYS('Presidential', 'Tower A', 2, 'Residential Split System', 'Electric', { suite: '120', make: 'Goodman', model: 'AEPF3036', mfg: '2014', refrigerant: 'R410a', indoor: 'Closet' }),
+    SYS('Presidential', 'Tower A', 3, 'Commercial Split System', 'Gas', { suite: '200', make: 'Trane', model: 'TWA120', mfg: '2019', refrigerant: 'R410a' }),
+    SYS('Presidential', 'Tower A', 4, 'Mini-Split', 'Heat Pump', { area: 'Server room', make: 'Mitsubishi', model: 'PUZ-A24', refrigerant: 'R410a' }),
+    SYS('Presidential', 'Tower A', 5, 'RTU', 'Gas', { make: 'Lennox', model: 'KGA120', mfg: '2011', refrigerant: 'R410a' }),
+    SYS('Indian Trail', 'Warehouse', 1, 'Unit Heater', 'Gas', { make: 'Modine', model: 'PDP150', area: 'Dock' }),
+    SYS('Indian Trail', 'Warehouse', 2, 'Unit Heater', 'Gas', { make: 'Modine', model: 'PDP150', area: 'Dock' }),
+    SYS('Indian Trail', 'Warehouse', 3, 'Unit Heater', 'Electric', { make: 'Reznor', model: 'EGU-10', area: 'Parts cage' }),
+    SYS('Indian Trail', 'Warehouse', 4, 'RTU', 'Gas', { make: 'York', model: 'ZF090', outdoor: 'Roof', area: 'Office' }),
+    SYS('Indian Trail', 'Warehouse', 5, 'Refrigeration', 'None', { area: 'Walk-in cooler' }),
+  ];
+  const sysById = id => SYSTEMS.find(s => s.id === id);
+  const RECORDS = [];
+
+  // =====================================================================
+  //  VALUE HELPERS
+  // =====================================================================
+  const num = v => { const x = parseFloat(v); return isNaN(x) ? null : x; };
+  const isNum = s => /^\s*\d+(\.\d+)?\s*$/.test(String(s));
+  const capNA = rated => rated === NA || (rated && !isNum(rated) && /ecm|direct|3\s*phase/i.test(rated));
+  function capSev(rated, reading) {
+    const r = num(rated), x = num(reading);
+    if (r == null || x == null || r === 0) return null;
+    const d = (x - r) / r * 100;
+    if (d <= -set_('CapRedPct') || d >= set_('CapHighPct')) return 'red';
+    if (d <= -set_('CapYellowPct')) return 'yellow';
+    return 'green';
+  }
+  const pct = (rated, reading) => { const r = num(rated), x = num(reading); return r && x != null ? Math.round((x - r) / r * 100) : null; };
+  const parseDual = s => { const m = String(s || '').match(/(\d+(?:\.\d+)?)\s*[+\/&]\s*(\d+(?:\.\d+)?)/); return m ? [m[1], m[2]] : [null, null]; };
+  function calcVal(f, get) {
+    const a = num(get(f.from[0])), b = num(get(f.from[1]));
+    return a == null || b == null ? null : Math.round((a - b) * 10) / 10;
+  }
+  function calcSev(f, v) {
+    if (v == null) return null;
+    if (f.mode === 'cool') {
+      if (v < set_('CoolSplitYellowMin') || v > set_('CoolSplitYellowMax')) return 'red';
+      if (v < set_('CoolSplitGreenMin') || v > set_('CoolSplitGreenMax')) return 'yellow';
+      return 'green';
+    }
+    if (v < set_('HPRiseYellowMin')) return 'red';
+    if (v < set_('HPRiseGreenMin')) return 'yellow';
+    return 'green';
+  }
+  // severity + text for any answer value
+  function evaluate(f, v, get) {
+    if (f.t === 'seg') return !v || v === NA ? null : (v === 'Red' || (f.bad || []).includes(v) ? 'red' : v === 'Yellow' || (f.warn || []).includes(v) ? 'yellow' : null);
+    if (f.t === 'flag') return v === 'Yes' ? 'red' : null;
+    if (f.t === 'num') return f.zeroBad && v !== '' && v !== NA && num(v) === 0 ? 'red' : null;
+    if (f.t === 'cap') { if (!v || capNA(v.rated)) return null; const s = capSev(v.rated, v.reading); return s === 'green' ? null : s; }
+    if (f.t === 'outcap') { const s = outcapSevs(v); return s.includes('red') ? 'red' : s.includes('yellow') ? 'yellow' : null; }
+    if (f.t === 'calc') { const s = calcSev(f, calcVal(f, get)); return s === 'green' ? null : s; }
+    return null;
+  }
+  function outcapSevs(v) {
+    if (!v || !v.kind || v.kind === NA) return [];
+    if (v.kind === 'Single') return [capSev(v.compRated, v.compReading), capSev(v.fanRated, v.fanReading)];
+    const [c, fn] = parseDual(v.dual); return [capSev(c, v.compReading), capSev(fn, v.fanReading)];
+  }
+  function issueText(f, v, get) {
+    if (f.t === 'cap') return `${f.l}: ${v.reading} of ${v.rated} mf (${pct(v.rated, v.reading)}%)`;
+    if (f.t === 'outcap') {
+      const [c, fn] = v.kind === 'Dual' ? parseDual(v.dual) : [v.compRated, v.fanRated];
+      const parts = [];
+      const cs = capSev(c, v.compReading), fs = capSev(fn, v.fanReading);
+      if (cs && cs !== 'green') parts.push(`compressor ${v.compReading} of ${c} mf (${pct(c, v.compReading)}%)`);
+      if (fs && fs !== 'green') parts.push(`fan ${v.fanReading} of ${fn} mf (${pct(fn, v.fanReading)}%)`);
+      return `${f.l}: ${parts.join(', ')}`;
+    }
+    if (f.t === 'calc') return `${f.l}: ${calcVal(f, get)} °F`;
+    if (f.t === 'flag') return 'Technician flagged: system needs attention';
+    if (f.t === 'num') return `${f.l}: ${v} ${f.unit}`;
+    return `${f.l}: ${v}`;
+  }
+  // Is a field answered (for the incomplete warning)?
+  function answered(f, v, get) {
+    if (f.t === 'calc') return calcVal(f, get) != null;
+    if (f.t === 'flag') return true;
+    if (f.t === 'cap') return !!v && (capNA(v.rated) || (!!v.rated && v.reading !== '' && v.reading != null));
+    if (f.t === 'outcap') { if (!v || !v.kind) return false; if (v.kind === NA) return true;
+      return v.kind === 'Single' ? !!(v.compRated && v.compReading && v.fanRated && (capNA(v.fanRated) || v.fanReading)) : !!(v.dual && v.compReading && v.fanReading); }
+    if (f.t === 'qty') return !!v && !/\?/.test(v);
+    return v !== '' && v != null;
+  }
+  // Display text for reports
+  function show(f, v, get) {
+    if (f.t === 'calc') { const c = calcVal(f, get); return c == null ? '' : c + ' °F'; }
+    if (f.t === 'flag') return v === 'Yes' ? 'Yes' : 'No';
+    if (f.t === 'cap') { if (!v || !v.rated) return ''; if (capNA(v.rated)) return v.rated === NA ? NA : v.rated; return `${v.rated} mf rated · ${v.reading || '—'} read`; }
+    if (f.t === 'outcap') { if (!v || !v.kind) return ''; if (v.kind === NA) return NA;
+      return v.kind === 'Single' ? `Single · comp ${v.compRated || '—'} / ${v.compReading || '—'} mf · fan ${capNA(v.fanRated) ? 'ECM' : `${v.fanRated || '—'} / ${v.fanReading || '—'} mf`}` : `Dual ${v.dual || '—'} · comp ${v.compReading || '—'} · fan ${v.fanReading || '—'} mf`; }
+    if (f.t === 'num') return v === NA ? NA : v === '' || v == null ? '' : `${v} ${f.unit}`;
+    if (f.t === 'list' && f.unit && isNum(v)) return `${v} ${f.unit}`;
+    return v == null ? '' : String(v);
+  }
+  const ageOf = mfg => { const m = String(mfg || '').match(/(19|20)\d{2}/); return m ? Math.max(0, new Date().getFullYear() - Number(m[0])) : null; };
+  const sysLabel = s => `System ${s.number} · ${s.type}`;
+  const sysSub = s => [s.suite && 'Suite ' + s.suite, s.area && 'Serves ' + s.area, ageOf(s.mfg) != null && ageOf(s.mfg) + ' yrs', s.refrigerant].filter(Boolean).join(' · ');
+
+  // visibility
+  const visibleSection = (s, heat) => !s.hs || s.hs.includes(heat);
+  const visibleField = (f, heat) => !f.hs || f.hs.includes(heat);
+
+  // =====================================================================
+  //  SAMPLE RECORDS
+  // =====================================================================
+  const TODAY = new Date();
+  const at = (h, m) => { const d = new Date(TODAY); d.setHours(h, m, 0, 0); return d; };
+  function sampleAnswers(type, check, heat, over = {}) {
+    const a = { heatSource: heat };
+    const get = id => a[id];
+    CHECKLISTS[type + '|' + check]().forEach(s => s.fields.forEach(f => {
+      if (f.id === 'heatSource') return;
+      if (f.t === 'seg') a[f.id] = f.o.find(o => !evaluate(f, o) && o !== NA && o !== 'Direct Drive') || '';
+      else if (f.t === 'qty') a[f.id] = f.opt ? '' : '(4) 20x25x2';
+      else if (f.t === 'cap') a[f.id] = f.list === 'Inducer Cap Sizes' ? { rated: '5', reading: '4.9' } : { rated: '7.5', reading: '7.4' };
+      else if (f.t === 'outcap') a[f.id] = { kind: 'Dual', dual: '45+5', compReading: '44.1', fanReading: '4.9' };
+      else if (f.t === 'num') a[f.id] = ({ A: '4.2', psig: '118', '°F': '12', lbs: '' })[f.unit] || '';
+      else if (f.t === 'list') a[f.id] = LISTS[f.list][2] || '';
+      else if (f.t === 'text') a[f.id] = 'A42';
+      else a[f.id] = '';
+    }));
+    Object.assign(a, { hpReturn: '68', hpSupply: '93', oat: '45', coolReturn: '75', coolSupply: '56' }, over);
+    return a;
+  }
+  function addRecord(sys, check, tech, time, answers, photos = [], extra = {}) {
+    const rec = { id: extra.id || uuid(), tab: extra.tab || (sys.type ? tabName(sys.type, check) : ''), systemId: sys.id, customer: sys.customer, building: sys.building, check, tech, time, answers, photos };
+    const i = RECORDS.findIndex(r => r.systemId === sys.id && r.check === check);
+    if (i > -1) RECORDS.splice(i, 1);
+    RECORDS.push(rec); return rec;
+  }
+  const S1 = SYSTEMS;
+  if (!LIVE) {
+  addRecord(S1[0], 'Heating', 'Mike T', at(8, 5), sampleAnswers('RTU', 'Heating', 'Gas'));
+  addRecord(S1[1], 'Heating', 'Mike T', at(8, 30), sampleAnswers('Residential Split System', 'Heating', 'Gas', { blowerCap: { rated: '10', reading: '9.1' }, notes: 'Blower capacitor 9% low. Quote replacement.' }));
+  addRecord(S1[8], 'Heating', 'Luis R', at(9, 10), sampleAnswers('Residential Split System', 'Heating', 'Heat Pump', { defrost: 'Bad', outcap1: { kind: 'Dual', dual: '40+5', compReading: '35.2', fanReading: '4.9' }, notes: 'Not entering defrost and dual cap compressor side 12% low. Board and capacitor quoted.' }));
+  addRecord(S1[9], 'Heating', 'Luis R', at(9, 45), sampleAnswers('Residential Split System', 'Heating', 'Electric', { el2: '0', notes: 'Element 2 reads 0 A. Likely open element.' }));
+  addRecord(S1[13], 'Heating', 'Sam K', at(10, 5), sampleAnswers('Unit Heater', 'Heating', 'Gas'));
+  addRecord(S1[14], 'Heating', 'Sam K', at(10, 30), sampleAnswers('Unit Heater', 'Heating', 'Gas', { vent: 'No', hx1: 'Red', notes: 'Vent stack loose at roof. Heat exchanger cracked near burner 2; unit shut down and red tagged.' }));
+  }
+
+  // =====================================================================
+  //  STATE & UTILITIES
+  // =====================================================================
+  const S = { role: 'tech', view: LIVE ? 'login' : 'visit', visit: { cust: LIVE ? '' : 'Redstone', bldg: LIVE ? '' : 'Building 1', check: 'Heating' }, extraBldgs: {}, adminRecs: [], sys: null, sections: [], fmap: {}, photos: [], admin: 'report',
+    af: { cust: '', check: '', bldg: '' }, rec: null, custVersion: true, addOpen: false, editing: null };
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const tm = d => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const typeChip = t => `<span class="chip type" data-t="${esc(t)}">${esc(TYPE_SHORT[t] || t)}</span>`;
+  const showNotes = () => !LIVE && $('opt-notes').checked;
+  const sharedOn = () => !LIVE && $('opt-shared').checked;
+  const note = html => showNotes() ? `<div class="note">${html}</div>` : '';
+  function toast(m, ms = 2800) { const t = $('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), ms); }
+  const byNum = (a, b) => (parseFloat(a) || 0) - (parseFloat(b) || 0) || String(a).localeCompare(String(b));
+  const buildingsOf = c => [...new Set([...SYSTEMS.filter(s => s.customer === c).map(s => s.building), ...(S.extraBldgs[c] || [])])].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const recFor = (sysId, check) => RECORDS.find(r => r.systemId === sysId && r.check === check);
+  function recSections(rec) { const s = sysById(rec.systemId); const fn = s && CHECKLISTS[s.type + '|' + rec.check]; return rec.check === 'Inspection' || !fn ? [] : fn(); }
+  // "System Needs Attention" counts as its own issue only when nothing else is flagged
+  const ATTN_L = 'System Needs Attention';
+  const dropAttn = list => (list.some(x => x.l !== ATTN_L) ? list.filter(x => x.l !== ATTN_L) : list);
+  function issuesOf(rec) {
+    if (rec.check === 'Inspection') return inspIssues(rec.answers);
+    const heat = rec.answers.heatSource, get = id => rec.answers[id], out = [];
+    recSections(rec).forEach(s => { if (!visibleSection(s, heat)) return; s.fields.forEach(f => {
+      if (!visibleField(f, heat)) return; const v = rec.answers[f.id], sv = evaluate(f, v, get); if (sv) out.push({ t: issueText(f, v, get), s: sv, l: f.l }); }); });
+    return dropAttn(out);
+  }
+  const statusPill = rec => { const n = issuesOf(rec).length; return n ? `<span class="pill-bad">${n} issue${n > 1 ? 's' : ''}</span>` : '<span class="pill-ok">OK</span>'; };
+
+
+  // =====================================================================
+  //  LIVE DATA LAYER (spreadsheet via Apps Script)
+  // =====================================================================
+  const API = { pin: '', name: '', role: '' };
+  const store = { get: k => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} } };
+  async function api(action, body = {}) {
+    if (!/^https:\/\//.test(window.FC_SCRIPT_URL || '')) { const e = new Error('The Apps Script URL has not been pasted into field-checks.html yet.'); e.code = 'no_url'; throw e; }
+    let r;
+    try { r = await fetch(window.FC_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action, pin: API.pin, ...body }) }); }
+    catch { const e = new Error('No connection. Check your signal and try again.'); e.code = 'network'; throw e; }
+    let j; try { j = await r.json(); } catch { const e = new Error('The server sent an unexpected reply.'); e.code = 'bad_reply'; throw e; }
+    if (!j.ok) { const e = new Error(j.message || ({ bad_pin: 'That PIN is not recognized.', admin_only: 'Admin only.' })[j.error] || j.error || 'Something went wrong.'); e.code = j.error; throw e; }
+    return j;
+  }
+  const SYS_COLS = { id: 'System ID', customer: 'Customer', building: 'Building', number: 'System Number', type: 'System Type', heat: 'Heat Source', suite: 'Suite', area: 'Area Served',
+    outdoor: 'Outdoor Location', indoor: 'Indoor Location', make: 'Manufacturer', model: 'Model Number', serial: 'Serial Number', size: 'Size', mfg: 'Manufacture Date',
+    refrigerant: 'Refrigerant Type', overallStatus: 'Overall Status', visual: 'Visual Condition', operational: 'Operational Assessment', notes: 'Notes' };
+  const sysFromRow = r => { const o = {}; Object.entries(SYS_COLS).forEach(([k, c]) => { o[k] = String(r[c] ?? ''); }); return o; };
+  const sysToRow = s => { const o = {}; Object.entries(SYS_COLS).forEach(([k, c]) => { o[c] = s[k] ?? ''; }); return o; };
+  const parseStamp = t => { const d = new Date(String(t || '').replace(' ', 'T')); return isNaN(d) ? new Date() : d; };
+  const condName = sv => sv ? sv[0].toUpperCase() + sv.slice(1) : '';
+
+  // One answer -> one or more spreadsheet columns (by name). Hidden sections are written blank.
+  function toCols(sections, a, heat) {
+    const rec = {}, cols = [], put = (k, v) => { rec[k] = v == null ? '' : v; cols.push(k); };
+    sections.forEach(sec => sec.fields.forEach(f => {
+      if (f.id === 'heatSource' || f.id === 'notes') return;
+      const vis = visibleSection(sec, heat) && visibleField(f, heat), v = vis ? a[f.id] : undefined, L = f.l;
+      if (f.t === 'cap') { const c = v || {}, na = capNA(c.rated); put(L + ' Rated', c.rated || ''); put(L + ' Reading', na ? '' : c.reading || ''); put(L + ' Condition', na || !c.rated ? '' : condName(capSev(c.rated, c.reading))); }
+      else if (f.t === 'outcap') {
+        const c = v || {}, dual = c.kind === 'Dual', [dc, dfn] = parseDual(c.dual);
+        const cr = dual ? dc : c.compRated, fr = dual ? dfn : c.fanRated, fanNA = !dual && capNA(c.fanRated);
+        put(L + ' Type', c.kind || ''); put(L + ' Dual Size', dual ? c.dual || '' : '');
+        put(L + ' Compressor Rated', c.kind === NA ? '' : cr || ''); put(L + ' Compressor Reading', c.kind === NA ? '' : c.compReading || ''); put(L + ' Compressor Condition', c.kind && c.kind !== NA ? condName(capSev(cr, c.compReading)) : '');
+        put(L + ' Fan Rated', c.kind === NA ? '' : fr || ''); put(L + ' Fan Reading', c.kind === NA || fanNA ? '' : c.fanReading || ''); put(L + ' Fan Condition', c.kind && c.kind !== NA && !fanNA ? condName(capSev(fr, c.fanReading)) : '');
+      }
+      else if (f.t === 'calc') { const x = vis ? calcVal(f, id => a[id]) : null; put(L, x == null ? '' : x); }
+      else put(L, v == null ? '' : v);
+    }));
+    put('Notes', a.notes || '');
+    return { rec, cols };
+  }
+  function fromCols(sections, r) {
+    const a = { heatSource: r['Heat Source'] || '', notes: r['Notes'] || '' }, g = k => (r[k] == null ? '' : String(r[k]));
+    sections.forEach(sec => sec.fields.forEach(f => {
+      if (f.id === 'heatSource' || f.id === 'notes' || f.t === 'calc') return; const L = f.l;
+      if (f.t === 'cap') a[f.id] = { rated: g(L + ' Rated'), reading: g(L + ' Reading') };
+      else if (f.t === 'outcap') { const kind = g(L + ' Type');
+        a[f.id] = { kind, dual: g(L + ' Dual Size'), compRated: kind === 'Single' ? g(L + ' Compressor Rated') : '', compReading: g(L + ' Compressor Reading'), fanRated: kind === 'Single' ? g(L + ' Fan Rated') : '', fanReading: g(L + ' Fan Reading') }; }
+      else a[f.id] = g(L);
+    }));
+    return a;
+  }
+  function recFromRow(r) {
+    const tab = r._checklist || '', check = tab === 'Inspection' || tab === 'Filters' ? tab : (tab.split(' – ')[1] || '');
+    let sys = sysById(r['System ID']);
+    if (!sys) { sys = sysFromRow(r); sys.id = r['System ID']; SYSTEMS.push(sys); }
+    const fn = CHECKLISTS[sys.type + '|' + check];
+    const answers = check === 'Inspection' ? Object.fromEntries([...INSP, ...INSP_COND].map(c => [c.k, String(r[c.l] ?? '')])) : fn ? fromCols(fn(), r) : {};
+    let photos = []; try { photos = JSON.parse(r['Photos'] || '[]').map(p => ({ fileId: p.id, tag: p.tag, url: '' })); } catch {}
+    return { id: r['Record ID'], tab, systemId: sys.id, customer: r['Customer'], building: r['Building'], check, tech: r['Technician'], time: parseStamp(r['Date / Time']), answers, photos, row: r };
+  }
+  const PH_WAIT = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="120"><rect width="160" height="120" fill="#d6dae1"/><text x="80" y="65" font-family="sans-serif" font-size="13" text-anchor="middle" fill="#667085">Loading photo…</text></svg>');
+  async function ensurePhotos(list) {
+    const need = list.filter(p => p.fileId && !p.url && !p.loading);
+    for (let i = 0; i < need.length; i += 20) {
+      const chunk = need.slice(i, i + 20); chunk.forEach(p => { p.loading = true; });
+      try { const j = await api('photos', { ids: chunk.map(p => p.fileId) }); j.photos.forEach(x => { const p = chunk.find(c => c.fileId === x.id); if (p) p.url = x.data || ''; }); }
+      catch (e) { toast('Photos could not be loaded: ' + e.message); }
+      finally { chunk.forEach(p => { p.loading = false; }); }
+    }
+    return need.length;
+  }
+  // Which systems in this building already have this check (inside the visit window)
+  const statusKey = () => [S.visit.cust, S.visit.bldg, S.visit.check].join('|');
+  const needStatus = () => !!S.visit.cust && S.statusKey !== statusKey();
+  async function loadStatus() {
+    const key = statusKey(); if (S.statusLoading === key) return; S.statusLoading = key;
+    try {
+      const j = await api('status', { customer: S.visit.cust, building: S.visit.bldg, checkType: S.visit.check });
+      RECORDS.splice(0, RECORDS.length, ...RECORDS.filter(r => !(r.customer === S.visit.cust && r.building === S.visit.bldg && r.check === S.visit.check)));
+      Object.values(j.done || {}).forEach(r => RECORDS.push(recFromRow(r)));
+      S.statusKey = key;
+    } catch (e) { S.statusKey = key; toast('Could not load what is already done: ' + e.message, 5000); }
+    finally { S.statusLoading = null; }
+    if (S.role === 'tech' && S.view === 'visit' && statusKey() === key) render();
+  }
+  function applyBoot(j) {
+    Object.entries(j.lists || {}).forEach(([k, v]) => { if (v.length) LISTS[k] = v; });
+    sortLists();
+    Object.entries(j.settings || {}).forEach(([k, v]) => { if (SETTINGS[k] && v !== '' && !isNaN(Number(v))) SETTINGS[k].v = Number(v); });
+    if (j.photoRules) PHOTO_RULES.splice(0, PHOTO_RULES.length, ...j.photoRules);
+    SYSTEMS.splice(0, SYSTEMS.length, ...(j.systems || []).map(sysFromRow));
+    CAN_READ = !!j.labelReader;
+  }
+  async function signIn(pin, quiet) {
+    API.pin = pin;
+    try {
+      const v = await api('verifyPin'); API.name = v.name; API.role = v.role;
+      applyBoot(await api('bootstrap'));
+      store.set('fc_pin', pin);
+      S.role = v.role === 'admin' ? 'admin' : 'tech'; S.view = 'visit'; S.admin = 'report'; S.statusKey = null;
+      const last = (() => { try { return JSON.parse(store.get('fc_visit') || 'null'); } catch { return null; } })();
+      if (last && (LISTS['Customers'] || []).includes(last.cust)) Object.assign(S.visit, last);
+      render(); window.scrollTo(0, 0);
+    } catch (e) {
+      API.pin = ''; if (e.code === 'bad_pin') store.set('fc_pin', null);
+      S.view = 'login'; render();
+      if (!quiet || e.code !== 'bad_pin') { const m = $('login-msg'); if (m) m.textContent = e.message; }
+    }
+  }
+  function renderLogin() {
+    $('app').innerHTML = `<section class="card stack login">
+      <h2>Sign in</h2><div class="muted">Use the same PIN as the heat check and commissions.</div>
+      <label class="fl">PIN<input id="pin" type="password" inputmode="numeric" autocomplete="current-password" maxlength="12"></label>
+      <div id="login-msg" class="login-msg" role="alert"></div>
+      <button type="button" class="btn primary" data-act="signin">Sign in</button></section>`;
+    setTimeout(() => $('pin') && $('pin').focus(), 50);
+  }
+  function whoMenu() {
+    if (!LIVE) return;
+    sheet(`<h3>${esc(API.name)}</h3><div class="muted">${API.role === 'admin' ? 'Admin' : 'Technician'}</div>
+      <div class="stack" style="margin-top:12px">
+        ${API.role === 'admin' ? `<button type="button" class="btn" data-act="switchRole">${S.role === 'admin' ? 'Switch to technician screens' : 'Back to the admin report'}</button>` : ''}
+        <button type="button" class="btn" data-act="reload">Reload lists and systems</button>
+        <button type="button" class="btn" data-act="signout">Sign out</button>
+        <button type="button" class="btn ghost" data-act="closeSheet">Close</button></div>`);
+  }
+
+  // =====================================================================
+  //  RENDER ROOT
+  // =====================================================================
+  function render() {
+    if ($('role-tech')) { $('role-tech').classList.toggle('on', S.role === 'tech'); $('role-admin').classList.toggle('on', S.role === 'admin'); }
+    $('who').textContent = LIVE ? (API.name || '') : S.role === 'tech' ? 'Mike T' : 'Admin';
+    $('who').hidden = LIVE && !API.name;
+    $('bot').innerHTML = ''; $('sheet').innerHTML = '';
+    if (S.view === 'login') return renderLogin();
+    if (S.role === 'tech') ({ visit: renderVisit, check: renderCheck, inspect: renderInspect })[S.view]();
+    else ({ report: renderReport, detail: renderDetail, preview: renderPreview, lists: renderLists, settings: renderSettings, edit: renderCheck })[S.admin]();
+  }
+
+  // ---------------------------------------------------------------- VISIT
+  function renderVisit() {
+    const v = S.visit, custs = LISTS['Customers'] || [];
+    if (!custs.includes(v.cust)) v.cust = custs[0] || '';
+    let bldgs = buildingsOf(v.cust); if (!bldgs.length) bldgs = ['Building 1'];
+    if (!bldgs.includes(v.bldg)) v.bldg = bldgs[0];
+    const systems = SYSTEMS.filter(s => s.customer === v.cust && s.building === v.bldg).sort((a, b) => byNum(a.number, b.number));
+    const loading = LIVE && needStatus();
+    const insp = v.check === 'Inspection';
+    const doneOf = s => insp ? !!(s.serial || recFor(s.id, 'Inspection')) : !!recFor(s.id, v.check);
+    const eligible = systems.filter(s => hasList(s.type, v.check));
+    const done = eligible.filter(doneOf).length;
+    const next = eligible.find(s => !doneOf(s));
+    const rows = systems.map(s => {
+      const ok = hasList(s.type, v.check), rec = ok && !insp && recFor(s.id, v.check);
+      let right;
+      if (!ok) right = `<span class="pill-off">${esc(whyNot(s.type, v.check))}</span>`;
+      else if (insp) right = doneOf(s) ? '<span class="pill-ok">Inventoried</span>' : (s === next ? '<span class="pill-next">Next</span>' : '<span class="pill-todo">Needs inventory</span>');
+      else right = rec ? statusPill(rec) : (s === next ? '<span class="pill-next">Next</span>' : '<span class="pill-todo">Not started</span>');
+      const sub = rec ? `Checked ${tm(rec.time)} by ${esc(rec.tech)}${sysSub(s) ? ' · ' + esc(sysSub(s)) : ''}` : esc(sysSub(s) || 'No details yet');
+      return `<button type="button" class="unit ${s === next ? 'is-next' : ''}" data-act="openSys" data-id="${s.id}" ${ok ? '' : 'disabled'}>
+        <span class="name">System ${esc(s.number)} ${typeChip(s.type)}</span><span class="sub">${sub}</span>
+        <span class="right">${right}${ok ? '<span class="chev">›</span>' : ''}</span></button>`;
+    }).join('');
+    $('app').innerHTML = `
+      ${note('<b>Visit setup.</b> Pick the customer, building and check type once. Systems are numbered in order for the building, whatever their type. The type decides which checklist opens.')}
+      <section class="card stack">
+        <div class="grid2">
+          <label class="fl">Customer<select id="v-cust" data-visit="cust">${custs.map(c => `<option ${c === v.cust ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>
+          <label class="fl">Building<select id="v-bldg" data-visit="bldg">${bldgs.map(b => `<option ${b === v.bldg ? 'selected' : ''}>${esc(b)}</option>`).join('')}<option value="__new">+ New building…</option></select></label>
+        </div>
+        <div class="fl">Check type<div class="seg four">${CHECKS.map(c => `<button type="button" data-act="setCheck" data-v="${c}" class="${c === v.check ? 'on' : ''}">${c}</button>`).join('')}</div></div>
+        ${DRAFT[v.check] ? '<div class="draft-tag">Cooling checklists are drafts for the spring</div>' : ''}
+      </section>
+      <section class="card">
+        <div class="list-head"><h2>${esc(v.bldg)} · ${CHECK_LABEL[v.check]}</h2><span class="muted">${done} of ${eligible.length} ${insp ? 'inventoried' : 'done'}</span></div>
+        <div class="progress"><i style="width:${eligible.length ? Math.round(done / eligible.length * 100) : 0}%"></i></div>
+        ${loading ? '<div class="muted loading-row"><span class="spin"></span> Checking what is already done…</div>' : ''}
+        ${rows || '<div class="muted" style="padding:12px 0">No systems on file for this building yet.</div>'}
+        <button type="button" class="btn ghost" data-act="${insp ? 'inspectNew' : 'toggleAdd'}">+ ${insp ? 'Inventory a new system' : 'System not on the list'}</button>
+        ${insp ? '' : `<div id="add-form" class="stack" ${S.addOpen ? '' : 'hidden'} style="margin-top:10px">
+          <div class="grid2">
+            <label class="fl">System number<input id="add-num" inputmode="numeric" placeholder="e.g. ${systems.length + 1}"></label>
+            <label class="fl">System type<select id="add-type">${LISTS['System Types'].filter(t => hasList(t, v.check)).map(t => `<option>${esc(t)}</option>`).join('')}</select></label>
+          </div>
+          <div class="grid2">
+            <label class="fl">Heat source<select id="add-heat">${['Gas', 'Electric', 'Heat Pump', 'None'].map(h => `<option>${h}</option>`).join('')}</select></label>
+            <label class="fl">Suite <span class="hint">optional</span><input id="add-suite" placeholder="e.g. 100A"></label>
+          </div>
+          <button type="button" class="btn primary" data-act="addGo">Add and start check</button>
+        </div>`}
+      </section>`;
+    if (loading) loadStatus();
+    if (LIVE) store.set('fc_visit', JSON.stringify(S.visit));
+  }
+
+  // ---------------------------------------------------------------- CHECKLIST
+  function openCheck(sysId, editRec) {
+    const s = sysById(sysId);
+    const check = editRec ? editRec.check : S.visit.check;
+    S.sys = s; S.check = check;
+    S.sections = CHECKLISTS[s.type + '|' + check]();
+    S.fmap = {}; S.sections.forEach(sec => sec.fields.forEach(f => { S.fmap[f.id] = f; }));
+    const rec = editRec || recFor(s.id, check);
+    S.photos = rec && rec.photos ? rec.photos.slice() : [];
+    S.editing = editRec || null; S.tagKey = null;
+    if (S.role === 'tech') S.view = 'check'; else S.admin = 'edit';
+    render(); window.scrollTo(0, 0);
+    S.dirty = false; S.attnManual = undefined;
+    if (rec) Object.entries(rec.answers).forEach(([k, v]) => S.fmap[k] && setVal(S.fmap[k], v));
+    else if (S.fmap.heatSource) setVal(S.fmap.heatSource, s.heat === 'None' && !S.fmap.heatSource.o.includes('None') ? '' : s.heat);
+    S.pendingId = null;
+    if (LIVE) ensurePhotos(S.photos).then(n => { if (n) drawPhotos(true); });
+    derive();
+  }
+
+  const tone = (f, o) => { const s = evaluate(f, o); return s || (o === NA || o === 'Direct Drive' ? 'na' : (o === 'Green' || o === 'Good' ? 'green' : 'ink')); };
+  function selectHTML(id, items, unit, extra = '', placeholder = 'Select…') {
+    return `<select id="${id}" ${extra}><option value="">${placeholder}</option>${items.map(o => `<option value="${esc(o)}">${esc(o)}${unit && isNum(o) ? ' ' + unit : ''}</option>`).join('')}<option value="__o">Other…</option></select>`;
+  }
+  function capRow(id, list, allowNA, label) {
+    const items = list ? LISTS[list].filter(o => allowNA || o !== NA) : [];
+    return `<div class="cap-row" id="${id}-row">
+      <label class="fl sm">Rated${list ? selectHTML(`f-${id}-r`, allowNA && !items.includes(NA) ? [...items, NA] : items, 'mf', `aria-label="${esc(label)} rated"`, 'mf…') : `<div class="unit-in"><input id="f-${id}-r" inputmode="decimal" aria-label="${esc(label)} rated"><em>mf</em></div>`}
+        ${list ? `<input id="f-${id}-r-o" inputmode="decimal" placeholder="Rated mf" hidden aria-label="${esc(label)} rated other">` : ''}</label>
+      <label class="fl sm" id="${id}-readwrap">Reading<div class="unit-in"><input id="f-${id}-x" type="number" step="any" inputmode="decimal" aria-label="${esc(label)} reading"><em>mf</em></div></label>
+      <span class="cap-out" id="${id}-out"></span></div>`;
+  }
+  function fieldHTML(f) {
+    const lbl = `<span class="fl" id="lbl-${f.id}">${esc(f.l)}</span>`;
+    const hint = f.hint ? `<span class="hint">${esc(f.hint)}</span>` : '';
+    let ctl = '';
+    if (f.t === 'seg') ctl = `<div class="seg" role="radiogroup" aria-labelledby="lbl-${f.id}" id="g-${f.id}">${f.o.map(o =>
+      `<label><input type="radio" name="${f.id}" value="${esc(o)}" data-tone="${tone(f, o)}"><span>${esc(o)}</span></label>`).join('')}</div>`;
+    else if (f.t === 'list') ctl = selectHTML('f-' + f.id, LISTS[f.list], f.unit, `aria-labelledby="lbl-${f.id}"`) + `<input id="f-${f.id}-o" placeholder="Type ${esc(f.unit || 'value')}" inputmode="decimal" hidden aria-label="${esc(f.l)} other">`;
+    else if (f.t === 'qty') ctl = `<div class="row-qty"><select id="f-${f.id}-q" aria-label="${esc(f.l)} quantity"><option value="">Qty</option>${Array.from({ length: 10 }, (_, i) => `<option>${i + 1}</option>`).join('')}</select>
+      <div class="stack" style="gap:8px">${selectHTML(`f-${f.id}-s`, LISTS[f.list], '', `aria-label="${esc(f.l)} size"`, 'Size…')}<input id="f-${f.id}-o" placeholder="Type size, e.g. 20x30x2" hidden aria-label="${esc(f.l)} other size"></div></div>`;
+    else if (f.t === 'num') ctl = `<div class="row-amp"><div class="unit-in"><input id="f-${f.id}" type="number" inputmode="decimal" step="any" aria-labelledby="lbl-${f.id}"><em>${esc(f.unit)}</em></div>
+      ${f.na ? `<label class="chk na-chk"><input type="checkbox" id="f-${f.id}-na"> N/A</label>` : ''}</div>`;
+    else if (f.t === 'cap') ctl = capRow(f.id, f.list, f.allowNA, f.l);
+    else if (f.t === 'outcap') ctl = `<div class="seg small" role="radiogroup" aria-label="${esc(f.l)} type">${['Single', 'Dual', ...(f.allowNA ? [NA] : [])].map(o =>
+        `<label><input type="radio" name="${f.id}-k" value="${o}" data-tone="${o === NA ? 'na' : 'ink'}"><span>${o}</span></label>`).join('')}</div>
+      <div id="${f.id}-single" class="stack" hidden style="gap:6px"><div class="sublbl">Compressor run capacitor</div>${capRow(f.id + '-c', null, false, f.l + ' compressor')}
+        <div class="sublbl">Condenser fan motor run capacitor</div>${capRow(f.id + '-f', 'Condenser Fan Cap Sizes', false, f.l + ' fan')}</div>
+      <div id="${f.id}-dual" class="stack" hidden style="gap:6px"><label class="fl sm">Dual size<input id="f-${f.id}-d" placeholder="e.g. 45+5" aria-label="${esc(f.l)} dual size"></label>
+        <div class="grid2"><label class="fl sm">Compressor reading<div class="unit-in"><input id="f-${f.id}-dc" type="number" step="any" inputmode="decimal"><em>mf</em></div></label>
+          <label class="fl sm">Fan reading<div class="unit-in"><input id="f-${f.id}-df" type="number" step="any" inputmode="decimal"><em>mf</em></div></label></div>
+        <div class="cap-out" id="${f.id}-dout"></div></div>`;
+    else if (f.t === 'calc') ctl = `<div class="calc" id="f-${f.id}">—</div>`;
+    else if (f.t === 'flag') ctl = `<label class="chk flagchk"><input type="checkbox" id="f-${f.id}" aria-labelledby="lbl-${f.id}"> ${esc(f.text)}</label>`;
+    else if (f.t === 'textarea') ctl = `<textarea id="f-${f.id}" aria-labelledby="lbl-${f.id}"></textarea>`;
+    else ctl = `<input id="f-${f.id}" placeholder="${esc(f.ph || '')}" aria-labelledby="lbl-${f.id}">`;
+    return `<div class="field" id="w-${f.id}">${lbl}${ctl}${hint}</div>`;
+  }
+
+  function renderCheck() {
+    const s = S.sys, shared = sharedOn(), editing = !!S.editing;
+    const listName = tabName(s.type, S.check);
+    $('app').innerHTML = `
+      ${editing ? '<button type="button" class="linkbtn" data-act="cancelEdit" style="justify-self:start">‹ Back to details</button>' : ''}
+      <section class="card check-head">
+        ${editing ? '' : `<button type="button" class="linkbtn" data-act="back" style="justify-self:start">‹ ${esc(s.building)} systems</button>`}
+        <h3>System ${esc(s.number)}</h3>
+        <div class="chips">${typeChip(s.type)}<span class="chip">${CHECK_LABEL[S.check]}</span>${DRAFT[S.check] ? '<span class="chip draft">Draft</span>' : ''}${editing ? '<span class="chip">Admin edit</span>' : ''}</div>
+        <div class="muted">${esc(s.customer)} · ${esc(s.building)}${sysSub(s) ? ' · ' + esc(sysSub(s)) : ''}</div>
+      </section>
+      ${note(`<b>${esc(listName)}</b> is built from shared sections. ${S.fmap.heatSource ? 'Heat Source shows only the sections for that heat source; try switching it. ' : ''}${shared ? 'The tag on each section shows which other system types reuse it.' : ''}`)}
+      <nav class="jump" id="jump">${S.sections.map((sec, i) => `<button type="button" data-act="jump" data-i="${i}" id="j-${i}"><span class="dot"></span>${esc(sec.title)}</button>`).join('')}</nav>
+      ${S.sections.map((sec, i) => {
+        const others = [...(USAGE[sec.key] || [])].filter(t => t !== TYPE_SHORT[s.type]);
+        const tag = !shared || sec.key === 'heat' ? '' : others.length ? `<span class="shared">Shared · also on <b>${others.map(esc).join(', ')}</b></span>` : `<span class="shared">Only on ${esc(TYPE_SHORT[s.type])}</span>`;
+        const hsTag = sec.hs && shared ? `<span class="shared hs">${sec.hs.length === 3 ? 'Any heat source except None' : esc(sec.hs.join(' / '))}</span>` : '';
+        return `<section class="card" id="s-${i}"><div class="sec-head"><h2>${esc(sec.title)}</h2><span class="tags">${hsTag}${tag}</span></div>${sec.fields.map(fieldHTML).join('')}</section>`;
+      }).join('')}
+      ${LIVE && editing ? '<section class="card muted">Photos are kept as the technician saved them.</section>' : ''}<section class="card" id="photos-card" ${LIVE && editing ? 'hidden' : ''}><div class="sec-head"><h2>Photos</h2><span class="shared">Tag what each photo shows</span></div><div class="photos" id="photos"></div></section>
+      <section class="card"><div class="sec-head"><h2>Needs attention</h2></div><ul id="na-list"></ul></section>`;
+    $('bot').innerHTML = `<div class="barbot"><div class="barbot-in"><span class="count" id="count"></span><button type="button" class="btn primary" data-act="submit">${editing ? 'Save changes' : 'Submit'}</button></div></div>`;
+  }
+
+  // ---- read / write values
+  const el = id => $('f-' + id);
+  const pickOther = (id) => { const s = el(id); if (!s) return ''; return s.value === '__o' ? (el(id + '-o') ? el(id + '-o').value.trim() : '') : s.value; };
+  const setPick = (id, v, items) => { const s = el(id); if (!s) return; if (!v || items.includes(v)) { s.value = v || ''; if (el(id + '-o')) el(id + '-o').value = ''; } else { s.value = '__o'; if (el(id + '-o')) el(id + '-o').value = v; } };
+  const radio = name => { const r = document.querySelector(`input[name="${CSS.escape(name)}"]:checked`); return r ? r.value : ''; };
+  const setRadio = (name, v) => document.querySelectorAll(`input[name="${CSS.escape(name)}"]`).forEach(r => { r.checked = r.value === v; });
+  const capGet = (id, list) => ({ rated: list ? pickOther(id + '-r') : (el(id + '-r') || {}).value?.trim() || '', reading: (el(id + '-x') || {}).value?.trim() || '' });
+  const capSet = (id, list, v) => { v = v || {}; const items = list ? [...LISTS[list], NA] : []; if (list) setPick(id + '-r', v.rated || '', items); else if (el(id + '-r')) el(id + '-r').value = v.rated || ''; if (el(id + '-x')) el(id + '-x').value = v.reading || ''; };
+
+  function getVal(f) {
+    switch (f.t) {
+      case 'seg': return radio(f.id);
+      case 'list': return pickOther(f.id);
+      case 'qty': { const n = el(f.id + '-q').value, s = pickOther(f.id + '-s'); return !n && !s ? '' : `(${n || '?'}) ${s || '?'}`; }
+      case 'num': { const na = el(f.id + '-na'); return na && na.checked ? NA : el(f.id).value.trim(); }
+      case 'cap': return capGet(f.id, f.list);
+      case 'outcap': { const kind = radio(f.id + '-k'); const c = capGet(f.id + '-c'), fn = capGet(f.id + '-f', 'Condenser Fan Cap Sizes');
+        return { kind, compRated: c.rated, compReading: kind === 'Dual' ? el(f.id + '-dc').value.trim() : c.reading, fanRated: fn.rated, fanReading: kind === 'Dual' ? el(f.id + '-df').value.trim() : fn.reading, dual: el(f.id + '-d').value.trim() }; }
+      case 'calc': return calcVal(f, id => getVal(S.fmap[id]));
+      case 'flag': return el(f.id).checked ? 'Yes' : '';
+      default: return el(f.id) ? el(f.id).value.trim() : '';
+    }
+  }
+  function setVal(f, v) {
+    switch (f.t) {
+      case 'seg': setRadio(f.id, v || ''); break;
+      case 'list': setPick(f.id, v || '', LISTS[f.list]); break;
+      case 'qty': { const m = /^\((.*?)\)\s*(.*)$/.exec(v || ''); const n = m ? m[1] : '', s = m ? m[2] : ''; el(f.id + '-q').value = n === '?' ? '' : n; setPick(f.id + '-s', s === '?' ? '' : s, LISTS[f.list]); break; }
+      case 'num': { const na = el(f.id + '-na'); if (na) na.checked = v === NA; el(f.id).value = v === NA ? '' : (v || ''); break; }
+      case 'cap': capSet(f.id, f.list, v); break;
+      case 'outcap': { v = v || {}; setRadio(f.id + '-k', v.kind || ''); capSet(f.id + '-c', null, { rated: v.compRated, reading: v.kind === 'Single' ? v.compReading : '' });
+        capSet(f.id + '-f', 'Condenser Fan Cap Sizes', { rated: v.fanRated, reading: v.kind === 'Single' ? v.fanReading : '' });
+        el(f.id + '-d').value = v.dual || ''; el(f.id + '-dc').value = v.kind === 'Dual' ? v.compReading || '' : ''; el(f.id + '-df').value = v.kind === 'Dual' ? v.fanReading || '' : ''; break; }
+      case 'calc': break;
+      case 'flag': el(f.id).checked = v === 'Yes'; break;
+      default: if (el(f.id)) el(f.id).value = v || '';
+    }
+  }
+  const keyOf = (f, v) => f.t === 'cap' ? (v && v.rated === NA ? NA : v && v.rated) : f.t === 'outcap' ? (v && v.kind) : v;
+
+  function curHeat() { return S.fmap.heatSource ? getVal(S.fmap.heatSource) : null; }
+  function visibleNow() {
+    const heat = curHeat(), out = [];
+    S.sections.forEach((sec, i) => { if (S.fmap.heatSource && sec.hs && !visibleSection(sec, heat)) return; sec.fields.forEach(f => { if (f.hs && !visibleField(f, heat)) return; out.push({ f, i }); }); });
+    return out;
+  }
+  const capOut = (id, rated, reading) => {
+    const o = $(id); if (!o) return;
+    const s = capSev(rated, reading), p = pct(rated, reading);
+    o.className = 'cap-out ' + (s || ''); o.textContent = s ? `${s === 'green' ? 'Green' : s === 'yellow' ? 'Yellow' : 'Red'} · ${p > 0 ? '+' : ''}${p}%` : '';
+  };
+  function derive() {
+    const heat = curHeat();
+    S.sections.forEach((sec, i) => {
+      const hide = !!(S.fmap.heatSource && sec.hs && (!heat || !visibleSection(sec, heat)));
+      $('s-' + i).hidden = hide; const j = $('j-' + i); if (j) j.hidden = hide;
+      sec.fields.forEach(f => { if (f.hs) $('w-' + f.id).hidden = !!(S.fmap.heatSource && (!heat || !visibleField(f, heat))); });
+    });
+    // other-boxes, N/A boxes, capacitor states
+    document.querySelectorAll('#app select[id^="f-"]').forEach(sel => { const o = $(sel.id + '-o'); if (o) o.hidden = sel.value !== '__o'; });
+    document.querySelectorAll('#app input[id$="-na"]').forEach(cb => { const inp = $(cb.id.slice(0, -3)); if (inp) inp.disabled = cb.checked; });
+    Object.values(S.fmap).forEach(f => {
+      if (f.t === 'cap') { const v = getVal(f), na = capNA(v.rated); $(f.id + '-readwrap').hidden = na; if (na) el(f.id + '-x').value = ''; capOut(f.id + '-out', na ? null : v.rated, v.reading); }
+      if (f.t === 'outcap') { const v = getVal(f); $(f.id + '-single').hidden = v.kind !== 'Single'; $(f.id + '-dual').hidden = v.kind !== 'Dual';
+        const fanNA = capNA(v.fanRated); $(f.id + '-f-readwrap').hidden = fanNA; if (fanNA) el(f.id + '-f-x').value = '';
+        capOut(f.id + '-c-out', v.compRated, v.compReading); capOut(f.id + '-f-out', fanNA ? null : v.fanRated, v.fanReading);
+        const [c, fn] = parseDual(v.dual), d = $(f.id + '-dout'), cs = capSev(c, v.compReading), fs = capSev(fn, v.fanReading);
+        const lab = s => s ? s[0].toUpperCase() + s.slice(1) : '';
+        d.innerHTML = v.kind === 'Dual' && (cs || fs) ? `${cs ? `<span class="cap-out ${cs}">Compressor ${lab(cs)} · ${pct(c, v.compReading)}%</span>` : ''} ${fs ? `<span class="cap-out ${fs}">Fan ${lab(fs)} · ${pct(fn, v.fanReading)}%</span>` : ''}` : ''; }
+      if (f.t === 'calc') { const c = getVal(f), s = calcSev(f, c), o = el(f.id); o.textContent = c == null ? '—' : `${c} °F`; o.className = 'calc ' + (s || ''); }
+    });
+    const vis = visibleNow(), get = id => getVal(S.fmap[id]), issues = [];
+    let need = 0, have = 0; const secDone = {}, secFlag = {};
+    const others = vis.some(({ f }) => f.t !== 'flag' && evaluate(f, getVal(f), get));
+    if (S.fmap.attn) {   // auto-check when anything else is flagged; otherwise the tech's own choice
+      const cb = el('attn'); if (S.attnManual === undefined) S.attnManual = cb.checked && !others; else if (!cb.disabled) S.attnManual = cb.checked;
+      cb.disabled = others; cb.checked = others || S.attnManual;
+      $('w-attn').querySelector('.flagchk').classList.toggle('auto-on', others);
+      let h = $('attn-auto'); if (!h) { h = document.createElement('span'); h.id = 'attn-auto'; h.className = 'hint'; $('w-attn').appendChild(h); }
+      h.textContent = others ? 'Checked automatically because something above is flagged' : 'Check this for anything concerning the checklist does not cover';
+    }
+    vis.forEach(({ f, i }) => {
+      const v = getVal(f), sv = f.t === 'flag' && others ? null : evaluate(f, v, get);
+      if (sv) { issues.push({ t: issueText(f, v, get), s: sv, l: f.l }); secFlag[i] = true; }
+      if (!f.opt && f.t !== 'calc') { need++; if (answered(f, v, get)) have++; else secDone[i] = false; }
+      if (secDone[i] === undefined) secDone[i] = true;
+      // issue photo link
+      const w = $('w-' + f.id); let b = w.querySelector('.fphoto');
+      if (sv && !b) { b = document.createElement('button'); b.type = 'button'; b.className = 'linkbtn fphoto'; b.dataset.act = 'photoFor'; b.dataset.tag = 'Issue: ' + f.l; w.appendChild(b); }
+      if (!sv && b) b.remove();
+      if (sv) { const n = S.photos.filter(p => p.tag === 'Issue: ' + f.l).length, req = photoRequiredFor(f, v); b.textContent = (req ? '+ Photo required' : '+ Photo of this issue') + (n ? ` (${n} added)` : ''); b.classList.toggle('req-photo', req && !n); }
+    });
+    S.issueTags = issues.map(x => 'Issue: ' + x.l);
+    $('na-list').innerHTML = issues.length ? issues.map(x => `<li class="${x.s === 'yellow' ? 'y' : ''}">${esc(x.t)}</li>`).join('') : '<li class="none">Nothing flagged yet</li>';
+    if (S.fmap.notes) { $('lbl-notes').innerHTML = 'Notes' + (issues.length ? ' <span class="req">*</span>' : ''); el('notes').placeholder = issues.length ? 'Required: describe what needs attention' : ''; }
+    $('count').textContent = `${have} of ${need} answered`;
+    S.sections.forEach((sec, i) => { const j = $('j-' + i); if (j) { j.classList.toggle('flag', !!secFlag[i]); j.classList.toggle('done', !secFlag[i] && secDone[i] === true); } });
+    drawPhotos();
+    S.prev = {}; Object.values(S.fmap).forEach(f => { S.prev[f.id] = keyOf(f, getVal(f)); });
+    return { vis, issues };
+  }
+  function applyFills(f, prevKey, nowKey) {
+    const fl = f.fills; if (!fl) return;
+    const same = (t, v) => JSON.stringify(keyOf(t, getVal(t))) === JSON.stringify(keyOf(t, v));
+    if (nowKey === fl.when) Object.entries(fl.set).forEach(([k, v]) => S.fmap[k] && setVal(S.fmap[k], v));
+    else if (prevKey === fl.when) Object.entries(fl.set).forEach(([k, v]) => { const t = S.fmap[k]; if (t && same(t, v)) setVal(t, t.t === 'cap' ? {} : t.t === 'outcap' ? {} : ''); });
+  }
+
+  // ---- photo rules
+  function photoRequiredFor(f, v) {
+    const list = tabName(S.sys.type, S.check);
+    return PHOTO_RULES.some(r => wild(r.checklist, list) && wild(r.field, f.l) && (r.when.toLowerCase() === 'always' ? true : r.when.split(',').map(x => x.trim().toLowerCase()).includes(String(v).toLowerCase())));
+  }
+  function missingPhotos(vis) {
+    const out = [], get = id => getVal(S.fmap[id]);
+    vis.forEach(({ f }) => { const v = getVal(f); if (evaluate(f, v, get) && photoRequiredFor(f, v) && !S.photos.some(p => p.tag === 'Issue: ' + f.l)) out.push(f.l); });
+    return out;
+  }
+
+  // ---- submit
+  function trySubmit() {
+    const { vis, issues } = derive();
+    document.querySelectorAll('.invalid').forEach(e => e.classList.remove('invalid'));
+    const s = S.sys, label = `System ${s.number} · ${s.type} · ${s.building}`;
+    if (S.fmap.heatSource && !curHeat()) { sheet(`<h3>Pick a heat source</h3><div class="stop">The heat source decides which sections apply.</div><div class="sheet-actions"><button type="button" class="btn primary" data-act="closeSheet">OK</button></div>`); return; }
+    const notes = S.fmap.notes ? getVal(S.fmap.notes) : '';
+    if (issues.length && !notes) {
+      sheet(`<h3>Notes are required</h3><div class="stop">${issues.length} item${issues.length > 1 ? 's need' : ' needs'} attention. Describe ${issues.length > 1 ? 'them' : 'it'} in Notes.</div>
+        <div class="sheet-actions"><button type="button" class="btn primary" data-act="goNotes">Go to Notes</button></div>`); return;
+    }
+    const mp = LIVE && S.editing ? [] : missingPhotos(vis);
+    if (mp.length) {
+      sheet(`<h3>Photo required</h3><div class="stop">Add a photo for: ${esc(mp.join(', '))}</div>
+        <div class="sheet-actions"><button type="button" class="btn" data-act="closeSheet">Back</button><button type="button" class="btn primary" data-act="photoFor" data-tag="${esc('Issue: ' + mp[0])}">Add photo</button></div>`); return;
+    }
+    const get = id => getVal(S.fmap[id]);
+    const missing = vis.filter(({ f }) => !f.opt && f.t !== 'calc' && !answered(f, getVal(f), get));
+    S.missing = missing;
+    if (missing.length && !S.editing) {
+      sheet(`<h3>Incomplete check</h3><div class="warn">${missing.length} field${missing.length > 1 ? 's are' : ' is'} not filled out</div>
+        <ul>${missing.slice(0, 12).map(m => `<li>${esc(m.f.l)}</li>`).join('')}${missing.length > 12 ? `<li>…and ${missing.length - 12} more</li>` : ''}</ul>
+        <div class="muted">${esc(label)}</div>
+        <div class="sheet-actions"><button type="button" class="btn" data-act="keepEditing">Keep editing</button><button type="button" class="btn primary" data-act="save">Submit anyway</button></div>`); return;
+    }
+    sheet(`<h3>${S.editing ? 'Save changes?' : 'Submit this check?'}</h3><div class="muted">${esc(label)} · ${CHECK_LABEL[S.check]}</div>
+      <div class="sheet-actions"><button type="button" class="btn" data-act="closeSheet">Cancel</button><button type="button" class="btn primary" data-act="save">${S.editing ? 'Save' : 'Submit'}</button></div>`);
+  }
+  const photoPayload = list => list.map(p => (p.fileId ? { fileId: p.fileId, tag: p.tag } : { data: p.url, tag: p.tag }));
+  function busy(on, label) {
+    S.busy = on; const b = document.querySelector('#bot .btn.primary');
+    if (b) { if (on) { b.dataset.label = b.textContent; b.textContent = label || 'Saving…'; } else if (b.dataset.label) b.textContent = b.dataset.label; b.disabled = on; }
+  }
+  function saveFailed(e) {
+    busy(false);
+    sheet(`<h3>Not saved</h3><div class="stop">${esc(e.message)}</div><div class="muted">Your answers are still on this screen. Try again when you have signal.</div>
+      <div class="sheet-actions"><button type="button" class="btn primary" data-act="closeSheet">OK</button></div>`);
+  }
+  async function saveCheck() {
+    if (S.busy) return;
+    const answers = {}; Object.values(S.fmap).forEach(f => { if (f.t !== 'calc') answers[f.id] = getVal(f); });
+    const s = S.sys;
+    if (LIVE) {
+      const heat = answers.heatSource || s.heat, sections = S.sections;
+      let issues = [];
+      sections.forEach(sec => { if (!visibleSection(sec, heat)) return; sec.fields.forEach(f => { if (!visibleField(f, heat)) return; const sv = evaluate(f, answers[f.id], id => answers[id]); if (sv) issues.push({ l: f.l, t: issueText(f, answers[f.id], id => answers[id]) }); }); });
+      issues = dropAttn(issues).map(x => x.t);
+      const { rec, cols } = toCols(sections, answers, heat);
+      Object.assign(rec, { 'Customer': s.customer, 'Building': s.building, 'System ID': s.id, 'System Number': s.number, 'System Type': s.type, 'Heat Source': heat, 'Needs Attention': issues.join('; ') });
+      busy(true);
+      try {
+        if (S.editing) {
+          await api('adminUpdate', { checklist: S.editing.tab, id: S.editing.id, record: rec, columns: cols });
+          if (answers.heatSource) s.heat = answers.heatSource;
+        } else {
+          const prev = recFor(s.id, S.check), id = S.pendingId || (S.pendingId = uuid());
+          const j = await api('submit', { id, checklist: tabName(s.type, S.check), record: rec, columns: cols, photos: photoPayload(S.photos), system: sysToRow({ ...s, heat }), replaceId: prev ? prev.id : '' });
+          s.heat = heat; S.pendingId = null;
+          addRecord(s, S.check, API.name, parseStamp(j.time), answers, S.photos.map(p => ({ ...p })), { id });
+          S.statusKey = statusKey();
+        }
+      } catch (e) { saveFailed(e); return; }
+      busy(false);
+    }
+    if (answers.heatSource && answers.heatSource !== s.heat) s.heat = answers.heatSource;   // heat source change updates the system
+    S.dirty = false;
+    if (S.editing) {
+      Object.assign(S.editing, { answers, photos: S.photos.slice() });
+      S.rec = S.editing; S.editing = null; S.admin = 'detail'; render(); window.scrollTo(0, 0); toast('Changes saved'); return;
+    }
+    if (!LIVE) addRecord(s, S.check, 'Mike T', new Date(), answers, S.photos.slice());
+    S.view = 'visit'; render(); window.scrollTo(0, 0);
+    const nxt = document.querySelector('.unit.is-next .name');
+    toast(`System ${s.number} saved${S.photos.length ? ` with ${S.photos.length} photo${S.photos.length > 1 ? 's' : ''}` : ''}${nxt ? ' · next up: ' + nxt.firstChild.textContent.trim() : ' · building complete'}`);
+  }
+
+  // ---------------------------------------------------------------- INSPECTION / INVENTORY
+  const INSP = [
+    { k: 'number', l: 'System Number', t: 'text', req: true, ph: 'Typed by the tech', im: 'numeric' },
+    { k: 'type', l: 'System Type', t: 'list', list: 'System Types', req: true, noOther: true },
+    { k: 'heat', l: 'Heat Source', t: 'seg', o: ['Gas', 'Electric', 'Heat Pump', 'None'], req: true },
+    { k: 'suite', l: 'Suite', t: 'text', ph: 'e.g. 100A (blank = N/A)' },
+    { k: 'area', l: 'Area Served', t: 'text', ph: 'blank = Unknown' },
+    { k: 'outdoor', l: 'Outdoor Location', t: 'list', list: 'Outdoor Locations', warn: true },
+    { k: 'indoor', l: 'Indoor Location', t: 'list', list: 'Indoor Locations', warn: true },
+    { k: 'make', l: 'Manufacturer', t: 'list', list: 'Manufacturers', warn: true, label: true },
+    { k: 'model', l: 'Model Number', t: 'text', warn: true, label: true, caps: true },
+    { k: 'serial', l: 'Serial Number', t: 'text', warn: true, label: true, caps: true },
+    { k: 'size', l: 'Size', t: 'text', ph: 'tons / BTU/h / kW', label: true },
+    { k: 'mfg', l: 'Manufacture Date', t: 'text', ph: 'e.g. Mar 2017', label: true },
+    { k: 'refrigerant', l: 'Refrigerant Type', t: 'list', list: 'Refrigerant Types', label: true },
+  ];
+  const INSP_COND = [
+    { k: 'overallStatus', l: 'Overall Status', t: 'list', list: 'Overall Status', noOther: true },
+    { k: 'visual', l: 'Visual Condition', t: 'seg', o: ['New', 'Good', 'Fair', 'Poor'], warnV: ['Fair'], badV: ['Poor'] },
+    { k: 'operational', l: 'Operational Assessment', t: 'seg', o: ['Good', 'Needs Attention', 'Not Performed', 'No Power', 'Abandoned'], warnV: ['Needs Attention'] },
+    { k: 'attn', l: 'System Needs Attention', t: 'flag' },
+    { k: 'notes', l: 'Notes', t: 'textarea' },
+  ];
+  function inspIssues(a) {
+    const out = [];
+    if (a.attn === 'Yes') out.push({ t: 'Technician flagged: system needs attention', s: 'red', l: ATTN_L });
+    INSP_COND.forEach(c => { const v = a[c.k]; if ((c.badV || []).includes(v)) out.push({ t: `${c.l}: ${v}`, s: 'red', l: c.l }); else if ((c.warnV || []).includes(v)) out.push({ t: `${c.l}: ${v}`, s: 'yellow', l: c.l }); });
+    return dropAttn(out);
+  }
+  function inspAuto() {
+    const cb = $('i-attn'); if (!cb) return;
+    const a = {}; INSP_COND.forEach(c => { if (c.t === 'seg') a[c.k] = radio('i-' + c.k); });
+    const others = inspIssues(a).length > 0;
+    if (S.iAttnManual === undefined) S.iAttnManual = cb.checked && !others; else if (!cb.disabled) S.iAttnManual = cb.checked;
+    cb.disabled = others; cb.checked = others || S.iAttnManual;
+    cb.closest('.flagchk').classList.toggle('auto-on', others);
+    $('i-attn-hint').textContent = others ? 'Checked automatically because the condition above is flagged' : 'Check this for anything concerning';
+  }
+  function inspField(c, v) {
+    const id = 'i-' + c.k;
+    if (c.t === 'flag') return `<div class="fl"><span>${esc(c.l)}</span><label class="chk flagchk"><input type="checkbox" id="${id}" ${v === 'Yes' ? 'checked' : ''}> Something concerning or wrong</label><span class="hint" id="${id}-hint"></span></div>`;
+    if (c.t === 'seg') return `<div class="fl"><span>${esc(c.l)}${c.req ? ' <span class="req">*</span>' : ''}</span><div class="seg ${c.o.length > 4 ? 'wrap' : ''}">${c.o.map(o => `<label><input type="radio" name="${id}" value="${esc(o)}" ${o === v ? 'checked' : ''}
+      data-tone="${(c.badV || []).includes(o) ? 'red' : (c.warnV || []).includes(o) ? 'yellow' : o === 'Good' || o === 'New' ? 'green' : 'ink'}"><span>${esc(o)}</span></label>`).join('')}</div></div>`;
+    if (c.t === 'list') { const items = LISTS[c.list], other = v && !items.includes(v);
+      return `<label class="fl"><span>${esc(c.l)}${c.req ? ' <span class="req">*</span>' : ''}</span><select id="${id}"><option value="">Select…</option>${items.map(o => `<option ${o === v ? 'selected' : ''}>${esc(o)}</option>`).join('')}${c.noOther ? '' : `<option value="__o" ${other ? 'selected' : ''}>Custom…</option>`}</select>
+        ${c.noOther ? '' : `<input id="${id}-o" placeholder="Type ${esc(c.l.toLowerCase())}" value="${other ? esc(v) : ''}" ${other ? '' : 'hidden'}>`}</label>`; }
+    if (c.t === 'textarea') return `<label class="fl">${esc(c.l)}<textarea id="${id}">${esc(v || '')}</textarea></label>`;
+    return `<label class="fl"><span>${esc(c.l)}${c.req ? ' <span class="req">*</span>' : ''}</span><input id="${id}" value="${esc(v || '')}" placeholder="${esc(c.ph || '')}" ${c.im ? `inputmode="${c.im}"` : ''} ${c.caps ? 'autocapitalize="characters"' : ''}></label>`;
+  }
+  const inspGet = c => c.t === 'flag' ? ($('i-' + c.k).checked ? 'Yes' : '') : c.t === 'seg' ? radio('i-' + c.k) : c.t === 'list' ? ($('i-' + c.k).value === '__o' ? $('i-' + c.k + '-o').value.trim() : $('i-' + c.k).value) : $('i-' + c.k).value.trim();
+  function renderInspect() {
+    const s = S.sys, isNew = !s.id, prev = s.id && recFor(s.id, 'Inspection');
+    $('app').innerHTML = `
+      <section class="card check-head">
+        <button type="button" class="linkbtn" data-act="back" style="justify-self:start">‹ ${esc(S.visit.building || S.visit.bldg)} systems</button>
+        <h3>${isNew ? 'Inventory a new system' : `System ${esc(s.number)}`}</h3>
+        <div class="chips">${s.type ? typeChip(s.type) : ''}<span class="chip">Inspection</span></div>
+        <div class="muted">${esc(S.visit.cust)} · ${esc(S.visit.bldg)}</div>
+      </section>
+      ${note('<b>Inspection = inventory.</b> Saving adds or updates the system on this building’s equipment list. Dropdowns come from the Lists (Admin → Lists). Model, serial and the location fields are optional but show in the incomplete warning.' + (CAN_READ ? ' <b>Try it:</b> photograph a real data plate in the Data plate slot and the label fields fill in.' : ''))}
+      <section class="card ocr" id="ocr" hidden></section>
+      <section class="card stack"><h2>System information</h2>${INSP.map(c => inspField(c, s[c.k])).join('')}</section>
+      <section class="card stack"><h2>Condition</h2>${INSP_COND.map(c => inspField(c, prev ? prev.answers[c.k] : s[c.k])).join('')}</section>
+      <section class="card stack"><div class="sec-head" style="margin:0"><h2>Photos</h2><span class="shared">Data plate and whole unit are required</span></div><div class="photos" id="photos"></div></section>`;
+    $('bot').innerHTML = `<div class="barbot"><div class="barbot-in"><button type="button" class="btn" data-act="back">Cancel</button><button type="button" class="btn primary" data-act="inspectSave">Save to equipment list</button></div></div>`;
+    S.tagKey = null; S.dirty = false; S.iAttnManual = undefined; inspAuto(); drawPhotos();
+  }
+  async function trySaveInspect(force) {
+    if (S.busy) return;
+    document.querySelectorAll('.invalid').forEach(e => e.classList.remove('invalid'));
+    const vals = {}; [...INSP, ...INSP_COND].forEach(c => { vals[c.k] = inspGet(c); });
+    const req = INSP.filter(c => c.req && !vals[c.k]);
+    if (req.length) { req.forEach(c => ($('i-' + c.k) || document.querySelector(`input[name="i-${c.k}"]`).closest('.seg')).classList.add('invalid')); toast('Fill in ' + req.map(c => c.l).join(', ')); return; }
+    const dup = SYSTEMS.find(x => x.id !== S.sys.id && x.customer === S.visit.cust && x.building === S.visit.bldg && String(x.number) === String(vals.number));
+    if (dup) { $('i-number').classList.add('invalid'); toast(`System ${vals.number} already exists in ${S.visit.bldg}`); return; }
+    const needPhotos = PHOTO_RULES.filter(r => wild(r.checklist, 'Inspection') && r.when.toLowerCase() === 'always').map(r => r.field).filter(t => !S.photos.some(p => wild(t, p.tag)));
+    if (needPhotos.length) { sheet(`<h3>Photo required</h3><div class="stop">Add: ${esc(needPhotos.join(', '))}</div><div class="sheet-actions"><button type="button" class="btn primary" data-act="closeSheet">OK</button></div>`); return; }
+    const warn = INSP.filter(c => c.warn && !vals[c.k]);
+    if (warn.length && !force) {
+      sheet(`<h3>Incomplete inventory</h3><div class="warn">${warn.length} field${warn.length > 1 ? 's are' : ' is'} blank</div><ul>${warn.map(c => `<li>${esc(c.l)}</li>`).join('')}</ul>
+        <div class="sheet-actions"><button type="button" class="btn" data-act="closeSheet">Keep editing</button><button type="button" class="btn primary" data-act="inspectForce">Save anyway</button></div>`); return;
+    }
+    let s = S.sys.id ? sysById(S.sys.id) : null, isNew = !s;
+    const next = { ...(s || SYS(S.visit.cust, S.visit.bldg, vals.number, vals.type, vals.heat)) };
+    INSP.forEach(c => { next[c.k] = vals[c.k]; }); INSP_COND.forEach(c => { next[c.k] = vals[c.k]; });
+    let saved = { id: uuid(), time: new Date() };
+    if (LIVE) {
+      const rec = { 'Customer': next.customer, 'Building': next.building, 'System ID': next.id, 'Needs Attention': inspIssues(vals).map(x => x.t).join('; ') };
+      [...INSP, ...INSP_COND].forEach(c => { rec[c.l] = vals[c.k] || ''; });
+      busy(true);
+      try {
+        const prev = s && recFor(s.id, 'Inspection'), id = S.pendingId || (S.pendingId = uuid());
+        const j = await api('submit', { id, checklist: 'Inspection', isInventory: true, record: rec, columns: Object.keys(rec), photos: photoPayload(S.photos), system: sysToRow(next), replaceId: prev ? prev.id : '' });
+        saved = { id, time: parseStamp(j.time) }; S.pendingId = null;
+      } catch (e) { saveFailed(e); return; }
+      busy(false);
+    }
+    if (isNew) { s = next; SYSTEMS.push(s); } else Object.assign(s, next);
+    S.dirty = false;
+    addRecord(s, 'Inspection', LIVE ? API.name : 'Mike T', saved.time, vals, S.photos.map(p => ({ ...p })), { id: saved.id });
+    S.view = 'visit'; render(); window.scrollTo(0, 0);
+    toast(`System ${s.number} saved to ${S.visit.bldg}'s equipment list`);
+  }
+
+  // ---------------------------------------------------------------- PHOTOS
+  function fakePhoto(kind, label) {
+    const c = document.createElement('canvas'); c.width = 640; c.height = 480; const g = c.getContext('2d');
+    const bg = { plate: ['#8a939e', '#c7ccd2'], hx: ['#4a3b33', '#9b7b62'], vent: ['#6d7f93', '#b9c7d6'], unit: ['#7a8691', '#d3d8dd'], coil: ['#5f6e63', '#a9b8ad'] }[kind];
+    const gr = g.createLinearGradient(0, 0, 640, 480); gr.addColorStop(0, bg[0]); gr.addColorStop(1, bg[1]); g.fillStyle = gr; g.fillRect(0, 0, 640, 480);
+    g.strokeStyle = 'rgba(255,255,255,.25)'; g.lineWidth = 3;
+    if (kind === 'hx') { g.strokeStyle = '#1a1310'; g.lineWidth = 5; g.beginPath(); g.moveTo(180, 120); g.lineTo(260, 210); g.lineTo(240, 260); g.lineTo(330, 360); g.stroke(); }
+    if (kind === 'vent') { g.fillStyle = '#9aa5b1'; g.fillRect(270, 40, 100, 400); g.fillStyle = '#4b5561'; g.save(); g.translate(320, 260); g.rotate(0.18); g.fillRect(-90, -16, 180, 32); g.restore(); }
+    if (kind === 'coil') { for (let x = 20; x < 640; x += 9) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 480); g.stroke(); } g.fillStyle = 'rgba(240,248,255,.75)'; g.beginPath(); g.ellipse(250, 300, 200, 110, 0, 0, Math.PI * 2); g.fill(); }
+    if (kind === 'plate') { g.fillStyle = '#e9ecef'; g.fillRect(110, 90, 420, 280); g.fillStyle = '#2b3138'; g.font = 'bold 26px sans-serif'; g.fillText('MODEL  PDP150AE0130', 130, 150); g.fillText('SERIAL 1712A04588', 130, 200); }
+    if (kind === 'unit') { g.fillStyle = '#c9cfd5'; g.fillRect(90, 120, 460, 260); g.fillStyle = '#9aa3ab'; for (let y = 150; y < 360; y += 16) g.fillRect(120, y, 250, 6); }
+    g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(0, 430, 640, 50); g.fillStyle = '#fff'; g.font = 'bold 20px sans-serif'; g.fillText('Sample photo · ' + label, 18, 462);
+    return c.toDataURL('image/jpeg', 0.8);
+  }
+  if (!LIVE) RECORDS.find(r => r.systemId === S1[14].id).photos = [{ url: fakePhoto('hx', 'Heat exchanger crack'), tag: 'Issue: Heat Exchanger Condition', kb: 190 }, { url: fakePhoto('vent', 'Loose vent stack'), tag: 'Issue: Vent Stack Attached and Free of Debris', kb: 175 }];
+  if (!LIVE) RECORDS.find(r => r.systemId === S1[8].id).photos = [{ url: fakePhoto('coil', 'Iced outdoor coil'), tag: 'Issue: Defrost Cycle', kb: 182 }];
+  function shrink(file) {
+    return new Promise((resolve, reject) => {
+      const u = URL.createObjectURL(file), img = new Image();
+      img.onload = () => { const k = Math.min(1, 1600 / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(u); const url = c.toDataURL('image/jpeg', 0.75); resolve({ url, kb: Math.round(url.length * 0.75 / 1024), origKb: Math.round(file.size / 1024) }); };
+      img.onerror = () => { URL.revokeObjectURL(u); reject(new Error('not an image')); }; img.src = u;
+    });
+  }
+  const fmtKb = kb => kb >= 1024 ? (kb / 1024).toFixed(1) + ' MB' : kb + ' KB';
+  const INSPECT_TAGS = ['Data plate', 'Unit', 'Serial tag', 'Disconnect', 'Other'];
+  function drawPhotos(force) {
+    const box = $('photos'); if (!box) return;
+    const insp = S.role === 'tech' && S.view === 'inspect';
+    const tags = insp ? INSPECT_TAGS : ['Unit', 'Data plate', ...(S.issueTags || []), 'Other'];
+    const key = tags.join('|') + '#' + S.photos.map(p => p.tag + p.url.length).join(',');
+    if (!force && key === S.tagKey) return; S.tagKey = key;
+    const slot = (tag, text, req) => `<label class="addph ${req ? 'req' : ''}"><input type="file" accept="image/*" ${tag ? '' : 'multiple'} data-photo data-tag="${esc(tag)}"><b>+</b>${esc(text)}${req ? '<small>Required</small>' : ''}</label>`;
+    const have = t => S.photos.some(p => p.tag === t);
+    box.innerHTML = S.photos.map((p, i) => {
+      const opts = tags.includes(p.tag) ? tags : [p.tag, ...tags];
+      return `<div class="ph-item"><img src="${p.url || PH_WAIT}" alt="${esc(p.tag)}" data-act="phView" data-i="${i}">${p.kb ? `<span class="kb">${fmtKb(p.kb)}</span>` : ''}
+        <button type="button" class="x" data-act="phDel" data-i="${i}" aria-label="Remove photo">×</button>
+        <select data-phtag="${i}" aria-label="What this photo shows">${opts.map(t => `<option ${t === p.tag ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>
+        ${insp && CAN_READ && p.tag === 'Data plate' ? `<button type="button" class="readlbl" data-act="readLabel" data-i="${i}">Read label</button>` : ''}</div>`;
+    }).join('') + (insp && !have('Data plate') ? slot('Data plate', 'Data plate', true) : '') + (insp && !have('Unit') ? slot('Unit', 'Whole unit', true) : '') + slot('', insp ? 'More photos' : 'Add photo');
+  }
+  async function addFiles(files, tag) {
+    let added = 0, before = 0, after = 0;
+    for (const file of files) { try { const r = await shrink(file); S.photos.push({ url: r.url, tag: tag || (S.view === 'inspect' ? 'Other' : 'Unit'), kb: r.kb }); added++; before += r.origKb; after += r.kb; } catch { toast(`${file.name} isn't a photo the browser can open`); } }
+    if (!added) return;
+    if (S.view === 'check' || S.admin === 'edit') derive(); drawPhotos(true);
+    if (S.view === 'inspect' && CAN_READ && tag === 'Data plate') { readLabel(S.photos.length - 1); return; }
+    toast(`${added} photo${added > 1 ? 's' : ''} added · resized ${fmtKb(before)} → ${fmtKb(after)}`);
+  }
+  const viewPhoto = p => { $('sheet').innerHTML = `<div class="scrim lb" data-act="closeSheet"><img src="${p.url || PH_WAIT}" alt="${esc(p.tag)}"><div class="cap">${esc(p.tag)}</div><button type="button" class="btn sm" data-act="closeSheet">Close</button></div>`; };
+
+  // ---- label reading (via Claude in the published prototype)
+  let SAMPLE = null, CAN_READ = false, readCtl = null;
+  if (!LIVE) (async () => { try { if (!window.claude || typeof window.claude.use !== 'function') return; SAMPLE = await window.claude.use('sample'); if (!SAMPLE) return;
+    const lim = await SAMPLE.limits().catch(() => null); CAN_READ = !!(lim && lim.images); if (CAN_READ && S.view === 'inspect') drawPhotos(true); } catch { CAN_READ = false; } })();
+  const dataUrlToBlob = url => { const [h, b] = url.split(','); const bin = atob(b); const a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return new Blob([a], { type: h.slice(5, h.indexOf(';')) }); };
+  async function readLabel(i) {
+    const p = S.photos[i]; if (!p || (!SAMPLE && !LIVE)) return;
+    if (LIVE && !p.url) { await ensurePhotos([p]); if (!p.url) return; }
+    const box = $('ocr'); box.hidden = false; box.className = 'card ocr busy'; readCtl = new AbortController();
+    box.innerHTML = `<div class="row"><span style="display:flex;gap:10px;align-items:center"><span class="spin"></span><b>Reading the data plate…</b></span><button type="button" class="btn sm" data-act="stopRead">Stop</button></div><div class="muted">Usually 5–30 seconds.</div>`;
+    box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const prompt = `This photo should show the data plate (nameplate) of commercial or residential HVAC equipment. Reply with only a JSON object:
+{"isDataPlate": true, "manufacturer": "Trane", "model": "YCD150", "serial": "21334KUE5F", "systemType": "RTU", "heatSource": "Gas", "size": "12.5 ton", "manufactureDate": "Aug 2021 (from serial)", "refrigerant": "R410a", "voltage": "460/3/60", "uncertain": ["serial"], "notes": ""}
+Rules: copy model and serial character for character and list any field with unreadable characters in "uncertain". manufacturer: use one of ${LISTS['Manufacturers'].join(', ')} when it matches. systemType: one of ${LISTS['System Types'].join(', ')} or null. heatSource: Gas, Electric, Heat Pump or None, or null if unclear. refrigerant: one of ${LISTS['Refrigerant Types'].join(', ')} when it matches. manufactureDate: printed, or decoded from the serial only when you know that brand's format (add "(from serial)"). Use null for anything not on the plate. If it is not a data plate, set isDataPlate false and explain in notes.`;
+    try {
+      if (LIVE) { const ctl = readCtl, j = await api('readLabel', { image: p.url, prompt }); if (ctl.signal.aborted) { $('ocr').hidden = true; return; } applyLabel(j.result || {}); }
+      else applyLabel(await SAMPLE.json(prompt, { images: dataUrlToBlob(p.url), signal: readCtl.signal }) || {});
+    }
+    catch (e) { const msg = { cancelled: null, not_configured: 'Label reading is not set up yet (needs an API key in the script).', invalid_json: 'The label could not be read. Try a closer, sharper photo.', reader_error: 'The label reader did not answer. Try again.', network: e.message, not_granted: 'Label reading was not allowed for this page.', image_rejected: 'That photo could not be read. Try a closer, sharper photo.', rate_limited: 'Too many reads just now. Try again in a minute.' }[e && e.code];
+      if (msg === null) { box.hidden = true; return; } box.className = 'card ocr err'; box.innerHTML = `<b>Couldn't read the label</b><div style="font-size:14px">${esc(msg || 'Something went wrong. Tap Read label to try again.')}</div>`; }
+    finally { readCtl = null; }
+  }
+  function applyLabel(r) {
+    const box = $('ocr');
+    if (r.isDataPlate === false) { box.className = 'card ocr err'; box.innerHTML = `<b>That doesn't look like a data plate</b><div style="font-size:14px">${esc(r.notes || 'Retake the photo square-on to the plate.')}</div>`; return; }
+    const unsure = new Set((Array.isArray(r.uncertain) ? r.uncertain : []).map(x => String(x).toLowerCase()));
+    S.labelUndo = {}; INSP.forEach(c => { if (c.label || c.k === 'type' || c.k === 'heat') S.labelUndo[c.k] = inspGet(c); });
+    const filled = [];
+    const putText = (k, v, key) => { if (v == null || String(v).trim() === '') return; const x = $('i-' + k); x.value = String(v).trim(); x.classList.add('auto'); x.classList.toggle('unsure', unsure.has(key)); filled.push(INSP.find(c => c.k === k).l); };
+    const putList = (k, v, key) => { if (!v) return; const c = INSP.find(x => x.k === k), sel = $('i-' + k), hit = LISTS[c.list].find(o => o.toLowerCase() === String(v).toLowerCase());
+      if (hit) { sel.value = hit; if ($('i-' + k + '-o')) $('i-' + k + '-o').hidden = true; } else if ($('i-' + k + '-o')) { sel.value = '__o'; const o = $('i-' + k + '-o'); o.hidden = false; o.value = v; o.classList.add('auto'); } else return;
+      sel.classList.add('auto'); sel.classList.toggle('unsure', unsure.has(key)); filled.push(c.l); };
+    putList('make', r.manufacturer, 'manufacturer'); putText('model', r.model, 'model'); putText('serial', r.serial, 'serial');
+    if (r.systemType && !$('i-type').value) putList('type', r.systemType, 'systemtype');
+    if (r.heatSource && !radio('i-heat') && ['Gas', 'Electric', 'Heat Pump', 'None'].includes(r.heatSource)) { setRadio('i-heat', r.heatSource); filled.push('Heat Source'); }
+    putText('size', r.size, 'size'); putText('mfg', r.manufactureDate, 'manufacturedate'); putList('refrigerant', r.refrigerant, 'refrigerant');
+    const unsureNames = INSP.filter(c => unsure.has(c.k) || (c.k === 'make' && unsure.has('manufacturer')) || (c.k === 'mfg' && unsure.has('manufacturedate'))).map(c => c.l);
+    box.className = 'card ocr';
+    box.innerHTML = `<div class="row"><b>${filled.length ? `Filled in from the label: ${esc(filled.join(', '))}` : 'Nothing readable on the label'}</b><button type="button" class="btn sm" data-act="undoLabel">Undo</button></div>
+      ${unsureNames.length ? `<div class="unsure-msg">Double-check against the plate: ${esc(unsureNames.join(', '))}</div>` : ''}${r.voltage ? `<div class="muted">Voltage on plate: ${esc(r.voltage)}</div>` : ''}
+      <div class="muted">Fields filled from the photo are outlined. Check them before saving.</div>`;
+  }
+
+  // ---------------------------------------------------------------- ADMIN
+  const adminTabs = a => `<div class="tabs">${[['report', 'Report'], ['lists', 'Lists'], ['settings', 'Settings']].map(([k, t]) => `<button type="button" data-act="adminTab" data-v="${k}" class="${a === k ? 'on' : ''}">${t}</button>`).join('')}</div>`;
+  const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const when = d => ymd(d) === ymd(new Date()) ? tm(d) : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ', ' + tm(d);
+  async function loadAdmin() {
+    const key = S.af.from + '|' + S.af.to; if (S.adminLoading === key) return; S.adminLoading = key;
+    try { const j = await api('adminRange', { from: S.af.from, to: S.af.to });
+      (j.systems || []).forEach(r => { const x = sysFromRow(r), cur = sysById(x.id); if (cur) Object.assign(cur, x); else SYSTEMS.push(x); });
+      S.adminRecs = (j.rows || []).map(recFromRow).sort((a, b) => b.time - a.time); S.adminKey = key; }
+    catch (e) { S.adminKey = key; S.adminRecs = []; toast('Could not load checks: ' + e.message, 5000); }
+    finally { S.adminLoading = null; }
+    if (S.role === 'admin' && S.admin === 'report') render();
+  }
+  function csvDownload() {
+    const rows = filtered(); if (!rows.length) { toast('No checks to download'); return; }
+    const lead = ['Date / Time', 'Technician', 'Customer', 'Building', 'System Number', 'System Type', 'Check', 'Heat Source', 'Needs Attention'];
+    const cols = [...lead], data = rows.map(r => {
+      const s = sysById(r.systemId), o = { 'Date / Time': ymd(r.time) + ' ' + r.time.toTimeString().slice(0, 5), 'Technician': r.tech, 'Customer': r.customer, 'Building': r.building,
+        'System Number': s.number, 'System Type': s.type, 'Check': r.check, 'Heat Source': r.answers.heatSource || s.heat, 'Needs Attention': issuesOf(r).map(x => x.t).join('; ') };
+      if (r.check === 'Inspection') [...INSP, ...INSP_COND].forEach(c => { o[c.l] = r.answers[c.k] || ''; });
+      else { const { rec } = toCols(recSections(r), r.answers, r.answers.heatSource); Object.assign(o, rec); }
+      Object.keys(o).forEach(k => { if (!cols.includes(k)) cols.push(k); }); return o;
+    });
+    const q = v => { v = String(v ?? ''); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+    const csv = [cols.map(q).join(','), ...data.map(o => cols.map(c => q(o[c])).join(','))].join('\r\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv' }));
+    a.download = `field-checks-${S.af.from || ymd(new Date())}${S.af.to && S.af.to !== S.af.from ? '-to-' + S.af.to : ''}.csv`; document.body.appendChild(a); a.click(); a.remove();
+  }
+  const filtered = () => (LIVE ? S.adminRecs : RECORDS).filter(r => (!S.af.cust || r.customer === S.af.cust) && (!S.af.bldg || r.building === S.af.bldg) && (!S.af.check || r.check === S.af.check));
+  function renderReport() {
+    if (LIVE) { S.af.from ||= ymd(new Date()); S.af.to ||= S.af.from; }
+    const loading = LIVE && S.adminKey !== S.af.from + '|' + S.af.to;
+    const rows = filtered(), withIssues = rows.filter(r => issuesOf(r).length).length;
+    const byType = {}; rows.forEach(r => { const t = sysById(r.systemId).type; byType[t] = (byType[t] || 0) + 1; });
+    const groups = {}; rows.forEach(r => { ((groups[r.customer] ||= {})[r.building] ||= []).push(r); });
+    const custs = [...new Set([...SYSTEMS.map(s => s.customer), ...(LIVE ? S.adminRecs.map(r => r.customer) : [])])].sort(), bldgs = S.af.cust ? buildingsOf(S.af.cust) : [];
+    $('app').innerHTML = `
+      ${adminTabs('report')}
+      ${note('<b>One report for every system type and check type.</b> Filter, tap a system for details and edits, or preview the customer PDF.')}
+      <section class="card stack">
+        <div class="grid2"><label class="fl">Customer<select data-af="cust"><option value="">All customers</option>${custs.map(c => `<option ${c === S.af.cust ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>
+          <label class="fl">Building<select data-af="bldg" ${S.af.cust ? '' : 'disabled'}><option value="">All buildings</option>${bldgs.map(b => `<option ${b === S.af.bldg ? 'selected' : ''}>${esc(b)}</option>`).join('')}</select></label></div>
+        <label class="fl">Check type<select data-af="check"><option value="">All checks</option>${CHECKS.map(c => `<option value="${c}" ${c === S.af.check ? 'selected' : ''}>${CHECK_LABEL[c]}</option>`).join('')}</select></label>
+        ${LIVE ? `<div class="grid2"><label class="fl">From<input type="date" data-af="from" value="${S.af.from}"></label><label class="fl">To<input type="date" data-af="to" value="${S.af.to}"></label></div>`
+          : `<div class="muted">${TODAY.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })} · sample data</div>`}
+      </section>
+      ${loading ? '<div class="muted loading-row"><span class="spin"></span> Loading checks…</div>' : ''}
+      <div class="tiles"><div class="tile"><b>${rows.length}</b><span>Systems checked</span></div><div class="tile ${withIssues ? 'alert' : ''}"><b>${withIssues}</b><span>With issues</span></div><div class="tile"><b>${Object.keys(byType).length}</b><span>System types</span></div></div>
+      <div class="chips">${Object.entries(byType).map(([t, n]) => `<span class="chip type" data-t="${esc(t)}">${esc(TYPE_SHORT[t])} · ${n}</span>`).join('')}</div>
+      ${Object.keys(groups).sort().map(c => `<section class="card"><div class="cust-h">${esc(c)}</div>${Object.keys(groups[c]).sort().map(b => `<div class="bldg-h">${esc(b)}</div>${groups[c][b]
+        .sort((x, y) => Number(sysById(x.systemId).number) - Number(sysById(y.systemId).number)).map(r => { const s = sysById(r.systemId); return `
+        <button type="button" class="unit" data-act="openRec" data-id="${r.id}"><span class="name">System ${esc(s.number)} ${typeChip(s.type)}</span>
+          <span class="sub">${CHECK_LABEL[r.check]}${r.answers.heatSource ? ' · ' + esc(r.answers.heatSource) : ''} · ${esc(r.tech)} · ${when(r.time)}${r.photos.length ? ` · ${r.photos.length} photo${r.photos.length > 1 ? 's' : ''}` : ''}</span>
+          <span class="right">${statusPill(r)}<span class="chev">›</span></span></button>`; }).join('')}`).join('')}</section>`).join('') || '<section class="card muted">No checks match these filters.</section>'}
+      <section class="card stack"><h2>Reports</h2><div class="grid2"><button type="button" class="btn primary" data-act="preview">PDF report</button><button type="button" class="btn" data-act="csv">Download CSV</button></div>
+        <div class="muted">PDF report opens the internal or customer version; tap Save as PDF there. Both use the filters above.</div></section>`;
+    if (loading) loadAdmin();
+  }
+  function answerSections(rec) {
+    const s = sysById(rec.systemId), a = rec.answers;
+    if (rec.check === 'Inspection') return [
+      ['System information', INSP.map(c => [c.l, a[c.k] || (c.k === 'suite' ? 'N/A' : c.k === 'area' ? 'Unknown' : ''), ''])],
+      ['Condition', INSP_COND.filter(c => c.k !== 'notes').map(c => c.t === 'flag' ? [c.l, a[c.k] === 'Yes' ? 'Yes' : 'No', a[c.k] === 'Yes' ? 'red' : ''] : [c.l, a[c.k], (c.badV || []).includes(a[c.k]) ? 'red' : (c.warnV || []).includes(a[c.k]) ? 'yellow' : a[c.k] ? 'green' : 'na'])],
+      ['Notes', [['Notes', a.notes, 'notes']]]];
+    const heat = a.heatSource, get = id => a[id], out = [];
+    recSections(rec).forEach(sec => {
+      if (sec.hs && !visibleSection(sec, heat)) return;
+      const items = sec.fields.filter(f => visibleField(f, heat)).map(f => {
+        const v = a[f.id], sv = evaluate(f, v, get), txt = show(f, v, get);
+        let cls = f.id === 'notes' ? 'notes' : sv || (v === 'Green' || v === 'Good' ? 'green' : '');
+        if (!sv && (f.t === 'cap' || f.t === 'outcap' || f.t === 'calc') && txt && txt !== NA) cls = 'green';
+        if (!txt || txt === NA) cls = f.id === 'notes' ? 'notes' : 'na';
+        return [f.l, txt, cls];
+      });
+      if (items.length) out.push([sec.title, items]);
+    });
+    return out;
+  }
+  function renderDetail() {
+    const r = S.rec, s = sysById(r.systemId), issues = issuesOf(r);
+    if (LIVE) ensurePhotos(r.photos).then(n => { if (n && S.admin === 'detail' && S.rec === r) render(); });
+    $('app').innerHTML = `
+      <button type="button" class="linkbtn" data-act="adminTab" data-v="report" style="justify-self:start">‹ Report</button>
+      <section class="card check-head"><h3>System ${esc(s.number)}</h3><div class="chips">${typeChip(s.type)}<span class="chip">${CHECK_LABEL[r.check]}</span></div>
+        <div class="muted">${esc(r.customer)} · ${esc(r.building)} · ${esc(r.tech)} · ${when(r.time)}</div><div class="muted">${esc(sysSub(s))}</div>
+        ${r.check !== 'Inspection' ? '<button type="button" class="btn sm" data-act="editRec" style="justify-self:start;margin-top:6px">Edit answers</button>' : ''}</section>
+      <section class="card"><div class="sec-head"><h2>Needs attention</h2></div><div class="stack" style="gap:6px">${issues.length ? issues.map(x => `<div class="issue ${x.s === 'yellow' ? 'y' : ''}">${esc(x.t)}</div>`).join('') : '<div class="muted">Nothing flagged</div>'}</div></section>
+      ${answerSections(r).map(([t, items]) => `<section class="card"><h2>${esc(t)}</h2>${items.map(([k, v, c]) => `<div class="kv"><span class="k">${esc(k)}</span><span class="v ${c || ''}">${esc(v || '—')}</span></div>`).join('')}</section>`).join('')}
+      ${r.photos.length ? `<section class="card"><h2 style="margin-bottom:10px">Photos</h2><div class="photos">${r.photos.map((p, i) => ` <div class="ph-item"><img src="${p.url || PH_WAIT}" alt="${esc(p.tag)}" data-act="recPhoto" data-i="${i}"><div class="cap">${esc(p.tag)}</div></div>`).join('')}</div></section>` : ''}
+      <section class="card stack"><h2>System info</h2>${INSP.map(c => `<div class="kv"><span class="k">${esc(c.l)}</span><span class="v">${esc(s[c.k] || (c.k === 'suite' ? 'N/A' : c.k === 'area' ? 'Unknown' : '—'))}</span></div>`).join('')}
+        <div class="kv"><span class="k">Age</span><span class="v">${ageOf(s.mfg) != null ? ageOf(s.mfg) + ' years' : '—'}</span></div></section>`;
+  }
+  function renderPreview() {
+    const rows = filtered().slice().sort((a, b) => a.customer.localeCompare(b.customer) || a.building.localeCompare(b.building) || Number(sysById(a.systemId).number) - Number(sysById(b.systemId).number));
+    const cv = S.custVersion, multi = !S.af.cust, pv = v => (!v || v === NA ? '—' : v);
+    const withIssues = rows.filter(r => issuesOf(r).length).length;
+    if (LIVE) { const ph = rows.flatMap(r => cv ? r.photos.filter(p => p.tag.startsWith('Issue:')) : r.photos); ensurePhotos(ph).then(n => { if (n && S.admin === 'preview') render(); }); }
+    const range = LIVE ? (S.af.from === S.af.to ? new Date(S.af.from + 'T12:00').toLocaleDateString() : `${new Date(S.af.from + 'T12:00').toLocaleDateString()} – ${new Date(S.af.to + 'T12:00').toLocaleDateString()}`) : TODAY.toLocaleDateString();
+    $('app').innerHTML = `
+      <button type="button" class="linkbtn noprint" data-act="adminTab" data-v="report" style="justify-self:start">‹ Report</button>
+      <button type="button" class="btn primary noprint" data-act="print">Save as PDF</button>
+      <section class="card stack noprint"><label class="chk" style="font-weight:600"><input type="checkbox" id="cust-version" ${cv ? 'checked' : ''}> Customer version (no technician names, issue photos only)</label>
+        <div class="muted">${esc(S.af.cust || 'All customers')}${S.af.bldg ? ' · ' + esc(S.af.bldg) : ''} · ${esc(S.af.check ? CHECK_LABEL[S.af.check] : 'All checks')}</div></section>
+      <div class="paper">
+        <div class="ph"><div><div class="co">Betz Heating &amp; Air</div><h4>Maintenance Check Report</h4><div class="meta">${esc(S.af.cust || 'All customers')}${S.af.bldg ? ' · ' + esc(S.af.bldg) : ''} · ${range}</div></div><div class="meta" style="text-align:right">${rows.length} systems</div></div>
+        <div class="ptiles"><div><b>${rows.length}</b><span>Systems checked</span></div><div><b style="color:${withIssues ? '#c0261c' : 'inherit'}">${withIssues}</b><span>With issues</span></div>
+          <div><b>${rows.filter(r => r.answers.filterCond === 'Changed').length}</b><span>Filters changed</span></div><div><b>${rows.filter(r => r.answers.heatSource === 'None').length}</b><span>No-heat systems</span></div></div>
+        <div class="ptable-wrap"><table><thead><tr>${multi ? '<th>Customer</th>' : ''}<th>Bldg</th><th>System</th><th>Type</th><th>Age</th><th>Refrig.</th><th>Check</th>${cv ? '' : '<th>Tech</th>'}<th>Needs attention</th></tr></thead><tbody>
+          ${rows.map(r => { const s = sysById(r.systemId), iss = issuesOf(r); return `<tr>${multi ? `<td>${esc(r.customer)}</td>` : ''}<td>${esc(r.building)}</td><td><b>${esc(s.number)}</b>${s.suite ? `<br><small>Suite ${esc(s.suite)}</small>` : ''}</td><td>${esc(TYPE_SHORT[s.type])}</td>
+            <td>${ageOf(s.mfg) != null ? ageOf(s.mfg) + ' yrs' : '—'}</td><td>${esc(s.refrigerant || '—')}</td><td>${esc(r.check)}</td>${cv ? '' : `<td>${esc(r.tech)}</td>`}
+            <td>${iss.length ? iss.map(x => `<span class="${x.s === 'yellow' ? 'y' : 'r'}">${esc(x.t)}</span>`).join('') : '<span class="ok">OK</span>'}</td></tr>`; }).join('')}</tbody></table></div>
+        ${rows.map(r => { const s = sysById(r.systemId), photos = cv ? r.photos.filter(p => p.tag.startsWith('Issue:')) : r.photos; return `<div class="punit">
+          <div class="uh">${esc(r.customer)} — ${esc(r.building)}, System ${esc(s.number)} · ${esc(s.type)}${s.suite ? ' · Suite ' + esc(s.suite) : ''} <span>${ageOf(s.mfg) != null ? ageOf(s.mfg) + ' yrs · ' : ''}${esc(s.refrigerant || '')} · ${esc(r.check)}${cv ? '' : ' · ' + esc(r.tech)} · ${when(r.time)}</span></div>
+          ${answerSections(r).map(([t, items]) => `<div class="band">${esc(t)}</div>${items.some(i => i[2] === 'notes') && items.length === 1 ? `<div class="pnotes">${esc(items[0][1] || '—')}</div>`
+            : `<div class="pgrid">${items.filter(i => i[2] !== 'notes').map(([k, v, c]) => `<div class="pkv"><span>${esc(k)}</span><b class="${c === 'na' ? '' : (c || '')}">${esc(pv(v))}</b></div>`).join('')}</div>${items.filter(i => i[2] === 'notes').map(i => `<div class="pnotes">${esc(i[1] || '—')}</div>`).join('')}`}`).join('')}
+          ${photos.length ? `<div class="band">Photos</div><div class="pphotos">${photos.map(p => `<figure><img src="${p.url || PH_WAIT}" alt="${esc(p.tag)}"><figcaption>${esc(p.tag.replace(/^Issue: /, ''))}</figcaption></figure>`).join('')}</div>` : ''}</div>`; }).join('')}
+      </div>`;
+  }
+  function renderLists() {
+    if (LIVE) { $('app').innerHTML = `${adminTabs('lists')}<section class="card muted">These come from the <b>Lists</b> tab of the Field Checks spreadsheet. Change them there, then use Reload (tap your name at the top).</section>
+      ${Object.entries(LISTS).map(([k, items]) => `<section class="card list-ed"><h2>${esc(k)}</h2><div class="chips">${items.map(it => `<span class="chip">${esc(it)}</span>`).join('')}</div></section>`).join('')}`; return; }
+    $('app').innerHTML = `${adminTabs('lists')}${note('<b>Lists you can change without new code.</b> In the real build these are columns on a Lists tab in the spreadsheet. Every dropdown that uses a list also allows a custom entry.')}
+      ${Object.entries(LISTS).map(([k, items]) => `<section class="card list-ed"><h2>${esc(k)}</h2><div class="chips">${items.map((it, i) => `<span class="chip">${esc(it)}<button type="button" data-act="listDel" data-k="${esc(k)}" data-i="${i}" aria-label="Remove ${esc(it)}">×</button></span>`).join('')}</div>
+        <div class="add-row"><input id="add-${esc(k).replace(/\s/g, '_')}" placeholder="Add to ${esc(k.toLowerCase())}"><button type="button" class="btn sm" data-act="listAdd" data-k="${esc(k)}">Add</button></div></section>`).join('')}`;
+  }
+  function renderSettings() {
+    if (LIVE) { $('app').innerHTML = `${adminTabs('settings')}<section class="card muted">Thresholds come from the <b>Settings</b> tab and required photos from the <b>Photo Rules</b> tab of the spreadsheet. Change them there, then use Reload.</section>
+      <section class="card stack"><h2>Thresholds</h2>${Object.values(SETTINGS).map(x => `<div class="kv"><span class="k">${esc(x.l)}</span><span class="v">${esc(x.v)}</span></div>`).join('')}</section>
+      <section class="card stack"><h2>Required photos</h2>${PHOTO_RULES.map(r => `<div class="rule"><span><b>${esc(r.checklist)}</b> · ${esc(r.field)} · <i>${esc(r.when)}</i></span></div>`).join('') || '<div class="muted">None</div>'}</section>`; return; }
+    $('app').innerHTML = `${adminTabs('settings')}${note('<b>Thresholds and photo rules.</b> In the real build these are the Settings and Photo Rules tabs in the spreadsheet, editable without new code. Changes here apply immediately in this prototype.')}
+      <section class="card stack"><h2>Thresholds</h2>${Object.entries(SETTINGS).map(([k, s]) => `<label class="fl row-set">${esc(s.l)}<input type="number" step="any" data-setting="${k}" value="${s.v}"></label>`).join('')}</section>
+      <section class="card stack"><h2>Required photos</h2><div class="muted">Checklist and field accept * wildcards. When = Always, or answers separated by commas.</div>
+        ${PHOTO_RULES.map((r, i) => `<div class="rule"><span><b>${esc(r.checklist)}</b> · ${esc(r.field)} · <i>${esc(r.when)}</i></span><button type="button" class="linkbtn" data-act="ruleDel" data-i="${i}">Remove</button></div>`).join('')}
+        <div class="grid3"><input id="r-list" placeholder="Checklist, e.g. *Cooling"><input id="r-field" placeholder="Field, e.g. Condenser Coil*"><input id="r-when" placeholder="When, e.g. Red"></div>
+        <button type="button" class="btn sm" data-act="ruleAdd" style="justify-self:start">Add rule</button></section>`;
+  }
+
+  // ---------------------------------------------------------------- SHEET
+  function sheet(html) { $('sheet').innerHTML = `<div class="scrim" data-act="closeSheet"><div class="sheet" role="dialog" aria-modal="true">${html}</div></div>`; }
+
+  // =====================================================================
+  //  EVENTS
+  // =====================================================================
+  document.addEventListener('click', e => {
+    const t = e.target.closest('[data-act]'); if (!t) return;
+    const a = t.dataset.act;
+    if (a === 'closeSheet' && e.target !== t && !e.target.matches('button')) return;
+    switch (a) {
+      case 'role': S.role = t.dataset.v; S.view = 'visit'; S.editing = null; if (S.role === 'admin') S.admin = 'report'; render(); window.scrollTo(0, 0); break;
+      case 'setCheck': S.visit.check = t.dataset.v; S.addOpen = false; render(); break;
+      case 'openSys': { const s = sysById(t.dataset.id);
+        if (S.visit.check === 'Inspection') { S.sys = { ...s }; const ir = recFor(s.id, 'Inspection'); S.photos = ir ? ir.photos.slice() : []; S.pendingId = null; S.view = 'inspect'; render(); window.scrollTo(0, 0);
+          if (LIVE) ensurePhotos(S.photos).then(n => { if (n) drawPhotos(true); }); }
+        else openCheck(s.id); break; }
+      case 'toggleAdd': S.addOpen = !S.addOpen; $('add-form').hidden = !S.addOpen; if (S.addOpen) $('add-num').focus(); break;
+      case 'addGo': { const n = $('add-num').value.trim(), type = $('add-type').value;
+        if (!n) { $('add-num').classList.add('invalid'); toast('Type the system number'); return; }
+        if (SYSTEMS.some(s => s.customer === S.visit.cust && s.building === S.visit.bldg && s.number === n)) { $('add-num').classList.add('invalid'); toast(`System ${n} already exists in ${S.visit.bldg}`); return; }
+        const s = SYS(S.visit.cust, S.visit.bldg, n, type, $('add-heat').value, { suite: $('add-suite').value.trim() }); SYSTEMS.push(s); S.addOpen = false; openCheck(s.id); break; }
+      case 'inspectNew': S.sys = { type: '' }; S.photos = []; S.pendingId = null; S.view = 'inspect'; render(); window.scrollTo(0, 0); break;
+      case 'inspectSave': trySaveInspect(false); break;
+      case 'inspectForce': $('sheet').innerHTML = ''; trySaveInspect(true); break;
+      case 'back': case 'home': {
+        if (S.view === 'login') break;
+        const inForm = (S.role === 'tech' && S.view !== 'visit') || (S.role === 'admin' && S.admin === 'edit');
+        const go = () => { $('sheet').innerHTML = ''; S.dirty = false; S.editing = null; if (S.role === 'tech') S.view = 'visit'; else S.admin = 'report'; render(); window.scrollTo(0, 0); };
+        if (inForm && S.dirty) { sheet(`<h3>Leave without saving?</h3><div class="warn">Your answers for this system will be lost.</div>
+          <div class="sheet-actions"><button type="button" class="btn" data-act="closeSheet">Stay</button><button type="button" class="btn primary" data-act="leave">Leave</button></div>`); S.leave = go; }
+        else go(); break; }
+      case 'leave': S.leave && S.leave(); break;
+      case 'jump': $('s-' + t.dataset.i).scrollIntoView({ behavior: 'smooth', block: 'start' }); break;
+      case 'submit': trySubmit(); break;
+      case 'closeSheet': $('sheet').innerHTML = ''; break;
+      case 'keepEditing': $('sheet').innerHTML = ''; (S.missing || []).forEach(({ f }) => $('w-' + f.id).classList.add('invalid')); if (S.missing && S.missing[0]) $('w-' + S.missing[0].f.id).scrollIntoView({ behavior: 'smooth', block: 'center' }); break;
+      case 'goNotes': $('sheet').innerHTML = ''; el('notes').classList.add('invalid'); el('notes').scrollIntoView({ behavior: 'smooth', block: 'center' }); break;
+      case 'save': $('sheet').innerHTML = ''; saveCheck(); break;
+      case 'photoFor': { $('sheet').innerHTML = ''; S.pendingTag = t.dataset.tag; const inp = document.querySelector('#photos input[data-photo][data-tag=""]'); if (inp) inp.click(); break; }
+      case 'phDel': S.photos.splice(+t.dataset.i, 1); if (S.view === 'check' || S.admin === 'edit') derive(); drawPhotos(true); break;
+      case 'phView': viewPhoto(S.photos[+t.dataset.i]); break;
+      case 'recPhoto': viewPhoto(S.rec.photos[+t.dataset.i]); break;
+      case 'readLabel': readLabel(+t.dataset.i); break;
+      case 'stopRead': if (readCtl) readCtl.abort(); break;
+      case 'undoLabel': { Object.entries(S.labelUndo || {}).forEach(([k, v]) => { const c = INSP.find(x => x.k === k); if (c.t === 'seg') setRadio('i-' + k, v); else { const x = $('i-' + k); if (c.t === 'list') { const items = LISTS[c.list]; if (!v || items.includes(v)) { x.value = v; if ($('i-' + k + '-o')) $('i-' + k + '-o').hidden = true; } else { x.value = '__o'; $('i-' + k + '-o').value = v; } } else x.value = v; } });
+        document.querySelectorAll('.auto').forEach(x => x.classList.remove('auto', 'unsure')); $('ocr').hidden = true; toast('Label values removed'); break; }
+      case 'adminTab': S.admin = t.dataset.v; S.editing = null; render(); window.scrollTo(0, 0); break;
+      case 'openRec': S.rec = (LIVE ? S.adminRecs : RECORDS).find(r => r.id === t.dataset.id); S.admin = 'detail'; render(); window.scrollTo(0, 0); break;
+      case 'editRec': openCheck(S.rec.systemId, S.rec); break;
+      case 'cancelEdit': S.editing = null; S.admin = 'detail'; render(); window.scrollTo(0, 0); break;
+      case 'preview': S.admin = 'preview'; render(); window.scrollTo(0, 0); break;
+      case 'csv': csvDownload(); break;
+      case 'print': window.print(); break;
+      case 'signin': { const p = $('pin').value.trim(); if (!p) return; t.disabled = true; t.textContent = 'Signing in…'; signIn(p); break; }
+      case 'who': whoMenu(); break;
+      case 'switchRole': S.role = S.role === 'admin' ? 'tech' : 'admin'; S.view = 'visit'; S.admin = 'report'; S.editing = null; render(); window.scrollTo(0, 0); break;
+      case 'reload': { $('sheet').innerHTML = ''; toast('Reloading…'); api('bootstrap').then(j => { applyBoot(j); S.statusKey = null; S.adminKey = null; render(); toast('Lists and systems reloaded'); }).catch(e => toast(e.message, 5000)); break; }
+      case 'signout': store.set('fc_pin', null); Object.assign(API, { pin: '', name: '', role: '' }); RECORDS.length = 0; S.adminRecs = []; S.view = 'login'; render(); break;
+      case 'listDel': LISTS[t.dataset.k].splice(+t.dataset.i, 1); render(); break;
+      case 'listAdd': { const inp = $('add-' + t.dataset.k.replace(/\s/g, '_')), v = inp.value.trim(); if (!v) return; const L = LISTS[t.dataset.k];
+        if (L.some(x => x.toLowerCase() === v.toLowerCase())) { toast(v + ' is already on the list'); return; } L.push(v); sortLists(); render(); toast('Added ' + v); break; }
+      case 'ruleDel': PHOTO_RULES.splice(+t.dataset.i, 1); render(); break;
+      case 'ruleAdd': { const r = { checklist: $('r-list').value.trim(), field: $('r-field').value.trim(), when: $('r-when').value.trim() };
+        if (!r.checklist || !r.field || !r.when) { toast('Fill in checklist, field and when'); return; } PHOTO_RULES.push(r); render(); toast('Rule added'); break; }
+    }
+  });
+  document.addEventListener('change', e => {
+    const t = e.target;
+    if (t.closest && t.closest('#app') && ((S.role === 'tech' && S.view !== 'visit') || S.admin === 'edit')) S.dirty = true;
+    if (t.id === 'opt-notes' || t.id === 'opt-shared') {
+      if ((S.role === 'tech' && S.view === 'check') || (S.role === 'admin' && S.admin === 'edit')) { const keep = {}; Object.values(S.fmap).forEach(f => { keep[f.id] = getVal(f); }); render(); Object.entries(keep).forEach(([k, v]) => setVal(S.fmap[k], v)); S.tagKey = null; derive(); }
+      else render(); return;
+    }
+    if (t.dataset.visit) { if (t.value === '__new') { sheet(`<h3>New building</h3><label class="fl">Building name<input id="new-bldg" placeholder="e.g. Building 3"></label><div class="sheet-actions"><button type="button" class="btn" data-act="closeSheet">Cancel</button><button type="button" class="btn primary" id="new-bldg-go">Add</button></div>`);
+        $('new-bldg-go').onclick = () => { const b = $('new-bldg').value.trim(); if (!b) return; (S.extraBldgs[S.visit.cust] ||= []).push(b); S.visit.bldg = b; $('sheet').innerHTML = ''; render(); }; t.value = S.visit.bldg; return; }
+      S.visit[t.dataset.visit] = t.value; render(); return; }
+    if (t.dataset.af) { S.af[t.dataset.af] = t.value; if (t.dataset.af === 'cust') S.af.bldg = ''; render(); return; }
+    if (t.dataset.setting) { SETTINGS[t.dataset.setting].v = Number(t.value); toast('Threshold updated'); return; }
+    if (t.id === 'cust-version') { S.custVersion = t.checked; render(); return; }
+    if (t.matches('input[data-photo]')) { const tag = S.pendingTag || t.dataset.tag; S.pendingTag = null; const files = [...t.files]; t.value = ''; if (files.length) addFiles(files, tag); return; }
+    if (t.dataset.phtag !== undefined) { S.photos[+t.dataset.phtag].tag = t.value; if (S.view === 'check' || S.admin === 'edit') derive(); return; }
+    if (S.view === 'inspect' && S.role === 'tech') { if (t.id === 'i-attn') S.iAttnManual = t.checked; if (t.id && $(t.id + '-o')) $(t.id + '-o').hidden = t.value !== '__o'; inspAuto(); return; }
+    if ((S.role === 'tech' && S.view === 'check') || (S.role === 'admin' && S.admin === 'edit')) {
+      if (t.id === 'f-attn') S.attnManual = t.checked;
+      const raw = t.name || t.id.replace(/^f-/, '');
+      const id = raw.replace(/-(k|q|s|o|na|r|x|d|dc|df|c|f)(-.*)?$/, '').replace(/-(c|f)$/, '');
+      const f = S.fmap[id] || S.fmap[raw.split('-')[0]];
+      if (f) { applyFills(f, (S.prev || {})[f.id], keyOf(f, getVal(f))); $('w-' + f.id).classList.remove('invalid'); }
+      derive();
+    }
+  });
+  document.addEventListener('input', e => {
+    if (e.target.closest && e.target.closest('#app') && ((S.role === 'tech' && S.view !== 'visit') || S.admin === 'edit')) S.dirty = true;
+    if (e.target.classList && e.target.classList.contains('auto')) e.target.classList.remove('auto', 'unsure');
+    if ((S.role === 'tech' && S.view === 'check') || (S.role === 'admin' && S.admin === 'edit')) { if (e.target.matches('input, textarea')) { e.target.closest('.invalid')?.classList.remove('invalid'); e.target.classList.remove('invalid'); derive(); } }
+  });
+
+  document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'pin') document.querySelector('[data-act=signin]').click(); });
+  if (LIVE) {
+    $('who').dataset.act = 'who'; $('who').setAttribute('role', 'button'); $('who').tabIndex = 0;
+    const saved = store.get('fc_pin');
+    if (saved) { $('app').innerHTML = '<section class="card muted loading-row"><span class="spin"></span> Signing in…</section>'; signIn(saved, true); } else render();
+  } else render();
+})();
+</script></body></html>
