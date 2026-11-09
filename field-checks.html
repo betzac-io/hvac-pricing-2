@@ -318,6 +318,8 @@
   .qerr { color: var(--red); font-size: 13px; }
   .top .title strong, .top .title small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .top-in { gap: 8px; }
+  .na-val { padding: 10px 12px; border-radius: 10px; background: var(--chip); color: var(--muted); font-size: 14px; }
+  #part-wrap .seg label { flex: 1 1 30%; }
 </style></head><body>
 <header class="top"><div class="top-in">
   <button type="button" class="home" data-act="home" aria-label="Home: back to visit setup"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5M5.5 9.5V20h4.5v-6h4v6h4.5V9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg></button>
@@ -502,7 +504,7 @@ window.FC_LIVE = true;
     'Customers': ['Redstone', 'Presidential', 'Indian Trail', 'United Notions', 'Quebec', 'Integrity Porter'],
     'System Types': ['RTU', 'Residential Split System', 'Commercial Split System', 'Unit Heater', 'Mini-Split', 'Refrigeration'],
     'Outdoor Locations': ['Roof', 'Ground', 'Stand'],
-    'Indoor Locations': ['Above Ceiling', 'Closet'],
+    'Indoor Locations': ['Above Ceiling', 'Closet', 'Open Ceiling'],
     'Manufacturers': ['Trane', 'Carrier', 'Lennox', 'York', 'Rheem', 'Goodman', 'Modine', 'Reznor'],
     'Overall Status': ['Disconnect On', 'Disconnect Off', 'Abandoned'],
     'Refrigerant Types': ['R22', 'R410a', 'R454b', 'R32'],
@@ -600,7 +602,8 @@ window.FC_LIVE = true;
     if (f.t === 'seg') return !v || v === NA ? null : (v === 'Red' || (f.bad || []).includes(v) ? 'red' : v === 'Yellow' || (f.warn || []).includes(v) ? 'yellow' : null);
     if (f.t === 'flag') return v === 'Yes' ? 'red' : null;
     if (f.t === 'num') return f.zeroBad && v !== '' && v !== NA && num(v) === 0 ? 'red' : null;
-    if (f.t === 'cap') { if (!v || capNA(v.rated)) return null; const s = capSev(v.rated, v.reading); return s === 'green' ? null : s; }
+    if (f.t === 'cap') { if (!v || capNA(v.rated)) return null; if ((v.reading === '' || v.reading == null) && v.cond) return v.cond === 'Red' ? 'red' : v.cond === 'Yellow' ? 'yellow' : null;
+      const s = capSev(v.rated, v.reading); return s === 'green' ? null : s; }
     if (f.t === 'outcap') { const s = outcapSevs(v); return s.includes('red') ? 'red' : s.includes('yellow') ? 'yellow' : null; }
     if (f.t === 'calc') { const s = calcSev(f, calcVal(f, get)); return s === 'green' ? null : s; }
     return null;
@@ -611,7 +614,7 @@ window.FC_LIVE = true;
     const [c, fn] = parseDual(v.dual); return [capSev(c, v.compReading), capSev(fn, v.fanReading)];
   }
   function issueText(f, v, get) {
-    if (f.t === 'cap') return `${f.l}: ${v.reading} of ${v.rated} mf (${pct(v.rated, v.reading)}%)`;
+    if (f.t === 'cap') return v.reading === '' || v.reading == null ? `${f.l}: ${v.cond}${v.rated ? ` (${v.rated} mf, no reading)` : ''}` : `${f.l}: ${v.reading} of ${v.rated} mf (${pct(v.rated, v.reading)}%)`;
     if (f.t === 'outcap') {
       const [c, fn] = v.kind === 'Dual' ? parseDual(v.dual) : [v.compRated, v.fanRated];
       const parts = [];
@@ -639,7 +642,7 @@ window.FC_LIVE = true;
   function show(f, v, get) {
     if (f.t === 'calc') { const c = calcVal(f, get); return c == null ? '' : c + ' °F'; }
     if (f.t === 'flag') return v === 'Yes' ? 'Yes' : 'No';
-    if (f.t === 'cap') { if (!v || !v.rated) return ''; if (capNA(v.rated)) return v.rated === NA ? NA : v.rated; return `${v.rated} mf rated · ${v.reading || '—'} read`; }
+    if (f.t === 'cap') { if (!v || !v.rated) return ''; if (capNA(v.rated)) return v.rated === NA ? NA : v.rated; return `${v.rated} mf rated · ${v.reading || (v.cond ? v.cond : '—')}${v.reading ? ' read' : v.cond ? ' (no reading)' : ' read'}`; }
     if (f.t === 'outcap') { if (!v || !v.kind) return ''; if (v.kind === NA) return NA;
       return v.kind === 'Single' ? `Single · comp ${v.compRated || '—'} / ${v.compReading || '—'} mf · fan ${capNA(v.fanRated) ? 'ECM' : `${v.fanRated || '—'} / ${v.fanReading || '—'} mf`}` : `Dual ${v.dual || '—'} · comp ${v.compReading || '—'} · fan ${v.fanReading || '—'} mf`; }
     if (f.t === 'num') return v === NA ? NA : v === '' || v == null ? '' : `${v} ${f.unit}`;
@@ -648,7 +651,8 @@ window.FC_LIVE = true;
   }
   const ageOf = mfg => { const m = String(mfg || '').match(/(19|20)\d{2}/); return m ? Math.max(0, new Date().getFullYear() - Number(m[0])) : null; };
   const sysLabel = s => `System ${s.number} · ${s.type}`;
-  const sysSub = s => [s.suite && 'Suite ' + s.suite, s.area && 'Serves ' + s.area, ageOf(s.mfg) != null && ageOf(s.mfg) + ' yrs', s.refrigerant].filter(Boolean).join(' · ');
+  const sysAge = s => ageOf(s.mfg || s.cond_mfg || s.furnace_mfg || s.ah_mfg);
+  const sysSub = s => [s.suite && 'Suite ' + s.suite, s.area && 'Serves ' + s.area, sysAge(s) != null && sysAge(s) + ' yrs', s.refrigerant].filter(Boolean).join(' · ');
 
   // visibility
   const visibleSection = (s, heat) => !s.hs || s.hs.includes(heat);
@@ -740,7 +744,9 @@ window.FC_LIVE = true;
   }
   const SYS_COLS = { id: 'System ID', customer: 'Customer', building: 'Building', number: 'System Number', type: 'System Type', heat: 'Heat Source', suite: 'Suite', area: 'Area Served',
     outdoor: 'Outdoor Location', indoor: 'Indoor Location', make: 'Manufacturer', model: 'Model Number', serial: 'Serial Number', size: 'Size', mfg: 'Manufacture Date',
-    refrigerant: 'Refrigerant Type', overallStatus: 'Overall Status', visual: 'Visual Condition', operational: 'Operational Assessment', notes: 'Notes' };
+    refrigerant: 'Refrigerant Type', overallStatus: 'Overall Status', visual: 'Visual Condition', operational: 'Operational Assessment', notes: 'Notes', height: 'Approximate Height of Indoor Unit' };
+  { const C = { furnace: 'Furnace', evap: 'Evaporator', ah: 'Air Handler', cond: 'Condenser' }, F2 = { make: 'Manufacturer', model: 'Model Number', serial: 'Serial Number', size: 'Size', mfg: 'Manufacture Date' };
+    Object.entries(C).forEach(([c, cl]) => Object.entries(F2).forEach(([f, fl]) => { SYS_COLS[c + '_' + f] = cl + ' ' + fl; })); }
   const sysFromRow = r => { const o = {}; Object.entries(SYS_COLS).forEach(([k, c]) => { o[k] = String(r[c] ?? ''); }); return o; };
   const sysToRow = s => { const o = {}; Object.entries(SYS_COLS).forEach(([k, c]) => { o[c] = s[k] ?? ''; }); return o; };
   const parseStamp = t => { const d = new Date(String(t || '').replace(' ', 'T')); return isNaN(d) ? new Date() : d; };
@@ -770,7 +776,7 @@ window.FC_LIVE = true;
     const a = { heatSource: r['Heat Source'] || '', notes: r['Notes'] || '' }, g = k => (r[k] == null ? '' : String(r[k]));
     sections.forEach(sec => sec.fields.forEach(f => {
       if (f.id === 'heatSource' || f.id === 'notes' || f.t === 'calc') return; const L = f.l;
-      if (f.t === 'cap') a[f.id] = { rated: g(L + ' Rated'), reading: g(L + ' Reading') };
+      if (f.t === 'cap') a[f.id] = { rated: g(L + ' Rated'), reading: g(L + ' Reading'), cond: g(L + ' Condition') };   // cond: kept for imported checks that have no reading
       else if (f.t === 'outcap') { const kind = g(L + ' Type');
         a[f.id] = { kind, dual: g(L + ' Dual Size'), compRated: kind === 'Single' ? g(L + ' Compressor Rated') : '', compReading: g(L + ' Compressor Reading'), fanRated: kind === 'Single' ? g(L + ' Fan Rated') : '', fanReading: g(L + ' Fan Reading') }; }
       else a[f.id] = g(L);
@@ -782,7 +788,8 @@ window.FC_LIVE = true;
     let sys = sysById(r['System ID']);
     if (!sys) { sys = sysFromRow(r); sys.id = r['System ID']; SYSTEMS.push(sys); }
     const fn = CHECKLISTS[sys.type + '|' + check];
-    const answers = check === 'Inspection' ? Object.fromEntries([...INSP, ...INSP_COND].map(c => [c.k, String(r[c.l] ?? '')])) : fn ? fromCols(fn(), r) : {};
+    const answers = check === 'Inspection' ? Object.fromEntries(INSP_ALL.map(c => [c.k, String(r[c.l] ?? '')])) : fn ? fromCols(fn(), r) : {};
+    if (check === 'Inspection') { answers._indoor = r['Indoor Done'] === 'Yes'; answers._outdoor = r['Outdoor Done'] === 'Yes'; }
     let photos = []; try { photos = JSON.parse(r['Photos'] || '[]').map(p => ({ fileId: p.id, tag: p.tag, url: '' })); } catch {}
     return { id: r['Record ID'], tab, systemId: sys.id, customer: r['Customer'], building: r['Building'], check, tech: r['Technician'], time: parseStamp(r['Date / Time']), answers, photos, row: r };
   }
@@ -909,8 +916,8 @@ window.FC_LIVE = true;
     }
   }
   // A newer save for the same system + check replaces one still waiting on the phone
-  async function supersede(systemId, check) {
-    const old = QUEUE.find(q => q.meta.systemId === systemId && q.meta.check === check);
+  async function supersede(systemId, check, part = '') {
+    const old = QUEUE.find(q => q.meta.systemId === systemId && q.meta.check === check && (q.meta.part || '') === part);
     if (!old) return null;
     await QDB.del(old.id).catch(() => {}); await qRefresh();
     return old;
@@ -941,8 +948,15 @@ window.FC_LIVE = true;
       if (sysRow && !sysById(sysRow['System ID'])) SYSTEMS.push(sysFromRow(sysRow));
       if (m.customer !== S.visit.cust || m.building !== S.visit.bldg || m.check !== S.visit.check) return;
       const sys = sysById(m.systemId); if (!sys) return;
-      if (m.check === 'Inspection') { const next = sysFromRow(sysRow); Object.assign(sys, next); }
-      const rec = addRecord(sys, m.check, m.tech, new Date(q.queuedAt), m.answers, q.payload.photos.map(p => ({ url: p.data || '', fileId: p.fileId, tag: p.tag })), { id: q.id });
+      if (m.check === 'Inspection') Object.entries(sysFromRow(sysRow)).forEach(([k, v]) => { if (v !== '') sys[k] = v; });
+      let ans = m.answers, ph = q.payload.photos.map(p => ({ url: p.data || '', fileId: p.fileId, tag: p.tag })), rid = q.id;
+      if (m.part) {   // a split half: merge into what is already known for this visit
+        const cur = recFor(sys.id, m.check); ans = { ...(cur ? cur.answers : {}) };
+        Object.entries(m.answers).forEach(([k, v]) => { if (v !== '' || m.part === 'both') ans[k] = v; });
+        if (m.part !== 'outdoor') ans._indoor = true; if (m.part !== 'indoor') ans._outdoor = true;
+        if (cur) { ph = [...cur.photos.filter(p => !ph.some(x => (x.fileId && x.fileId === p.fileId) || (x.url && x.url === p.url))), ...ph]; rid = cur.id; }
+      }
+      const rec = addRecord(sys, m.check, m.tech, new Date(q.queuedAt), ans, ph, { id: rid });
       rec.queued = true;
     });
   }
@@ -973,25 +987,28 @@ window.FC_LIVE = true;
 
   // ---------------------------------------------------------------- VISIT
   function renderVisit() {
-    const v = S.visit, custs = LISTS['Customers'] || [];
+    const v = S.visit, custs = [...(LISTS['Customers'] || [])].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
     if (!custs.includes(v.cust)) v.cust = custs[0] || '';
     let bldgs = buildingsOf(v.cust); if (!bldgs.length) bldgs = ['Building 1'];
     if (!bldgs.includes(v.bldg)) v.bldg = bldgs[0];
     const systems = SYSTEMS.filter(s => s.customer === v.cust && s.building === v.bldg).sort((a, b) => byNum(a.number, b.number));
     const loading = LIVE && needStatus();
     const insp = v.check === 'Inspection';
-    const doneOf = s => insp ? !!(s.serial || recFor(s.id, 'Inspection')) : !!recFor(s.id, v.check);
+    const halves = s => { const r = recFor(s.id, 'Inspection'); return r ? { i: !!r.answers._indoor, o: !!r.answers._outdoor } : null; };
+    const doneOf = s => { if (!insp) return !!recFor(s.id, v.check); if (SPLIT(s.type)) { const h = halves(s); return !!(h ? h.i && h.o : s.cond_serial && (s.ah_serial || s.furnace_serial)); } return !!(s.serial || recFor(s.id, 'Inspection')); };
     const eligible = systems.filter(s => hasList(s.type, v.check));
     const done = eligible.filter(doneOf).length;
-    const next = eligible.find(s => !doneOf(s));
+    const next = null;   // no "Next" suggestion: techs pick the unit they are actually at
     const rows = systems.map(s => {
       const ok = hasList(s.type, v.check), rec = ok && !insp && recFor(s.id, v.check);
       let right;
       if (!ok) right = `<span class="pill-off">${esc(whyNot(s.type, v.check))}</span>`;
-      else if (insp) right = recFor(s.id, 'Inspection')?.queued ? '<span class="pill-warn">Waiting to upload</span>' : doneOf(s) ? '<span class="pill-ok">Inventoried</span>' : (s === next ? '<span class="pill-next">Next</span>' : '<span class="pill-todo">Needs inventory</span>');
-      else right = rec ? statusPill(rec) : (s === next ? '<span class="pill-next">Next</span>' : '<span class="pill-todo">Not started</span>');
+      else if (insp) { const h = SPLIT(s.type) && halves(s);
+        right = recFor(s.id, 'Inspection')?.queued ? '<span class="pill-warn">Waiting to upload</span>' : doneOf(s) ? '<span class="pill-ok">Inventoried</span>'
+          : h && h.i ? '<span class="pill-warn">Indoor done · Outdoor pending</span>' : h && h.o ? '<span class="pill-warn">Outdoor done · Indoor pending</span>' : '<span class="pill-todo">Needs inventory</span>'; }
+      else right = rec ? statusPill(rec) : '<span class="pill-todo">Not started</span>';
       const sub = rec ? `Checked ${tm(rec.time)} by ${esc(rec.tech)}${sysSub(s) ? ' · ' + esc(sysSub(s)) : ''}` : esc(sysSub(s) || 'No details yet');
-      return `<button type="button" class="unit ${s === next ? 'is-next' : ''}" data-act="openSys" data-id="${s.id}" ${ok ? '' : 'disabled'}>
+      return `<button type="button" class="unit" data-act="openSys" data-id="${s.id}" ${ok ? '' : 'disabled'}>
         <span class="name">System ${esc(s.number)} ${typeChip(s.type)}</span><span class="sub">${sub}</span>
         <span class="right">${right}${ok ? '<span class="chev">›</span>' : ''}</span></button>`;
     }).join('');
@@ -1305,20 +1322,39 @@ window.FC_LIVE = true;
     }
     if (!LIVE) addRecord(s, S.check, 'Mike T', new Date(), answers, S.photos.slice());
     S.view = 'visit'; render(); window.scrollTo(0, 0);
-    const nxt = document.querySelector('.unit.is-next .name');
     if (LIVE && S.queuedNow) { S.queuedNow = false; toast(`No signal. System ${s.number} is saved on this phone and will upload when you have signal.`, 5000); return; }
-    toast(`System ${s.number} saved${S.photos.length ? ` with ${S.photos.length} photo${S.photos.length > 1 ? 's' : ''}` : ''}${nxt ? ' · next up: ' + nxt.firstChild.textContent.trim() : ' · building complete'}`);
+    toast(`System ${s.number} saved${S.photos.length ? ` with ${S.photos.length} photo${S.photos.length > 1 ? 's' : ''}` : ''}`);
   }
 
   // ---------------------------------------------------------------- INSPECTION / INVENTORY
-  const INSP = [
+  // Split systems are recorded per component (the indoor unit is often a different make and age than the condenser),
+  // and can be inventoried in two halves, Indoor and Outdoor, by two techs at the same time.
+  const SPLIT = t => /Split System/.test(t || '');
+  const COMP = { furnace: 'Furnace', evap: 'Evaporator', ah: 'Air Handler', cond: 'Condenser' };
+  const COMP_SIDE = { furnace: 'indoor', evap: 'indoor', ah: 'indoor', cond: 'outdoor' };
+  const compsFor = (type, heat) => (!SPLIT(type) || !heat ? [] : heat === 'Gas' ? ['furnace', 'evap', 'cond'] : ['ah', 'cond']);
+  const CF = [
+    { f: 'make', l: 'Manufacturer', t: 'list', list: 'Manufacturers', warn: true },
+    { f: 'model', l: 'Model Number', t: 'text', caps: true, warn: true },
+    { f: 'serial', l: 'Serial Number', t: 'text', caps: true, warn: true },
+    { f: 'size', l: 'Size', t: 'text', ph: 'tons / BTU/h / kW' },
+    { f: 'mfg', l: 'Manufacture Date', t: 'text', ph: 'e.g. Mar 2017' },
+  ];
+  const INSP_TOP = [
     { k: 'number', l: 'System Number', t: 'text', req: true, ph: 'Typed by the tech', im: 'numeric' },
     { k: 'type', l: 'System Type', t: 'list', list: 'System Types', req: true, noOther: true },
     { k: 'heat', l: 'Heat Source', t: 'seg', o: ['Gas', 'Electric', 'Heat Pump', 'None'], req: true },
+  ];
+  const INSP_INFO = [
     { k: 'suite', l: 'Suite', t: 'text', ph: 'e.g. 100A (blank = N/A)' },
     { k: 'area', l: 'Area Served', t: 'text', ph: 'blank = Unknown' },
-    { k: 'outdoor', l: 'Outdoor Location', t: 'list', list: 'Outdoor Locations', warn: true },
-    { k: 'indoor', l: 'Indoor Location', t: 'list', list: 'Indoor Locations', warn: true },
+  ];
+  const INSP_LOC = [
+    { k: 'outdoor', l: 'Outdoor Location', t: 'list', list: 'Outdoor Locations', warn: true, side: 'outdoor', naFor: ['Unit Heater'] },
+    { k: 'indoor', l: 'Indoor Location', t: 'list', list: 'Indoor Locations', warn: true, side: 'indoor', naFor: ['RTU'] },
+    { k: 'height', l: 'Approximate Height of Indoor Unit', t: 'num', unit: 'ft', side: 'indoor', naFor: ['RTU'] },
+  ];
+  const INSP_EQ = [   // one set for RTUs, unit heaters, mini-splits, refrigeration
     { k: 'make', l: 'Manufacturer', t: 'list', list: 'Manufacturers', warn: true, label: true },
     { k: 'model', l: 'Model Number', t: 'text', warn: true, label: true, caps: true },
     { k: 'serial', l: 'Serial Number', t: 'text', warn: true, label: true, caps: true },
@@ -1326,13 +1362,18 @@ window.FC_LIVE = true;
     { k: 'mfg', l: 'Manufacture Date', t: 'text', ph: 'e.g. Mar 2017', label: true },
     { k: 'refrigerant', l: 'Refrigerant Type', t: 'list', list: 'Refrigerant Types', label: true },
   ];
+  const INSP_COMP = Object.keys(COMP).flatMap(c => CF.map(x => ({ k: c + '_' + x.f, l: COMP[c] + ' ' + x.l, short: x.l, t: x.t, list: x.list, caps: x.caps, ph: x.ph, warn: x.warn, comp: c, cf: x.f, side: COMP_SIDE[c] })));
+  const COND_REF = { k: 'condRefrigerant', l: 'Refrigerant Type', t: 'list', list: 'Refrigerant Types', comp: 'cond', side: 'outdoor', alias: 'refrigerant' };
+  const INSP = [...INSP_TOP, ...INSP_INFO, ...INSP_LOC, ...INSP_EQ, ...INSP_COMP];   // stored on the system
   const INSP_COND = [
-    { k: 'overallStatus', l: 'Overall Status', t: 'list', list: 'Overall Status', noOther: true },
+    { k: 'overallStatus', l: 'Overall Status', t: 'seg', list: 'Overall Status' },
     { k: 'visual', l: 'Visual Condition', t: 'seg', o: ['New', 'Good', 'Fair', 'Poor'], warnV: ['Fair'], badV: ['Poor'] },
     { k: 'operational', l: 'Operational Assessment', t: 'seg', o: ['Good', 'Needs Attention', 'Not Performed', 'No Power', 'Abandoned'], warnV: ['Needs Attention'] },
     { k: 'attn', l: 'System Needs Attention', t: 'flag' },
     { k: 'notes', l: 'Notes', t: 'textarea' },
   ];
+  const INSP_ALL = [...INSP, ...INSP_COND];
+  const sysMfg = s => s.mfg || s.cond_mfg || s.furnace_mfg || s.ah_mfg || '';
   function inspIssues(a) {
     const out = [];
     if (a.attn === 'Yes') out.push({ t: 'Technician flagged: system needs attention', s: 'red', l: ATTN_L });
@@ -1348,74 +1389,147 @@ window.FC_LIVE = true;
     cb.closest('.flagchk').classList.toggle('auto-on', others);
     $('i-attn-hint').textContent = others ? 'Checked automatically because the condition above is flagged' : 'Check this for anything concerning';
   }
+  const lbl = c => `<span>${esc(c.short || c.l)}${c.req ? ' <span class="req">*</span>' : ''}</span>`;
   function inspField(c, v) {
-    const id = 'i-' + c.k;
-    if (c.t === 'flag') return `<div class="fl"><span>${esc(c.l)}</span><label class="chk flagchk"><input type="checkbox" id="${id}" ${v === 'Yes' ? 'checked' : ''}> Something concerning or wrong</label><span class="hint" id="${id}-hint"></span></div>`;
-    if (c.t === 'seg') return `<div class="fl"><span>${esc(c.l)}${c.req ? ' <span class="req">*</span>' : ''}</span><div class="seg ${c.o.length > 4 ? 'wrap' : ''}">${c.o.map(o => `<label><input type="radio" name="${id}" value="${esc(o)}" ${o === v ? 'checked' : ''}
-      data-tone="${(c.badV || []).includes(o) ? 'red' : (c.warnV || []).includes(o) ? 'yellow' : o === 'Good' || o === 'New' ? 'green' : 'ink'}"><span>${esc(o)}</span></label>`).join('')}</div></div>`;
-    if (c.t === 'list') { const items = LISTS[c.list], other = v && !items.includes(v);
-      return `<label class="fl"><span>${esc(c.l)}${c.req ? ' <span class="req">*</span>' : ''}</span><select id="${id}"><option value="">Select…</option>${items.map(o => `<option ${o === v ? 'selected' : ''}>${esc(o)}</option>`).join('')}${c.noOther ? '' : `<option value="__o" ${other ? 'selected' : ''}>Custom…</option>`}</select>
-        ${c.noOther ? '' : `<input id="${id}-o" placeholder="Type ${esc(c.l.toLowerCase())}" value="${other ? esc(v) : ''}" ${other ? '' : 'hidden'}>`}</label>`; }
-    if (c.t === 'textarea') return `<label class="fl">${esc(c.l)}<textarea id="${id}">${esc(v || '')}</textarea></label>`;
-    return `<label class="fl"><span>${esc(c.l)}${c.req ? ' <span class="req">*</span>' : ''}</span><input id="${id}" value="${esc(v || '')}" placeholder="${esc(c.ph || '')}" ${c.im ? `inputmode="${c.im}"` : ''} ${c.caps ? 'autocapitalize="characters"' : ''}></label>`;
+    const id = 'i-' + c.k, wrap = inner => `<div class="ifield" id="w-${id}" ${c.side ? `data-side="${c.side}"` : ''}>${inner}</div>`;
+    if (c.t === 'flag') return wrap(`<div class="fl"><span>${esc(c.l)}</span><label class="chk flagchk"><input type="checkbox" id="${id}" ${v === 'Yes' ? 'checked' : ''}> Something concerning or wrong</label><span class="hint" id="${id}-hint"></span></div>`);
+    if (c.t === 'seg') { const o = c.o || LISTS[c.list] || [];
+      return wrap(`<div class="fl">${lbl(c)}<div class="seg ${o.length > 4 ? 'wrap' : ''}">${o.map(x => `<label><input type="radio" name="${id}" value="${esc(x)}" ${x === v ? 'checked' : ''}
+      data-tone="${(c.badV || []).includes(x) ? 'red' : (c.warnV || []).includes(x) ? 'yellow' : x === 'Good' || x === 'New' ? 'green' : 'ink'}"><span>${esc(x)}</span></label>`).join('')}</div></div>`); }
+    const na = c.naFor ? `<div class="na-val" id="${id}-na" hidden>N/A for this system type</div>` : '';
+    if (c.t === 'list') { const items = LISTS[c.list] || [], other = v && v !== 'N/A' && !items.includes(v);
+      return wrap(`<label class="fl">${lbl(c)}<select id="${id}"><option value="">Select…</option>${items.map(o => `<option ${o === v ? 'selected' : ''}>${esc(o)}</option>`).join('')}${c.noOther ? '' : `<option value="__o" ${other ? 'selected' : ''}>Custom…</option>`}</select>
+        ${c.noOther ? '' : `<input id="${id}-o" placeholder="Type ${esc((c.short || c.l).toLowerCase())}" value="${other ? esc(v) : ''}" ${other ? '' : 'hidden'}>`}${na}</label>`); }
+    if (c.t === 'textarea') return wrap(`<label class="fl">${esc(c.l)}<textarea id="${id}">${esc(v || '')}</textarea></label>`);
+    if (c.t === 'num') return wrap(`<label class="fl">${lbl(c)}<div class="unit-in" id="${id}-box"><input id="${id}" type="number" step="any" inputmode="decimal" value="${esc(v === 'N/A' ? '' : v || '')}"><em>${esc(c.unit)}</em></div>${na}</label>`);
+    return wrap(`<label class="fl">${lbl(c)}<input id="${id}" value="${esc(v || '')}" placeholder="${esc(c.ph || '')}" ${c.im ? `inputmode="${c.im}"` : ''} ${c.caps ? 'autocapitalize="characters"' : ''}></label>`);
   }
-  const inspGet = c => c.t === 'flag' ? ($('i-' + c.k).checked ? 'Yes' : '') : c.t === 'seg' ? radio('i-' + c.k) : c.t === 'list' ? ($('i-' + c.k).value === '__o' ? $('i-' + c.k + '-o').value.trim() : $('i-' + c.k).value) : $('i-' + c.k).value.trim();
+  const inspNA = c => !!(c.naFor && c.naFor.includes(inspTypeNow()));
+  const inspTypeNow = () => ($('i-type') ? $('i-type').value : '');
+  function inspGet(c) {
+    const x = $('i-' + c.k); if (!x && c.t !== 'seg') return '';
+    if (inspNA(c)) return 'N/A';
+    if (c.t === 'flag') return x.checked ? 'Yes' : '';
+    if (c.t === 'seg') return radio('i-' + c.k);
+    if (c.t === 'list') return x.value === '__o' ? ($('i-' + c.k + '-o') ? $('i-' + c.k + '-o').value.trim() : '') : x.value;
+    return x.value.trim();
+  }
+  function inspSet(c, v) {
+    if (c.t === 'seg') return setRadio('i-' + c.k, v || '');
+    const x = $('i-' + c.k); if (!x) return;
+    if (c.t === 'list') { const items = LISTS[c.list] || [], o = $('i-' + c.k + '-o');
+      if (!v || items.includes(v)) { x.value = v || ''; if (o) o.hidden = true; } else if (o) { x.value = '__o'; o.hidden = false; o.value = v; } return; }
+    x.value = v || '';
+  }
+  // What this screen is showing right now
+  function inspState() {
+    const type = inspTypeNow(), heat = radio('i-heat'), split = SPLIT(type);
+    const part = split ? (S.part || 'both') : 'both';
+    const comps = compsFor(type, heat).filter(c => part === 'both' || COMP_SIDE[c] === part);
+    const sideOk = c => !c.side || part === 'both' || c.side === part;
+    const fields = [...INSP_TOP, ...INSP_INFO, ...INSP_LOC.filter(sideOk), ...(split ? [] : INSP_EQ),
+      ...INSP_COMP.filter(c => comps.includes(c.comp)), ...(comps.includes('cond') ? [COND_REF] : []), ...INSP_COND];
+    return { type, heat, split, part, comps, fields };
+  }
+  function inspRequiredPhotos(st) {
+    if (st.split) return st.comps.flatMap(c => [COMP[c] + ' data plate', COMP[c] + ' unit']);
+    return PHOTO_RULES.filter(r => wild(r.checklist, 'Inspection') && r.when.toLowerCase() === 'always').map(r => r.field);
+  }
+  const photoMatches = (rule, tag) => wild(rule, tag);
+  function inspVis() {
+    if (!$('i-type')) return;
+    const st = inspState();
+    $('part-wrap').hidden = !st.split;
+    $('split-hint').hidden = !(st.split && !st.heat);
+    INSP_LOC.forEach(c => { const w = $('w-i-' + c.k), na = inspNA(c);
+      w.hidden = !(!c.side || st.part === 'both' || c.side === st.part);
+      const ctl = c.t === 'num' ? $('i-' + c.k + '-box') : $('i-' + c.k); ctl.hidden = na; $('i-' + c.k + '-na').hidden = !na;
+      const o = $('i-' + c.k + '-o'); if (o) o.hidden = na || $('i-' + c.k).value !== '__o'; });
+    $('eq-single').hidden = st.split;
+    Object.keys(COMP).forEach(c => { $('comp-' + c).hidden = !st.comps.includes(c); });
+    $('loc-card').hidden = INSP_LOC.every(c => $('w-i-' + c.k).hidden);
+    drawPhotos(true);
+  }
   function renderInspect() {
     const s = S.sys, isNew = !s.id, prev = s.id && recFor(s.id, 'Inspection');
+    const val = c => (c.alias ? s[c.alias] : s[c.k]);
+    S.part = 'both';
     $('app').innerHTML = `
       <section class="card check-head">
-        <button type="button" class="linkbtn" data-act="back" style="justify-self:start">‹ ${esc(S.visit.building || S.visit.bldg)} systems</button>
+        <button type="button" class="linkbtn" data-act="back" style="justify-self:start">‹ ${esc(S.visit.bldg)} systems</button>
         <h3>${isNew ? 'Inventory a new system' : `System ${esc(s.number)}`}</h3>
         <div class="chips">${s.type ? typeChip(s.type) : ''}<span class="chip">Inspection</span></div>
         <div class="muted">${esc(S.visit.cust)} · ${esc(S.visit.bldg)}</div>
       </section>
-      ${note('<b>Inspection = inventory.</b> Saving adds or updates the system on this building’s equipment list. Dropdowns come from the Lists (Admin → Lists). Model, serial and the location fields are optional but show in the incomplete warning.' + (CAN_READ ? ' <b>Try it:</b> photograph a real data plate in the Data plate slot and the label fields fill in.' : ''))}
-      <section class="card stack"><div class="sec-head" style="margin:0"><h2>Photos</h2><span class="shared">Data plate and whole unit are required</span></div>
-        ${CAN_READ ? '<div class="muted" style="font-size:13px">Start with the data plate: the fields below fill in from the label.</div>' : ''}<div class="photos" id="photos"></div></section>
+      ${note('<b>Inspection = inventory.</b> Saving adds or updates the system on this building’s equipment list. Split systems ask for each component (furnace or air handler, evaporator, condenser) with its own photos and label. Two techs can split a split system: one picks Indoor, the other Outdoor.')}
+      <section class="card stack">${INSP_TOP.map(c => inspField(c, val(c))).join('')}
+        <div class="fl" id="part-wrap" hidden><span>Working on</span><div class="seg">${[['both', 'Indoor & Outdoor'], ['indoor', 'Indoor only'], ['outdoor', 'Outdoor only']].map(([v, t]) =>
+          `<label><input type="radio" name="i-part" value="${v}" ${v === 'both' ? 'checked' : ''} data-tone="ink"><span>${t}</span></label>`).join('')}</div>
+          <span class="hint">Pick Indoor or Outdoor when another tech is doing the other half. Both halves save to the same system.</span></div>
+        <div class="muted" id="split-hint" hidden>Pick the heat source to see which components to photograph.</div></section>
+      <section class="card stack"><div class="sec-head" style="margin:0"><h2>Photos</h2><span class="shared" id="photo-req">Data plate and whole unit are required</span></div>
+        ${CAN_READ ? '<div class="muted" style="font-size:13px">Start with the data plate: the fields fill in from the label.</div>' : ''}<div class="photos" id="photos"></div></section>
       <section class="card ocr" id="ocr" hidden></section>
-      <section class="card stack"><h2>System information</h2>${INSP.map(c => inspField(c, s[c.k])).join('')}</section>
+      <section class="card stack"><h2>System information</h2>${INSP_INFO.map(c => inspField(c, val(c))).join('')}</section>
+      <section class="card stack" id="loc-card"><h2>Location</h2>${INSP_LOC.map(c => inspField(c, val(c))).join('')}</section>
+      <section class="card stack" id="eq-single"><h2>Equipment</h2>${INSP_EQ.map(c => inspField(c, val(c))).join('')}</section>
+      ${Object.keys(COMP).map(c => `<section class="card stack" id="comp-${c}" hidden><h2>${COMP[c]}</h2>${INSP_COMP.filter(x => x.comp === c).map(x => inspField(x, val(x))).join('')}${c === 'cond' ? inspField(COND_REF, val(COND_REF)) : ''}</section>`).join('')}
       <section class="card stack"><h2>Condition</h2>${INSP_COND.map(c => inspField(c, prev ? prev.answers[c.k] : s[c.k])).join('')}</section>`;
     $('bot').innerHTML = `<div class="barbot"><div class="barbot-in"><button type="button" class="btn" data-act="back">Cancel</button><button type="button" class="btn primary" data-act="inspectSave">Save to equipment list</button></div></div>`;
-    S.tagKey = null; S.dirty = false; S.iAttnManual = undefined; inspAuto(); drawPhotos();
+    S.tagKey = null; S.dirty = false; S.iAttnManual = undefined; inspAuto(); inspVis();
   }
   async function trySaveInspect(force) {
     if (S.busy) return;
     document.querySelectorAll('.invalid').forEach(e => e.classList.remove('invalid'));
-    const vals = {}; [...INSP, ...INSP_COND].forEach(c => { vals[c.k] = inspGet(c); });
-    const req = INSP.filter(c => c.req && !vals[c.k]);
+    const st = inspState(), vals = {};
+    st.fields.forEach(c => { vals[c.alias || c.k] = inspGet(c); });
+    const req = INSP_TOP.filter(c => !vals[c.k]);
     if (req.length) { req.forEach(c => ($('i-' + c.k) || document.querySelector(`input[name="i-${c.k}"]`).closest('.seg')).classList.add('invalid')); toast('Fill in ' + req.map(c => c.l).join(', ')); return; }
     const dup = SYSTEMS.find(x => x.id !== S.sys.id && x.customer === S.visit.cust && x.building === S.visit.bldg && String(x.number) === String(vals.number));
     if (dup) { $('i-number').classList.add('invalid'); toast(`System ${vals.number} already exists in ${S.visit.bldg}`); return; }
-    const needPhotos = PHOTO_RULES.filter(r => wild(r.checklist, 'Inspection') && r.when.toLowerCase() === 'always').map(r => r.field).filter(t => !S.photos.some(p => wild(t, p.tag)));
+    const needPhotos = inspRequiredPhotos(st).filter(t => !S.photos.some(p => photoMatches(t, p.tag)));
     if (needPhotos.length) { sheet(`<h3>Photo required</h3><div class="stop">Add: ${esc(needPhotos.join(', '))}</div><div class="sheet-actions"><button type="button" class="btn primary" data-act="closeSheet">OK</button></div>`); return; }
-    const warn = INSP.filter(c => c.warn && !vals[c.k]);
+    const warn = st.fields.filter(c => c.warn && !vals[c.alias || c.k]);
     if (warn.length && !force) {
       sheet(`<h3>Incomplete inventory</h3><div class="warn">${warn.length} field${warn.length > 1 ? 's are' : ' is'} blank</div><ul>${warn.map(c => `<li>${esc(c.l)}</li>`).join('')}</ul>
         <div class="sheet-actions"><button type="button" class="btn" data-act="closeSheet">Keep editing</button><button type="button" class="btn primary" data-act="inspectForce">Save anyway</button></div>`); return;
     }
     let s = S.sys.id ? sysById(S.sys.id) : null, isNew = !s;
+    const partial = st.split && st.part !== 'both';
     const next = { ...(s || SYS(S.visit.cust, S.visit.bldg, vals.number, vals.type, vals.heat)) };
-    INSP.forEach(c => { next[c.k] = vals[c.k]; }); INSP_COND.forEach(c => { next[c.k] = vals[c.k]; });
-    let saved = { id: uuid(), time: new Date() };
+    Object.entries(vals).forEach(([k, v]) => { if (!partial || v !== '') next[k] = v; });
+    const prevRec = s && recFor(s.id, 'Inspection');
+    let saved = { id: (st.split && prevRec ? prevRec.id : uuid()), time: new Date() };
     if (LIVE) {
       const rec = { 'Customer': next.customer, 'Building': next.building, 'System ID': next.id, 'Needs Attention': inspIssues(vals).map(x => x.t).join('; ') };
-      [...INSP, ...INSP_COND].forEach(c => { rec[c.l] = vals[c.k] || ''; });
+      INSP_ALL.forEach(c => { if (vals.hasOwnProperty(c.k)) rec[c.l] = vals[c.k] || ''; });
+      // a split half only sends its own fields, so it can't overwrite the other tech's half
+      const sysRow = partial ? Object.fromEntries(Object.entries(sysToRow(next)).filter(([col]) => ['System ID', 'Customer', 'Building', 'System Number', 'System Type', 'Heat Source'].includes(col)
+        || INSP_ALL.some(c => c.l === col && vals.hasOwnProperty(c.k)))) : sysToRow(next);
       busy(true);
       try {
-        const prev = s && recFor(s.id, 'Inspection'), id = S.pendingId || (S.pendingId = uuid());
-        const old = await supersede(next.id, 'Inspection');
-        const replaceId = old ? old.payload.replaceId : prev && !prev.queued ? prev.id : '';
-        const res = await submitQueued({ id, checklist: 'Inspection', isInventory: true, record: rec, columns: Object.keys(rec), photos: photoPayload(S.photos), system: sysToRow(next), replaceId },
-          { systemId: next.id, check: 'Inspection', customer: next.customer, building: next.building, label: `System ${next.number} · ${next.type} · ${next.building}`, answers: vals });
-        saved = { id, time: res.j ? parseStamp(res.j.time) : new Date(), queued: !!res.queued }; S.pendingId = null;
+        const id = S.pendingId || (S.pendingId = uuid()), part = st.split ? st.part : '';
+        const old = await supersede(next.id, 'Inspection', part);
+        const replaceId = st.split ? '' : old ? old.payload.replaceId : prevRec && !prevRec.queued ? prevRec.id : '';
+        const res = await submitQueued({ id, checklist: 'Inspection', isInventory: true, part, record: rec, columns: Object.keys(rec), photos: photoPayload(S.photos), system: sysRow, replaceId },
+          { systemId: next.id, check: 'Inspection', part, customer: next.customer, building: next.building, label: `System ${next.number} · ${next.type} · ${next.building}${part && part !== 'both' ? ' · ' + part : ''}`, answers: vals });
+        saved = { id: res.j && res.j.id ? res.j.id : st.split && prevRec ? prevRec.id : id, time: res.j ? parseStamp(res.j.time) : new Date(), queued: !!res.queued }; S.pendingId = null;
       } catch (e) { saveFailed(e); return; }
       busy(false);
     }
     if (isNew) { s = next; SYSTEMS.push(s); } else Object.assign(s, next);
     S.dirty = false;
-    addRecord(s, 'Inspection', LIVE ? API.name : 'Mike T', saved.time, vals, S.photos.map(p => ({ ...p })), { id: saved.id }).queued = !!saved.queued;
+    // split halves merge into the visit's one inventory record
+    let answers = vals, photos = S.photos.map(p => ({ ...p }));
+    if (st.split && prevRec) {
+      answers = { ...prevRec.answers }; Object.entries(vals).forEach(([k, v]) => { if (v !== '' || st.part === 'both') answers[k] = v; });
+      photos = [...prevRec.photos.filter(p => !photos.some(q => q === p || (q.fileId && q.fileId === p.fileId) || (q.url && q.url === p.url))), ...photos];
+    }
+    if (st.split) { if (st.part !== 'outdoor') answers._indoor = true; if (st.part !== 'indoor') answers._outdoor = true; }
+    addRecord(s, 'Inspection', LIVE ? API.name : 'Mike T', saved.time, answers, photos, { id: saved.id }).queued = !!saved.queued;
     S.view = 'visit'; render(); window.scrollTo(0, 0);
-    toast(saved.queued ? `No signal. System ${s.number} is saved on this phone and will upload when you have signal.` : `System ${s.number} saved to ${S.visit.bldg}'s equipment list`, saved.queued ? 5000 : 2800);
+    const half = st.split && st.part !== 'both' ? ` (${st.part})` : '';
+    toast(saved.queued ? `No signal. System ${s.number}${half} is saved on this phone and will upload when you have signal.` : `System ${s.number}${half} saved to ${S.visit.bldg}'s equipment list`, saved.queued ? 5000 : 2800);
   }
 
   // ---------------------------------------------------------------- PHOTOS
@@ -1444,11 +1558,15 @@ window.FC_LIVE = true;
   }
   const fmtKb = kb => kb >= 1024 ? (kb / 1024).toFixed(1) + ' MB' : kb + ' KB';
   const INSPECT_TAGS = ['Data plate', 'Unit', 'Serial tag', 'Disconnect', 'Other'];
+  const isPlate = tag => /data plate$/i.test(tag || '');
+  const plateComp = tag => Object.keys(COMP).find(c => tag === COMP[c] + ' data plate') || null;
   function drawPhotos(force) {
     const box = $('photos'); if (!box) return;
     const insp = S.role === 'tech' && S.view === 'inspect';
-    const tags = insp ? INSPECT_TAGS : ['Unit', 'Data plate', ...(S.issueTags || []), 'Other'];
-    const key = tags.join('|') + '#' + S.photos.map(p => p.tag + p.url.length).join(',');
+    const ist = insp && $('i-type') ? inspState() : null, req = ist ? inspRequiredPhotos(ist) : [];
+    const tags = insp ? (ist && ist.split ? [...req, 'Serial tag', 'Disconnect', 'Other'] : INSPECT_TAGS) : ['Unit', 'Data plate', ...(S.issueTags || []), 'Other'];
+    if (insp && $('photo-req')) $('photo-req').textContent = ist && ist.split ? (ist.comps.length ? 'Data plate and unit photo for each component' : '') : 'Data plate and whole unit are required';
+    const key = tags.join('|') + '#' + S.photos.map(p => p.tag + (p.url || '').length).join(',') + CAN_READ;
     if (!force && key === S.tagKey) return; S.tagKey = key;
     const slot = (tag, text, req) => `<label class="addph ${req ? 'req' : ''}"><input type="file" accept="image/*" ${tag ? '' : 'multiple'} data-photo data-tag="${esc(tag)}"><b>+</b>${esc(text)}${req ? '<small>Required</small>' : ''}</label>`;
     const have = t => S.photos.some(p => p.tag === t);
@@ -1457,15 +1575,15 @@ window.FC_LIVE = true;
       return `<div class="ph-item"><img src="${p.url || PH_WAIT}" alt="${esc(p.tag)}" data-act="phView" data-i="${i}">${p.kb ? `<span class="kb">${fmtKb(p.kb)}</span>` : ''}
         <button type="button" class="x" data-act="phDel" data-i="${i}" aria-label="Remove photo">×</button>
         <select data-phtag="${i}" aria-label="What this photo shows">${opts.map(t => `<option ${t === p.tag ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>
-        ${insp && CAN_READ && p.tag === 'Data plate' ? `<button type="button" class="readlbl" data-act="readLabel" data-i="${i}">Read label</button>` : ''}</div>`;
-    }).join('') + (insp && !have('Data plate') ? slot('Data plate', 'Data plate', true) : '') + (insp && !have('Unit') ? slot('Unit', 'Whole unit', true) : '') + slot('', insp ? 'More photos' : 'Add photo');
+        ${insp && CAN_READ && isPlate(p.tag) ? `<button type="button" class="readlbl" data-act="readLabel" data-i="${i}">Read label</button>` : ''}</div>`;
+    }).join('') + (insp ? req.filter(t => !have(t)).map(t => slot(t, t === 'Unit' ? 'Whole unit' : t, true)).join('') : '') + slot('', insp ? 'More photos' : 'Add photo');
   }
   async function addFiles(files, tag) {
     let added = 0, before = 0, after = 0;
     for (const file of files) { try { const r = await shrink(file); S.photos.push({ url: r.url, tag: tag || (S.view === 'inspect' ? 'Other' : 'Unit'), kb: r.kb }); added++; before += r.origKb; after += r.kb; } catch { toast(`${file.name} isn't a photo the browser can open`); } }
     if (!added) return;
     if (S.view === 'check' || S.admin === 'edit') derive(); drawPhotos(true);
-    if (S.view === 'inspect' && CAN_READ && tag === 'Data plate') { readLabel(S.photos.length - 1); return; }
+    if (S.view === 'inspect' && CAN_READ && isPlate(tag)) { readLabel(S.photos.length - 1); return; }
     toast(`${added} photo${added > 1 ? 's' : ''} added · resized ${fmtKb(before)} → ${fmtKb(after)}`);
   }
   const viewPhoto = p => { $('sheet').innerHTML = `<div class="scrim lb" data-act="closeSheet"><img src="${p.url || PH_WAIT}" alt="${esc(p.tag)}"><div class="cap">${esc(p.tag)}</div><button type="button" class="btn sm" data-act="closeSheet">Close</button></div>`; };
@@ -1478,38 +1596,42 @@ window.FC_LIVE = true;
   async function readLabel(i) {
     const p = S.photos[i]; if (!p || (!SAMPLE && !LIVE)) return;
     if (LIVE && !p.url) { await ensurePhotos([p]); if (!p.url) return; }
+    const comp = plateComp(p.tag);
     const box = $('ocr'); box.hidden = false; box.className = 'card ocr busy'; readCtl = new AbortController();
-    box.innerHTML = `<div class="row"><span style="display:flex;gap:10px;align-items:center"><span class="spin"></span><b>Reading the data plate…</b></span><button type="button" class="btn sm" data-act="stopRead">Stop</button></div><div class="muted">Usually 5–30 seconds.</div>`;
+    box.innerHTML = `<div class="row"><span style="display:flex;gap:10px;align-items:center"><span class="spin"></span><b>Reading the ${comp ? COMP[comp].toLowerCase() + ' ' : ''}data plate…</b></span><button type="button" class="btn sm" data-act="stopRead">Stop</button></div><div class="muted">Usually 5–30 seconds.</div>`;
     box.scrollIntoView({ behavior: 'smooth', block: 'center' });
     const prompt = `This photo should show the data plate (nameplate) of commercial or residential HVAC equipment. Reply with only a JSON object:
 {"isDataPlate": true, "manufacturer": "Trane", "model": "YCD150", "serial": "21334KUE5F", "systemType": "RTU", "heatSource": "Gas", "size": "12.5 ton", "manufactureDate": "Aug 2021 (from serial)", "refrigerant": "R410a", "voltage": "460/3/60", "uncertain": ["serial"], "notes": ""}
 Rules: copy model and serial character for character and list any field with unreadable characters in "uncertain". manufacturer: use one of ${LISTS['Manufacturers'].join(', ')} when it matches. systemType: one of ${LISTS['System Types'].join(', ')} or null. heatSource: Gas, Electric, Heat Pump or None, or null if unclear. refrigerant: one of ${LISTS['Refrigerant Types'].join(', ')} when it matches. manufactureDate: printed, or decoded from the serial only when you know that brand's format (add "(from serial)"). Use null for anything not on the plate. If it is not a data plate, set isDataPlate false and explain in notes.`;
     try {
-      if (LIVE) { const ctl = readCtl, j = await api('readLabel', { image: p.url, prompt }); if (ctl.signal.aborted) { $('ocr').hidden = true; return; } applyLabel(j.result || {}); }
-      else applyLabel(await SAMPLE.json(prompt, { images: dataUrlToBlob(p.url), signal: readCtl.signal }) || {});
+      if (LIVE) { const ctl = readCtl, j = await api('readLabel', { image: p.url, prompt }); if (ctl.signal.aborted) { $('ocr').hidden = true; return; } applyLabel(j.result || {}, comp); }
+      else applyLabel(await SAMPLE.json(prompt, { images: dataUrlToBlob(p.url), signal: readCtl.signal }) || {}, comp);
     }
     catch (e) { const msg = { cancelled: null, not_configured: 'Label reading is not set up yet (needs an API key in the script).', invalid_json: 'The label could not be read. Try a closer, sharper photo.', reader_error: 'The label reader did not answer. Try again.', network: e.message, not_granted: 'Label reading was not allowed for this page.', image_rejected: 'That photo could not be read. Try a closer, sharper photo.', rate_limited: 'Too many reads just now. Try again in a minute.' }[e && e.code];
       if (msg === null) { box.hidden = true; return; } box.className = 'card ocr err'; box.innerHTML = `<b>Couldn't read the label</b><div style="font-size:14px">${esc(msg || 'Something went wrong. Tap Read label to try again.')}</div>`; }
     finally { readCtl = null; }
   }
-  function applyLabel(r) {
+  function applyLabel(r, comp) {
     const box = $('ocr');
     if (r.isDataPlate === false) { box.className = 'card ocr err'; box.innerHTML = `<b>That doesn't look like a data plate</b><div style="font-size:14px">${esc(r.notes || 'Retake the photo square-on to the plate.')}</div>`; return; }
     const unsure = new Set((Array.isArray(r.uncertain) ? r.uncertain : []).map(x => String(x).toLowerCase()));
-    S.labelUndo = {}; INSP.forEach(c => { if (c.label || c.k === 'type' || c.k === 'heat') S.labelUndo[c.k] = inspGet(c); });
-    const filled = [];
-    const putText = (k, v, key) => { if (v == null || String(v).trim() === '') return; const x = $('i-' + k); x.value = String(v).trim(); x.classList.add('auto'); x.classList.toggle('unsure', unsure.has(key)); filled.push(INSP.find(c => c.k === k).l); };
-    const putList = (k, v, key) => { if (!v) return; const c = INSP.find(x => x.k === k), sel = $('i-' + k), hit = LISTS[c.list].find(o => o.toLowerCase() === String(v).toLowerCase());
-      if (hit) { sel.value = hit; if ($('i-' + k + '-o')) $('i-' + k + '-o').hidden = true; } else if ($('i-' + k + '-o')) { sel.value = '__o'; const o = $('i-' + k + '-o'); o.hidden = false; o.value = v; o.classList.add('auto'); } else return;
-      sel.classList.add('auto'); sel.classList.toggle('unsure', unsure.has(key)); filled.push(c.l); };
-    putList('make', r.manufacturer, 'manufacturer'); putText('model', r.model, 'model'); putText('serial', r.serial, 'serial');
-    if (r.systemType && !$('i-type').value) putList('type', r.systemType, 'systemtype');
-    if (r.heatSource && !radio('i-heat') && ['Gas', 'Electric', 'Heat Pump', 'None'].includes(r.heatSource)) { setRadio('i-heat', r.heatSource); filled.push('Heat Source'); }
-    putText('size', r.size, 'size'); putText('mfg', r.manufactureDate, 'manufacturedate'); putList('refrigerant', r.refrigerant, 'refrigerant');
-    const unsureNames = INSP.filter(c => unsure.has(c.k) || (c.k === 'make' && unsure.has('manufacturer')) || (c.k === 'mfg' && unsure.has('manufacturedate'))).map(c => c.l);
+    // which fields this plate fills: the system's own set, or one split-system component's
+    const tgt = f => comp ? (f === 'refrigerant' ? (comp === 'cond' ? COND_REF : null) : INSP_COMP.find(c => c.comp === comp && c.cf === f)) : INSP.find(c => c.k === f);
+    const touched = ['make', 'model', 'serial', 'size', 'mfg', 'refrigerant'].map(tgt).filter(Boolean);
+    if (!comp) touched.push(INSP.find(c => c.k === 'type'), INSP.find(c => c.k === 'heat'));
+    S.labelUndo = touched.map(c => [c, inspGet(c)]);
+    const filled = [], flagged = [];
+    const mark = (c, el, key) => { el.classList.add('auto'); el.classList.toggle('unsure', unsure.has(key)); filled.push(c.short || c.l); if (unsure.has(key)) flagged.push(c.l); };
+    const putText = (f, v, key) => { const c = tgt(f); if (!c || v == null || String(v).trim() === '') return; const x = $('i-' + c.k); x.value = String(v).trim(); mark(c, x, key); };
+    const putList = (c, v, key) => { if (!c || !v) return; const sel = $('i-' + c.k), o = $('i-' + c.k + '-o'), hit = (LISTS[c.list] || []).find(x => x.toLowerCase() === String(v).toLowerCase());
+      if (hit) { sel.value = hit; if (o) o.hidden = true; } else if (o) { sel.value = '__o'; o.hidden = false; o.value = v; o.classList.add('auto'); } else return; mark(c, sel, key); };
+    putList(tgt('make'), r.manufacturer, 'manufacturer'); putText('model', r.model, 'model'); putText('serial', r.serial, 'serial');
+    if (!comp && r.systemType && !$('i-type').value) { putList(INSP.find(c => c.k === 'type'), r.systemType, 'systemtype'); inspVis(); }
+    if (!comp && r.heatSource && !radio('i-heat') && ['Gas', 'Electric', 'Heat Pump', 'None'].includes(r.heatSource)) { setRadio('i-heat', r.heatSource); filled.push('Heat Source'); inspVis(); }
+    putText('size', r.size, 'size'); putText('mfg', r.manufactureDate, 'manufacturedate'); putList(tgt('refrigerant'), r.refrigerant, 'refrigerant');
     box.className = 'card ocr';
-    box.innerHTML = `<div class="row"><b>${filled.length ? `Filled in from the label: ${esc(filled.join(', '))}` : 'Nothing readable on the label'}</b><button type="button" class="btn sm" data-act="undoLabel">Undo</button></div>
-      ${unsureNames.length ? `<div class="unsure-msg">Double-check against the plate: ${esc(unsureNames.join(', '))}</div>` : ''}${r.voltage ? `<div class="muted">Voltage on plate: ${esc(r.voltage)}</div>` : ''}
+    box.innerHTML = `<div class="row"><b>${filled.length ? `${comp ? esc(COMP[comp]) + ': f' : 'F'}illed in from the label: ${esc(filled.join(', '))}` : 'Nothing readable on the label'}</b><button type="button" class="btn sm" data-act="undoLabel">Undo</button></div>
+      ${flagged.length ? `<div class="unsure-msg">Double-check against the plate: ${esc(flagged.join(', '))}</div>` : ''}${r.voltage ? `<div class="muted">Voltage on plate: ${esc(r.voltage)}</div>` : ''}
       <div class="muted">Fields filled from the photo are outlined. Check them before saving.</div>`;
   }
 
@@ -1532,7 +1654,7 @@ Rules: copy model and serial character for character and list any field with unr
     const cols = [...lead], data = rows.map(r => {
       const s = sysById(r.systemId), o = { 'Date / Time': ymd(r.time) + ' ' + r.time.toTimeString().slice(0, 5), 'Technician': r.tech, 'Customer': r.customer, 'Building': r.building,
         'System Number': s.number, 'System Type': s.type, 'Check': r.check, 'Heat Source': r.answers.heatSource || s.heat, 'Needs Attention': issuesOf(r).map(x => x.t).join('; ') };
-      if (r.check === 'Inspection') [...INSP, ...INSP_COND].forEach(c => { o[c.l] = r.answers[c.k] || ''; });
+      if (r.check === 'Inspection') INSP_ALL.forEach(c => { o[c.l] = r.answers[c.k] || ''; });
       else { const { rec } = toCols(recSections(r), r.answers, r.answers.heatSource); Object.assign(o, rec); }
       Object.keys(o).forEach(k => { if (!cols.includes(k)) cols.push(k); }); return o;
     });
@@ -1571,10 +1693,20 @@ Rules: copy model and serial character for character and list any field with unr
         <div class="muted">PDF report opens the internal or customer version; tap Save as PDF there. Both use the filters above.</div></section>`;
     if (loading) loadAdmin();
   }
+  // System info grouped the way the inventory screen shows it (split systems by component)
+  function inspSections(a, s) {
+    const type = a.type || (s && s.type), heat = a.heat || (s && s.heat), split = SPLIT(type), show = v => v || '';
+    const out = [['System information', [...INSP_TOP, ...INSP_INFO].map(c => [c.l, a[c.k] || (c.k === 'suite' ? 'N/A' : c.k === 'area' ? 'Unknown' : ''), ''])],
+      ['Location', INSP_LOC.map(c => [c.l, c.k === 'height' && a[c.k] && a[c.k] !== 'N/A' ? a[c.k] + ' ft' : show(a[c.k]), ''])]];
+    if (!split) out.push(['Equipment', INSP_EQ.map(c => [c.l, show(a[c.k]), ''])]);
+    else compsFor(type, heat || 'Electric').forEach(c => out.push([COMP[c], [...INSP_COMP.filter(x => x.comp === c).map(x => [x.short, show(a[x.k]), '']), ...(c === 'cond' ? [['Refrigerant Type', show(a.refrigerant), '']] : [])]]));
+    if (split) out.push(['Halves', [['Indoor', a._indoor ? 'Done' : 'Pending', a._indoor ? 'green' : 'yellow'], ['Outdoor', a._outdoor ? 'Done' : 'Pending', a._outdoor ? 'green' : 'yellow']]]);
+    return out;
+  }
   function answerSections(rec) {
     const s = sysById(rec.systemId), a = rec.answers;
     if (rec.check === 'Inspection') return [
-      ['System information', INSP.map(c => [c.l, a[c.k] || (c.k === 'suite' ? 'N/A' : c.k === 'area' ? 'Unknown' : ''), ''])],
+      ...inspSections(a, sysById(rec.systemId)),
       ['Condition', INSP_COND.filter(c => c.k !== 'notes').map(c => c.t === 'flag' ? [c.l, a[c.k] === 'Yes' ? 'Yes' : 'No', a[c.k] === 'Yes' ? 'red' : ''] : [c.l, a[c.k], (c.badV || []).includes(a[c.k]) ? 'red' : (c.warnV || []).includes(a[c.k]) ? 'yellow' : a[c.k] ? 'green' : 'na'])],
       ['Notes', [['Notes', a.notes, 'notes']]]];
     const heat = a.heatSource, get = id => a[id], out = [];
@@ -1602,8 +1734,8 @@ Rules: copy model and serial character for character and list any field with unr
       <section class="card"><div class="sec-head"><h2>Needs attention</h2></div><div class="stack" style="gap:6px">${issues.length ? issues.map(x => `<div class="issue ${x.s === 'yellow' ? 'y' : ''}">${esc(x.t)}</div>`).join('') : '<div class="muted">Nothing flagged</div>'}</div></section>
       ${answerSections(r).map(([t, items]) => `<section class="card"><h2>${esc(t)}</h2>${items.map(([k, v, c]) => `<div class="kv"><span class="k">${esc(k)}</span><span class="v ${c || ''}">${esc(v || '—')}</span></div>`).join('')}</section>`).join('')}
       ${r.photos.length ? `<section class="card"><h2 style="margin-bottom:10px">Photos</h2><div class="photos">${r.photos.map((p, i) => ` <div class="ph-item"><img src="${p.url || PH_WAIT}" alt="${esc(p.tag)}" data-act="recPhoto" data-i="${i}"><div class="cap">${esc(p.tag)}</div></div>`).join('')}</div></section>` : ''}
-      <section class="card stack"><h2>System info</h2>${INSP.map(c => `<div class="kv"><span class="k">${esc(c.l)}</span><span class="v">${esc(s[c.k] || (c.k === 'suite' ? 'N/A' : c.k === 'area' ? 'Unknown' : '—'))}</span></div>`).join('')}
-        <div class="kv"><span class="k">Age</span><span class="v">${ageOf(s.mfg) != null ? ageOf(s.mfg) + ' years' : '—'}</span></div></section>`;
+      ${inspSections(s, s).filter(([t]) => t !== 'Halves').map(([t, items]) => `<section class="card stack"><h2>${esc(t === 'System information' ? 'System info' : t)}</h2>${items.map(([k, v]) => `<div class="kv"><span class="k">${esc(k)}</span><span class="v">${esc(v || '—')}</span></div>`).join('')}`).join('</section>')}
+        <div class="kv"><span class="k">Age</span><span class="v">${sysAge(s) != null ? sysAge(s) + ' years' : '—'}</span></div></section>`;
   }
   function renderPreview() {
     const rows = filtered().slice().sort((a, b) => a.customer.localeCompare(b.customer) || a.building.localeCompare(b.building) || Number(sysById(a.systemId).number) - Number(sysById(b.systemId).number));
@@ -1622,10 +1754,10 @@ Rules: copy model and serial character for character and list any field with unr
           <div><b>${rows.filter(r => r.answers.filterCond === 'Changed').length}</b><span>Filters changed</span></div><div><b>${rows.filter(r => r.answers.heatSource === 'None').length}</b><span>No-heat systems</span></div></div>
         <div class="ptable-wrap"><table><thead><tr>${multi ? '<th>Customer</th>' : ''}<th>Bldg</th><th>System</th><th>Type</th><th>Age</th><th>Refrig.</th><th>Check</th>${cv ? '' : '<th>Tech</th>'}<th>Needs attention</th></tr></thead><tbody>
           ${rows.map(r => { const s = sysById(r.systemId), iss = issuesOf(r); return `<tr>${multi ? `<td>${esc(r.customer)}</td>` : ''}<td>${esc(r.building)}</td><td><b>${esc(s.number)}</b>${s.suite ? `<br><small>Suite ${esc(s.suite)}</small>` : ''}</td><td>${esc(TYPE_SHORT[s.type])}</td>
-            <td>${ageOf(s.mfg) != null ? ageOf(s.mfg) + ' yrs' : '—'}</td><td>${esc(s.refrigerant || '—')}</td><td>${esc(r.check)}</td>${cv ? '' : `<td>${esc(r.tech)}</td>`}
+            <td>${sysAge(s) != null ? sysAge(s) + ' yrs' : '—'}</td><td>${esc(s.refrigerant || '—')}</td><td>${esc(r.check)}</td>${cv ? '' : `<td>${esc(r.tech)}</td>`}
             <td>${iss.length ? iss.map(x => `<span class="${x.s === 'yellow' ? 'y' : 'r'}">${esc(x.t)}</span>`).join('') : '<span class="ok">OK</span>'}</td></tr>`; }).join('')}</tbody></table></div>
         ${rows.map(r => { const s = sysById(r.systemId), photos = cv ? r.photos.filter(p => p.tag.startsWith('Issue:')) : r.photos; return `<div class="punit">
-          <div class="uh">${esc(r.customer)} — ${esc(r.building)}, System ${esc(s.number)} · ${esc(s.type)}${s.suite ? ' · Suite ' + esc(s.suite) : ''} <span>${ageOf(s.mfg) != null ? ageOf(s.mfg) + ' yrs · ' : ''}${esc(s.refrigerant || '')} · ${esc(r.check)}${cv ? '' : ' · ' + esc(r.tech)} · ${when(r.time)}</span></div>
+          <div class="uh">${esc(r.customer)} — ${esc(r.building)}, System ${esc(s.number)} · ${esc(s.type)}${s.suite ? ' · Suite ' + esc(s.suite) : ''} <span>${sysAge(s) != null ? sysAge(s) + ' yrs · ' : ''}${esc(s.refrigerant || '')} · ${esc(r.check)}${cv ? '' : ' · ' + esc(r.tech)} · ${when(r.time)}</span></div>
           ${answerSections(r).map(([t, items]) => `<div class="band">${esc(t)}</div>${items.some(i => i[2] === 'notes') && items.length === 1 ? `<div class="pnotes">${esc(items[0][1] || '—')}</div>`
             : `<div class="pgrid">${items.filter(i => i[2] !== 'notes').map(([k, v, c]) => `<div class="pkv"><span>${esc(k)}</span><b class="${c === 'na' ? '' : (c || '')}">${esc(pv(v))}</b></div>`).join('')}</div>${items.filter(i => i[2] === 'notes').map(i => `<div class="pnotes">${esc(i[1] || '—')}</div>`).join('')}`}`).join('')}
           ${photos.length ? `<div class="band">Photos</div><div class="pphotos">${photos.map(p => `<figure><img src="${p.url || PH_WAIT}" alt="${esc(p.tag)}"><figcaption>${esc(p.tag.replace(/^Issue: /, ''))}</figcaption></figure>`).join('')}</div>` : ''}</div>`; }).join('')}
@@ -1695,7 +1827,7 @@ Rules: copy model and serial character for character and list any field with unr
       case 'recPhoto': viewPhoto(S.rec.photos[+t.dataset.i]); break;
       case 'readLabel': readLabel(+t.dataset.i); break;
       case 'stopRead': if (readCtl) readCtl.abort(); break;
-      case 'undoLabel': { Object.entries(S.labelUndo || {}).forEach(([k, v]) => { const c = INSP.find(x => x.k === k); if (c.t === 'seg') setRadio('i-' + k, v); else { const x = $('i-' + k); if (c.t === 'list') { const items = LISTS[c.list]; if (!v || items.includes(v)) { x.value = v; if ($('i-' + k + '-o')) $('i-' + k + '-o').hidden = true; } else { x.value = '__o'; $('i-' + k + '-o').value = v; } } else x.value = v; } });
+      case 'undoLabel': { (S.labelUndo || []).forEach(([c, v]) => inspSet(c, v)); inspVis();
         document.querySelectorAll('.auto').forEach(x => x.classList.remove('auto', 'unsure')); $('ocr').hidden = true; toast('Label values removed'); break; }
       case 'adminTab': S.admin = t.dataset.v; S.editing = null; render(); window.scrollTo(0, 0); break;
       case 'openRec': S.rec = (LIVE ? S.adminRecs : RECORDS).find(r => r.id === t.dataset.id); S.admin = 'detail'; render(); window.scrollTo(0, 0); break;
@@ -1739,7 +1871,13 @@ Rules: copy model and serial character for character and list any field with unr
     if (t.id === 'cust-version') { S.custVersion = t.checked; render(); return; }
     if (t.matches('input[data-photo]')) { const tag = S.pendingTag || t.dataset.tag; S.pendingTag = null; const files = [...t.files]; t.value = ''; if (files.length) addFiles(files, tag); return; }
     if (t.dataset.phtag !== undefined) { S.photos[+t.dataset.phtag].tag = t.value; if (S.view === 'check' || S.admin === 'edit') derive(); return; }
-    if (S.view === 'inspect' && S.role === 'tech') { if (t.id === 'i-attn') S.iAttnManual = t.checked; if (t.id && $(t.id + '-o')) $(t.id + '-o').hidden = t.value !== '__o'; inspAuto(); return; }
+    if (S.view === 'inspect' && S.role === 'tech') {
+      if (t.id === 'i-attn') S.iAttnManual = t.checked;
+      if (t.id && $(t.id + '-o')) $(t.id + '-o').hidden = t.value !== '__o';
+      if (t.name === 'i-part') S.part = t.value;
+      if (t.name === 'i-overallStatus' && t.value === 'Abandoned') setRadio('i-operational', 'Abandoned');   // default; the tech can still change it
+      if (t.id === 'i-type' || t.name === 'i-heat' || t.name === 'i-part') inspVis();
+      inspAuto(); return; }
     if ((S.role === 'tech' && S.view === 'check') || (S.role === 'admin' && S.admin === 'edit')) {
       if (t.id === 'f-attn') S.attnManual = t.checked;
       const raw = t.name || t.id.replace(/^f-/, '');
