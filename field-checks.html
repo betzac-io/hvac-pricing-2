@@ -655,6 +655,16 @@ window.FC_LIVE = true;
   const sysAge = s => ageOf(s.mfg || s.cond_mfg || s.furnace_mfg || s.ah_mfg);
   const sysSub = s => [s.suite && 'Suite ' + s.suite, s.area && 'Serves ' + s.area, sysAge(s) != null && sysAge(s) + ' yrs', s.refrigerant].filter(Boolean).join(' · ');
 
+  // Split-system heat and cooling checks can be done in two halves (indoor tech + outdoor tech) that merge into one record
+  const SPLIT_CHECK = (type, check) => /Split System/.test(type || '') && (check === 'Heating' || check === 'Cooling');
+  const SIDE_BY_SECTION = { filters: 'indoor', blower: 'indoor', 'belt-blower': 'indoor', inducer: 'indoor', gas: 'indoor', venting: 'indoor', 'electric-heat': 'indoor',
+    duct: 'indoor', airflow: 'indoor', circuit: 'outdoor', 'heat-pump-cool': 'outdoor' };
+  const SIDE_BY_FIELD = { evapClean: 'indoor', hpReturn: 'indoor', hpSupply: 'indoor', hpRise: 'indoor', tstat: 'indoor',
+    evapCoil: 'indoor', drain: 'indoor', pan: 'indoor', float: 'indoor', condCoil: 'outdoor', condCleaned: 'outdoor' };
+  // '' = shared: shown to both techs, and a blank answer from one never erases the other's
+  const sideOf = (sec, f) => SIDE_BY_FIELD[f.id] || (sec.key === 'heat-pump' ? 'outdoor' : SIDE_BY_SECTION[sec.key] || '');
+  const partShows = (part, sec, f) => !part || part === 'both' || !sideOf(sec, f) || sideOf(sec, f) === part;
+  const curPart = () => (S.sys && SPLIT_CHECK(S.sys.type, S.check) && !S.editing ? S.cpart || 'both' : '');
   // visibility
   const visibleSection = (s, heat) => !s.hs || s.hs.includes(heat);
   const visibleField = (f, heat) => !f.hs || f.hs.includes(heat);
@@ -724,7 +734,8 @@ window.FC_LIVE = true;
       if (!visibleField(f, heat)) return; const v = rec.answers[f.id], sv = evaluate(f, v, get); if (sv) out.push({ t: issueText(f, v, get), s: sv, l: f.l }); }); });
     return dropAttn(out);
   }
-  const statusPill = rec => { if (rec.queued) return '<span class="pill-warn">Waiting to upload</span>'; const n = issuesOf(rec).length; return n ? `<span class="pill-bad">${n} issue${n > 1 ? 's' : ''}</span>` : '<span class="pill-ok">OK</span>'; };
+  const statusPill = rec => { if (rec.queued) return '<span class="pill-warn">Waiting to upload</span>';
+    if (rec.check !== 'Inspection' && rec.answers._indoor !== rec.answers._outdoor) return `<span class="pill-warn">${rec.answers._indoor ? 'Indoor done · Outdoor pending' : 'Outdoor done · Indoor pending'}</span>`; const n = issuesOf(rec).length; return n ? `<span class="pill-bad">${n} issue${n > 1 ? 's' : ''}</span>` : '<span class="pill-ok">OK</span>'; };
 
 
   // =====================================================================
@@ -790,7 +801,8 @@ window.FC_LIVE = true;
     if (!sys) { sys = sysFromRow(r); sys.id = r['System ID']; SYSTEMS.push(sys); }
     const fn = CHECKLISTS[sys.type + '|' + check];
     const answers = check === 'Inspection' ? Object.fromEntries(INSP_ALL.map(c => [c.k, String(r[c.l] ?? '')])) : fn ? fromCols(fn(), r) : {};
-    if (check === 'Inspection') { answers._indoor = r['Indoor Done'] === 'Yes'; answers._outdoor = r['Outdoor Done'] === 'Yes'; }
+    answers._indoor = r['Indoor Done'] === 'Yes'; answers._outdoor = r['Outdoor Done'] === 'Yes';
+    if (r['Indoor Notes'] != null || r['Outdoor Notes'] != null) { answers._inNotes = String(r['Indoor Notes'] ?? ''); answers._outNotes = String(r['Outdoor Notes'] ?? ''); }
     let photos = []; try { photos = JSON.parse(r['Photos'] || '[]').map(p => ({ fileId: p.id, tag: p.tag, url: '' })); } catch {}
     return { id: r['Record ID'], tab, systemId: sys.id, customer: r['Customer'], building: r['Building'], check, tech: r['Technician'], time: parseStamp(r['Date / Time']), answers, photos, row: r };
   }
@@ -1047,7 +1059,7 @@ window.FC_LIVE = true;
 
   // ---------------------------------------------------------------- CHECKLIST
   function openCheck(sysId, editRec) {
-    const s = sysById(sysId);
+    const s = sysById(sysId); S.cpart = 'both';
     const check = editRec ? editRec.check : S.visit.check;
     S.sys = s; S.check = check;
     S.sections = CHECKLISTS[s.type + '|' + check]();
@@ -1058,6 +1070,7 @@ window.FC_LIVE = true;
     if (S.role === 'tech') S.view = 'check'; else S.admin = 'edit';
     render(); window.scrollTo(0, 0);
     S.dirty = false; S.attnManual = undefined;
+    S.halfNotes = rec ? { both: rec.answers.notes || '', indoor: rec.answers._inNotes ?? '', outdoor: rec.answers._outNotes ?? '' } : { both: '', indoor: '', outdoor: '' };
     if (rec) Object.entries(rec.answers).forEach(([k, v]) => S.fmap[k] && setVal(S.fmap[k], v));
     else if (S.fmap.heatSource) setVal(S.fmap.heatSource, s.heat === 'None' && !S.fmap.heatSource.o.includes('None') ? '' : s.heat);
     S.pendingId = null;
@@ -1121,7 +1134,9 @@ window.FC_LIVE = true;
         const others = [...(USAGE[sec.key] || [])].filter(t => t !== TYPE_SHORT[s.type]);
         const tag = !shared || sec.key === 'heat' ? '' : others.length ? `<span class="shared">Shared · also on <b>${others.map(esc).join(', ')}</b></span>` : `<span class="shared">Only on ${esc(TYPE_SHORT[s.type])}</span>`;
         const hsTag = sec.hs && shared ? `<span class="shared hs">${sec.hs.length === 3 ? 'Any heat source except None' : esc(sec.hs.join(' / '))}</span>` : '';
-        return `<section class="card" id="s-${i}"><div class="sec-head"><h2>${esc(sec.title)}</h2><span class="tags">${hsTag}${tag}</span></div>${sec.fields.map(fieldHTML).join('')}</section>`;
+        const partSel = sec.key === 'heat' && SPLIT_CHECK(s.type, S.check) && !editing ? `<div class="field"><span class="fl">Working on</span><div class="seg">${[['both', 'Indoor & Outdoor'], ['indoor', 'Indoor only'], ['outdoor', 'Outdoor only']].map(([v, t]) =>
+          `<label><input type="radio" name="chk-part" value="${v}" ${v === (S.cpart || 'both') ? 'checked' : ''} data-tone="ink"><span>${t}</span></label>`).join('')}</div><span class="hint">Pick Indoor or Outdoor when another tech is doing the other half. Both halves save to the same check.</span></div>` : '';
+        return `<section class="card" id="s-${i}"><div class="sec-head"><h2>${esc(sec.title)}</h2><span class="tags">${hsTag}${tag}</span></div>${sec.fields.map(fieldHTML).join('')}${partSel}</section>`;
       }).join('')}
       ${LIVE && editing ? '<section class="card muted">Photos are kept as the technician saved them.</section>' : ''}<section class="card" id="photos-card" ${LIVE && editing ? 'hidden' : ''}><div class="sec-head"><h2>Photos</h2><span class="shared">Tag what each photo shows</span></div><div class="photos" id="photos"></div></section>
       <section class="card"><div class="sec-head"><h2>Needs attention</h2></div><ul id="na-list"></ul></section>`;
@@ -1171,7 +1186,8 @@ window.FC_LIVE = true;
   function curHeat() { return S.fmap.heatSource ? getVal(S.fmap.heatSource) : null; }
   function visibleNow() {
     const heat = curHeat(), out = [];
-    S.sections.forEach((sec, i) => { if (S.fmap.heatSource && sec.hs && !visibleSection(sec, heat)) return; sec.fields.forEach(f => { if (f.hs && !visibleField(f, heat)) return; out.push({ f, i }); }); });
+    const part = curPart();
+    S.sections.forEach((sec, i) => { if (S.fmap.heatSource && sec.hs && !visibleSection(sec, heat)) return; sec.fields.forEach(f => { if (f.hs && !visibleField(f, heat)) return; if (!partShows(part, sec, f)) return; out.push({ f, i }); }); });
     return out;
   }
   const capOut = (id, rated, reading) => {
@@ -1181,10 +1197,12 @@ window.FC_LIVE = true;
   };
   function derive() {
     const heat = curHeat();
+    const part = curPart();
     S.sections.forEach((sec, i) => {
-      const hide = !!(S.fmap.heatSource && sec.hs && (!heat || !visibleSection(sec, heat)));
+      const offPart = sec.fields.every(f => !partShows(part, sec, f));
+      const hide = offPart || !!(S.fmap.heatSource && sec.hs && (!heat || !visibleSection(sec, heat)));
       $('s-' + i).hidden = hide; const j = $('j-' + i); if (j) j.hidden = hide;
-      sec.fields.forEach(f => { if (f.hs) $('w-' + f.id).hidden = !!(S.fmap.heatSource && (!heat || !visibleField(f, heat))); });
+      sec.fields.forEach(f => { $('w-' + f.id).hidden = !partShows(part, sec, f) || (!!f.hs && !!(S.fmap.heatSource && (!heat || !visibleField(f, heat)))); });
     });
     // other-boxes, N/A boxes, capacitor states
     document.querySelectorAll('#app select[id^="f-"]').forEach(sel => { const o = $(sel.id + '-o'); if (o) o.hidden = sel.value !== '__o'; });
@@ -1290,12 +1308,26 @@ window.FC_LIVE = true;
     const answers = {}; Object.values(S.fmap).forEach(f => { if (f.t !== 'calc') answers[f.id] = getVal(f); });
     const s = S.sys;
     if (LIVE) {
-      const heat = answers.heatSource || s.heat, sections = S.sections;
+      const heat = answers.heatSource || s.heat, split = SPLIT_CHECK(s.type, S.check), part = split && !S.editing ? S.cpart || 'both' : '';
+      // a half sends only its own fields (plus shared ones), so it can't overwrite the other tech's half
+      const sections = part ? S.sections.map(sec => ({ ...sec, fields: sec.fields.filter(f => partShows(part, sec, f)) })) : S.sections;
       let issues = [];
-      sections.forEach(sec => { if (!visibleSection(sec, heat)) return; sec.fields.forEach(f => { if (!visibleField(f, heat)) return; const sv = evaluate(f, answers[f.id], id => answers[id]); if (sv) issues.push({ l: f.l, t: issueText(f, answers[f.id], id => answers[id]) }); }); });
-      issues = dropAttn(issues).map(x => x.t);
+      sections.forEach(sec => { if (!visibleSection(sec, heat)) return; sec.fields.forEach(f => { if (!visibleField(f, heat)) return; const sv = evaluate(f, answers[f.id], id => answers[id]); if (sv) issues.push({ l: f.l, t: issueText(f, answers[f.id], id => answers[id]), side: sideOf(sec, f) }); }); });
+      issues = dropAttn(issues);
       const { rec, cols } = toCols(sections, answers, heat);
-      Object.assign(rec, { 'Customer': s.customer, 'Building': s.building, 'System ID': s.id, 'System Number': s.number, 'System Type': s.type, 'Heat Source': heat, 'Needs Attention': issues.join('; ') });
+      Object.assign(rec, { 'Customer': s.customer, 'Building': s.building, 'System ID': s.id, 'System Number': s.number, 'System Type': s.type, 'Heat Source': heat, 'Needs Attention': issues.map(x => x.t).join('; ') });
+      const shared = [];
+      if (split) {   // notes and issues are kept per half; the sheet combines them into Notes and Needs Attention
+        const mine = part === 'outdoor' ? 'outdoor' : 'indoor', P = x => x[0].toUpperCase() + x.slice(1);
+        const halfOf = x => (x.side || mine);
+        ['indoor', 'outdoor'].forEach(h => { if (part === 'both' || part === h) {
+          rec[`Needs Attention ${P(h)}`] = issues.filter(x => (part === 'both' ? halfOf(x) : h) === h).map(x => x.t).join('; ');
+          rec[`${P(h)} Notes`] = h === mine ? rec['Notes'] : ''; cols.push(`Needs Attention ${P(h)}`, `${P(h)} Notes`); } });
+        if (S.editing) { rec['Indoor Notes'] = rec['Notes']; rec['Outdoor Notes'] = ''; rec['Needs Attention Indoor'] = rec['Needs Attention']; rec['Needs Attention Outdoor'] = ''; }
+        S.sections.forEach(sec => sec.fields.forEach(f => { if (!sideOf(sec, f)) { const { rec: r1 } = toCols([{ ...sec, fields: [f] }], answers, heat); Object.keys(r1).filter(k => k !== 'Notes').forEach(k => shared.push(k)); } }));
+        shared.push('Heat Source', 'System Number', 'System Type', 'Customer', 'Building', 'System ID');
+        if (part) { delete rec['Notes']; delete rec['Needs Attention']; }
+      }
       busy(true, S.editing ? 'Saving…' : 'Sending…');
       try {
         if (S.editing) {
@@ -1303,14 +1335,23 @@ window.FC_LIVE = true;
           if (answers.heatSource) s.heat = answers.heatSource;
         } else {
           let prev = recFor(s.id, S.check); const id = S.pendingId || (S.pendingId = uuid());
-          const old = await supersede(s.id, S.check);
-          const replaceId = old ? old.payload.replaceId : prev && !prev.queued ? prev.id : '';
-          const res = await submitQueued({ id, checklist: tabName(s.type, S.check), record: rec, columns: cols, photos: photoPayload(S.photos), system: sysToRow({ ...s, heat }), replaceId },
-            { systemId: s.id, check: S.check, customer: s.customer, building: s.building, label: `System ${s.number} · ${s.type} · ${s.building}`, answers });
+          const old = await supersede(s.id, S.check, part);
+          const replaceId = part ? '' : old ? old.payload.replaceId : prev && !prev.queued ? prev.id : '';
+          const sentAnswers = part ? Object.fromEntries(Object.entries(answers).filter(([k]) => sections.some(sec => sec.fields.some(f => f.id === k)) || k === 'heatSource')) : answers;
+          const res = await submitQueued({ id, checklist: tabName(s.type, S.check), part, shared: part ? shared : undefined, record: rec, columns: cols, photos: photoPayload(S.photos), system: sysToRow({ ...s, heat }), replaceId },
+            { systemId: s.id, check: S.check, part, customer: s.customer, building: s.building, label: `System ${s.number} · ${s.type} · ${s.building}${part && part !== 'both' ? ' · ' + part : ''}`, answers: sentAnswers });
           s.heat = heat; S.pendingId = null;
-          const nr = addRecord(s, S.check, API.name, res.j ? parseStamp(res.j.time) : new Date(), answers, S.photos.map(p => ({ ...p })), { id });
+          let recAnswers = answers, recId = id, recPhotos = S.photos.map(p => ({ ...p }));
+          if (part) {   // merge with what is known about the other half
+            recAnswers = { ...(prev ? prev.answers : {}) }; Object.entries(sentAnswers).forEach(([k, v]) => { if (v !== '' || part === 'both') recAnswers[k] = v; });
+            if (part !== 'outdoor') { recAnswers._indoor = true; recAnswers._inNotes = answers.notes; } if (part !== 'indoor') { recAnswers._outdoor = true; if (part === 'outdoor') recAnswers._outNotes = answers.notes; }
+            recAnswers.notes = [recAnswers._inNotes, recAnswers._outNotes].filter(Boolean).length > 1 ? `Indoor: ${recAnswers._inNotes}\nOutdoor: ${recAnswers._outNotes}` : recAnswers._inNotes || recAnswers._outNotes || '';
+            if (prev) { recId = res.j && res.j.id ? res.j.id : prev.id; recPhotos = [...prev.photos.filter(p => !recPhotos.some(q => (q.fileId && q.fileId === p.fileId) || (q.url && q.url === p.url))), ...recPhotos]; }
+            else if (res.j && res.j.id) recId = res.j.id;
+          }
+          const nr = addRecord(s, S.check, API.name, res.j ? parseStamp(res.j.time) : new Date(), recAnswers, recPhotos, { id: recId });
           nr.queued = !!res.queued; S.queuedNow = !!res.queued;
-          S.statusKey = statusKey();
+          S.statusKey = part && !res.queued ? null : statusKey();   // a half: reload so the other tech's half shows
         }
       } catch (e) { saveFailed(e); return; }
       busy(false);
@@ -1528,6 +1569,7 @@ window.FC_LIVE = true;
     }
     if (st.split) { if (st.part !== 'outdoor') answers._indoor = true; if (st.part !== 'indoor') answers._outdoor = true; }
     addRecord(s, 'Inspection', LIVE ? API.name : 'Mike T', saved.time, answers, photos, { id: saved.id }).queued = !!saved.queued;
+    if (LIVE && st.split && !saved.queued) S.statusKey = null;   // reload so the other tech's half shows
     S.view = 'visit'; render(); window.scrollTo(0, 0);
     const half = st.split && st.part !== 'both' ? ` (${st.part})` : '';
     toast(saved.queued ? `No signal. System ${s.number}${half} is saved on this phone and will upload when you have signal.` : `System ${s.number}${half} saved to ${S.visit.bldg}'s equipment list`, saved.queued ? 5000 : 2800);
@@ -2022,6 +2064,9 @@ Rules: copy model and serial character for character and list any field with unr
       inspAuto(); return; }
     if ((S.role === 'tech' && S.view === 'check') || (S.role === 'admin' && S.admin === 'edit')) {
       if (t.id === 'f-attn') S.attnManual = t.checked;
+      if (t.name === 'chk-part') {   // each half keeps its own notes
+        if (S.fmap.notes) { S.halfNotes[S.cpart || 'both'] = el('notes').value; S.cpart = t.value; el('notes').value = S.halfNotes[t.value] ?? ''; } else S.cpart = t.value;
+        derive(); return; }
       const raw = t.name || t.id.replace(/^f-/, '');
       const id = raw.replace(/-(k|q|s|o|na|r|x|d|dc|df|c|f)(-.*)?$/, '').replace(/-(c|f)$/, '');
       const f = S.fmap[id] || S.fmap[raw.split('-')[0]];
