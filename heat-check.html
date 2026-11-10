@@ -1076,5 +1076,29 @@
   updateBadge(); if (session) flush();
 })();
 </script>
+<!-- MOVED NOTICE: this form is retired; Field Checks replaces it. Anything still waiting to upload keeps sending underneath. -->
+<div id="movedNotice" role="dialog" aria-modal="true" aria-labelledby="movedTitle" style="position:fixed;inset:0;z-index:9999;background:#f4f5f7;display:flex;align-items:center;justify-content:center;padding:16px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+  <div style="background:#fff;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.12);max-width:420px;width:100%;padding:24px;text-align:center;color:#1d2433">
+    <img src="logo.png" alt="" style="height:44px;margin-bottom:10px" onerror="this.remove()">
+    <h1 id="movedTitle" style="font-size:22px;margin:0 0 8px">The RTU Heat Check has moved</h1>
+    <p style="margin:0 0 18px;color:#5b6473;line-height:1.45">Heat checks for every system type are now done in <b>Field Checks</b>. Sign in there with the same PIN.</p>
+    <div id="movedQueue" hidden style="background:#fff3cd;color:#7a5600;border-radius:10px;padding:10px 12px;margin:0 0 16px;font-size:14px;line-height:1.4"></div>
+    <a id="movedGo" href="field-checks.html" style="display:block;background:#b3261e;color:#fff;text-decoration:none;font-weight:700;border-radius:12px;padding:14px 18px;font-size:17px">Open Field Checks</a>
+    <p style="margin:14px 0 0;font-size:12.5px;color:#667085">Update your home-screen shortcut or bookmark to Field Checks.</p>
+  </div>
+</div>
+<script>
+(() => {
+  const count = () => { try { return (JSON.parse(localStorage.getItem('betzRtuQueue') || '[]') || []).length; } catch { return 0; } };
+  const box = document.getElementById('movedQueue'), go = document.getElementById('movedGo');
+  const tick = () => {
+    const n = count();
+    box.hidden = !n;
+    if (n) { box.innerHTML = '<b>' + n + ' heat check' + (n > 1 ? 's' : '') + ' saved on this phone ' + (n > 1 ? 'have' : 'has') + ' not uploaded yet.</b><br>Keep this page open with signal until this message clears.'; go.style.opacity = '.55'; }
+    else go.style.opacity = '';
+  };
+  tick(); setInterval(tick, 2000);
+})();
+</script>
 </body>
 </html>
