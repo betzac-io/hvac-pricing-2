@@ -664,6 +664,9 @@ window.FC_LIVE = true;
   // '' = shared: shown to both techs, and a blank answer from one never erases the other's
   const sideOf = (sec, f) => SIDE_BY_FIELD[f.id] || (sec.key === 'heat-pump' ? 'outdoor' : SIDE_BY_SECTION[sec.key] || '');
   const partShows = (part, sec, f) => !part || part === 'both' || !sideOf(sec, f) || sideOf(sec, f) === part;
+  // Indoor/Outdoor only makes sense when this checklist, for this heat source, has outdoor items
+  // (a gas or electric split's heating check is all indoor; the outdoor items are in the heat pump section)
+  const hasOutdoor = heat => S.sections.some(sec => (!sec.hs || visibleSection(sec, heat)) && sec.fields.some(f => sideOf(sec, f) === 'outdoor' && (!f.hs || visibleField(f, heat))));
   const curPart = () => (S.sys && SPLIT_CHECK(S.sys.type, S.check) && !S.editing ? S.cpart || 'both' : '');
   // visibility
   const visibleSection = (s, heat) => !s.hs || s.hs.includes(heat);
@@ -1134,7 +1137,7 @@ window.FC_LIVE = true;
         const others = [...(USAGE[sec.key] || [])].filter(t => t !== TYPE_SHORT[s.type]);
         const tag = !shared || sec.key === 'heat' ? '' : others.length ? `<span class="shared">Shared · also on <b>${others.map(esc).join(', ')}</b></span>` : `<span class="shared">Only on ${esc(TYPE_SHORT[s.type])}</span>`;
         const hsTag = sec.hs && shared ? `<span class="shared hs">${sec.hs.length === 3 ? 'Any heat source except None' : esc(sec.hs.join(' / '))}</span>` : '';
-        const partSel = sec.key === 'heat' && SPLIT_CHECK(s.type, S.check) && !editing ? `<div class="field"><span class="fl">Working on</span><div class="seg">${[['both', 'Indoor & Outdoor'], ['indoor', 'Indoor only'], ['outdoor', 'Outdoor only']].map(([v, t]) =>
+        const partSel = sec.key === 'heat' && SPLIT_CHECK(s.type, S.check) && !editing ? `<div class="field" id="part-field"><span class="fl">Working on</span><div class="seg">${[['both', 'Indoor & Outdoor'], ['indoor', 'Indoor only'], ['outdoor', 'Outdoor only']].map(([v, t]) =>
           `<label><input type="radio" name="chk-part" value="${v}" ${v === (S.cpart || 'both') ? 'checked' : ''} data-tone="ink"><span>${t}</span></label>`).join('')}</div><span class="hint">Pick Indoor or Outdoor when another tech is doing the other half. Both halves save to the same check.</span></div>` : '';
         return `<section class="card" id="s-${i}"><div class="sec-head"><h2>${esc(sec.title)}</h2><span class="tags">${hsTag}${tag}</span></div>${sec.fields.map(fieldHTML).join('')}${partSel}</section>`;
       }).join('')}
@@ -1197,6 +1200,14 @@ window.FC_LIVE = true;
   };
   function derive() {
     const heat = curHeat();
+    if ($('part-field')) {
+      const show = !!heat && hasOutdoor(heat);
+      $('part-field').hidden = !show;
+      if (!show && S.cpart && S.cpart !== 'both') {   // back to one tech doing the whole check
+        if (S.fmap.notes && S.halfNotes) { S.halfNotes[S.cpart] = el('notes').value; el('notes').value = S.halfNotes.both || el('notes').value; }
+        S.cpart = 'both'; setRadio('chk-part', 'both');
+      }
+    }
     const part = curPart();
     S.sections.forEach((sec, i) => {
       const offPart = sec.fields.every(f => !partShows(part, sec, f));
