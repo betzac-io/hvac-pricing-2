@@ -321,6 +321,7 @@
   .na-val { padding: 10px 12px; border-radius: 10px; background: var(--chip); color: var(--muted); font-size: 14px; }
   #part-wrap .seg label { flex: 1 1 30%; }
   .reports .hint { font-size: 12.5px; }
+  .inv-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-left: 4px solid var(--yellow); }
 </style></head><body>
 <header class="top"><div class="top-in">
   <button type="button" class="home" data-act="home" aria-label="Home: back to visit setup"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5M5.5 9.5V20h4.5v-6h4v6h4.5V9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg></button>
@@ -828,6 +829,7 @@ window.FC_LIVE = true;
     try {
       const j = await api('status', { customer: S.visit.cust, building: S.visit.bldg, checkType: S.visit.check });
       RECORDS.splice(0, RECORDS.length, ...RECORDS.filter(r => !(r.customer === S.visit.cust && r.building === S.visit.bldg && r.check === S.visit.check)));
+      (j.systems || []).forEach(r => { const x = sysFromRow(r), cur = sysById(x.id); if (cur) Object.assign(cur, x); else SYSTEMS.push(x); });   // systems another tech just added
       Object.values(j.done || {}).forEach(r => RECORDS.push(recFromRow(r)));
       await qRefresh(); mergeQueued();
       S.statusKey = key;
@@ -1043,18 +1045,8 @@ window.FC_LIVE = true;
         <div class="progress"><i style="width:${eligible.length ? Math.round(done / eligible.length * 100) : 0}%"></i></div>
         ${loading ? '<div class="muted loading-row"><span class="spin"></span> Checking what is already done…</div>' : ''}
         ${rows || '<div class="muted" style="padding:12px 0">No systems on file for this building yet.</div>'}
-        <button type="button" class="btn ghost" data-act="${insp ? 'inspectNew' : 'toggleAdd'}">+ ${insp ? 'Inventory a new system' : 'System not on the list'}</button>
-        ${insp ? '' : `<div id="add-form" class="stack" ${S.addOpen ? '' : 'hidden'} style="margin-top:10px">
-          <div class="grid2">
-            <label class="fl">System number<input id="add-num" inputmode="numeric" placeholder="e.g. ${systems.length + 1}"></label>
-            <label class="fl">System type<select id="add-type">${LISTS['System Types'].filter(t => hasList(t, v.check)).map(t => `<option>${esc(t)}</option>`).join('')}</select></label>
-          </div>
-          <div class="grid2">
-            <label class="fl">Heat source<select id="add-heat">${['Gas', 'Electric', 'Heat Pump', 'None'].map(h => `<option>${h}</option>`).join('')}</select></label>
-            <label class="fl">Suite <span class="hint">optional</span><input id="add-suite" placeholder="e.g. 100A"></label>
-          </div>
-          <button type="button" class="btn primary" data-act="addGo">Add and start check</button>
-        </div>`}
+        <button type="button" class="btn ghost" data-act="${insp ? 'inspectNew' : 'addViaInventory'}">+ ${insp ? 'Inventory a new system' : 'System not on the list'}</button>
+
       </section>`;
     if (loading) loadStatus();
     if (LIVE) store.set('fc_visit', JSON.stringify(S.visit));
@@ -1120,6 +1112,15 @@ window.FC_LIVE = true;
     return `<div class="field" id="w-${f.id}">${lbl}${ctl}${hint}</div>`;
   }
 
+  // A split whose inventory has one half done (the other tech hasn't gotten to it): offer to finish it
+  function invBanner(s, editing) {
+    if (editing || S.role !== 'tech' || !SPLIT(s.type)) return '';
+    const indoor = !!(s.furnace_model || s.furnace_serial || s.ah_model || s.ah_serial || s.evap_model || s.evap_serial), outdoor = !!(s.cond_model || s.cond_serial);
+    if (indoor === outdoor) return '';
+    const miss = indoor ? 'outdoor' : 'indoor';
+    return `<section class="card inv-banner"><div><b>${miss === 'outdoor' ? 'Outdoor unit' : 'Indoor unit'} not inventoried yet</b><div class="muted">Photos and label for the ${miss === 'outdoor' ? 'condenser' : 'indoor equipment'}.</div></div>
+      <button type="button" class="btn sm" data-act="invHalf" data-part="${miss}">Inventory ${miss}</button></section>`;
+  }
   function renderCheck() {
     const s = S.sys, shared = sharedOn(), editing = !!S.editing;
     const listName = tabName(s.type, S.check);
@@ -1131,6 +1132,7 @@ window.FC_LIVE = true;
         <div class="chips">${typeChip(s.type)}<span class="chip">${CHECK_LABEL[S.check]}</span>${DRAFT[S.check] ? '<span class="chip draft">Draft</span>' : ''}${editing ? '<span class="chip">Admin edit</span>' : ''}</div>
         <div class="muted">${esc(s.customer)} · ${esc(s.building)}${sysSub(s) ? ' · ' + esc(sysSub(s)) : ''}</div>
       </section>
+      ${invBanner(s, editing)}
       ${note(`<b>${esc(listName)}</b> is built from shared sections. ${S.fmap.heatSource ? 'Heat Source shows only the sections for that heat source; try switching it. ' : ''}${shared ? 'The tag on each section shows which other system types reuse it.' : ''}`)}
       <nav class="jump" id="jump">${S.sections.map((sec, i) => `<button type="button" data-act="jump" data-i="${i}" id="j-${i}"><span class="dot"></span>${esc(sec.title)}</button>`).join('')}</nav>
       ${S.sections.map((sec, i) => {
@@ -1506,18 +1508,19 @@ window.FC_LIVE = true;
   function renderInspect() {
     const s = S.sys, isNew = !s.id, prev = s.id && recFor(s.id, 'Inspection');
     const val = c => (c.alias ? s[c.alias] : s[c.k]);
-    S.part = 'both';
+    S.part = S.presetPart || 'both'; S.presetPart = null;
+    const after = S.afterInv, afterLabel = after ? ({ Heating: 'heat check', Cooling: 'AC check', Filters: 'filter change' })[after.check] || 'check' : '';
     $('app').innerHTML = `
       <section class="card check-head">
         <button type="button" class="linkbtn" data-act="back" style="justify-self:start">‹ ${esc(S.visit.bldg)} systems</button>
-        <h3>${isNew ? 'Inventory a new system' : `System ${esc(s.number)}`}</h3>
-        <div class="chips">${s.type ? typeChip(s.type) : ''}<span class="chip">Inspection</span></div>
+        <h3>${isNew ? (after ? 'Add a system' : 'Inventory a new system') : `System ${esc(s.number)}`}</h3>
+        <div class="chips">${s.type ? typeChip(s.type) : ''}<span class="chip">Inventory</span>${after ? `<span class="chip">then ${esc(afterLabel)}</span>` : ''}</div>
         <div class="muted">${esc(S.visit.cust)} · ${esc(S.visit.bldg)}</div>
       </section>
       ${note('<b>Inspection = inventory.</b> Saving adds or updates the system on this building’s equipment list. Split systems ask for each component (furnace or air handler, evaporator, condenser) with its own photos and label. Two techs can split a split system: one picks Indoor, the other Outdoor.')}
       <section class="card stack">${INSP_TOP.map(c => inspField(c, val(c))).join('')}
         <div class="fl" id="part-wrap" hidden><span>Working on</span><div class="seg">${[['both', 'Indoor & Outdoor'], ['indoor', 'Indoor only'], ['outdoor', 'Outdoor only']].map(([v, t]) =>
-          `<label><input type="radio" name="i-part" value="${v}" ${v === 'both' ? 'checked' : ''} data-tone="ink"><span>${t}</span></label>`).join('')}</div>
+          `<label><input type="radio" name="i-part" value="${v}" ${v === S.part ? 'checked' : ''} data-tone="ink"><span>${t}</span></label>`).join('')}</div>
           <span class="hint">Pick Indoor or Outdoor when another tech is doing the other half. Both halves save to the same system.</span></div>
         <div class="muted" id="split-hint" hidden>Pick the heat source to see which components to photograph.</div></section>
       <section class="card stack"><div class="sec-head" style="margin:0"><h2>Photos</h2><span class="shared" id="photo-req">Data plate and whole unit are required</span></div>
@@ -1528,7 +1531,7 @@ window.FC_LIVE = true;
       <section class="card stack" id="eq-single"><h2>Equipment</h2>${INSP_EQ.map(c => inspField(c, val(c))).join('')}</section>
       ${Object.keys(COMP).map(c => `<section class="card stack" id="comp-${c}" hidden><h2>${COMP[c]}</h2>${INSP_COMP.filter(x => x.comp === c).map(x => inspField(x, val(x))).join('')}${c === 'cond' ? inspField(COND_REF, val(COND_REF)) : ''}</section>`).join('')}
       <section class="card stack"><h2>Condition</h2>${INSP_COND.map(c => inspField(c, prev ? prev.answers[c.k] : s[c.k])).join('')}</section>`;
-    $('bot').innerHTML = `<div class="barbot"><div class="barbot-in"><button type="button" class="btn" data-act="back">Cancel</button><button type="button" class="btn primary" data-act="inspectSave">Save to equipment list</button></div></div>`;
+    $('bot').innerHTML = `<div class="barbot"><div class="barbot-in"><button type="button" class="btn" data-act="back">Cancel</button><button type="button" class="btn primary" data-act="inspectSave">${after ? `Save and start ${esc(afterLabel)}` : 'Save to equipment list'}</button></div></div>`;
     S.tagKey = null; S.dirty = false; S.iAttnManual = undefined; inspAuto(); inspVis();
   }
   async function trySaveInspect(force) {
@@ -1581,6 +1584,12 @@ window.FC_LIVE = true;
     if (st.split) { if (st.part !== 'outdoor') answers._indoor = true; if (st.part !== 'indoor') answers._outdoor = true; }
     addRecord(s, 'Inspection', LIVE ? API.name : 'Mike T', saved.time, answers, photos, { id: saved.id }).queued = !!saved.queued;
     if (LIVE && st.split && !saved.queued) S.statusKey = null;   // reload so the other tech's half shows
+    if (S.afterInv && hasList(s.type, S.afterInv.check)) {   // added during a check: go straight into it, on the same half
+      S.afterInv = null; openCheck(s.id);
+      if (st.split && st.part !== 'both' && $('part-field') && !$('part-field').hidden) { S.halfNotes = S.halfNotes || {}; S.cpart = st.part; setRadio('chk-part', st.part); derive(); }
+      toast(saved.queued ? `No signal. System ${s.number} inventory is saved on this phone; now the check.` : `System ${s.number} saved to the equipment list. Now the ${({ Heating: 'heat check', Cooling: 'AC check', Filters: 'filter change' })[S.check] || 'check'}.`, 3500); return;
+    }
+    S.afterInv = null;
     S.view = 'visit'; render(); window.scrollTo(0, 0);
     const half = st.split && st.part !== 'both' ? ` (${st.part})` : '';
     toast(saved.queued ? `No signal. System ${s.number}${half} is saved on this phone and will upload when you have signal.` : `System ${s.number}${half} saved to ${S.visit.bldg}'s equipment list`, saved.queued ? 5000 : 2800);
@@ -1988,7 +1997,7 @@ Rules: copy model and serial character for character and list any field with unr
       case 'role': S.role = t.dataset.v; S.view = 'visit'; S.editing = null; if (S.role === 'admin') S.admin = 'report'; render(); window.scrollTo(0, 0); break;
       case 'setCheck': S.visit.check = t.dataset.v; S.addOpen = false; render(); break;
       case 'openSys': { const s = sysById(t.dataset.id);
-        if (S.visit.check === 'Inspection') { S.sys = { ...s }; const ir = recFor(s.id, 'Inspection'); S.photos = ir ? ir.photos.slice() : []; S.pendingId = null; S.view = 'inspect'; render(); window.scrollTo(0, 0);
+        if (S.visit.check === 'Inspection') { S.sys = { ...s }; const ir = recFor(s.id, 'Inspection'); S.photos = ir ? ir.photos.slice() : []; S.pendingId = null; S.afterInv = null; S.presetPart = null; S.view = 'inspect'; render(); window.scrollTo(0, 0);
           if (LIVE) ensurePhotos(S.photos).then(n => { if (n) drawPhotos(true); }); }
         else openCheck(s.id); break; }
       case 'toggleAdd': S.addOpen = !S.addOpen; $('add-form').hidden = !S.addOpen; if (S.addOpen) $('add-num').focus(); break;
@@ -1996,13 +2005,21 @@ Rules: copy model and serial character for character and list any field with unr
         if (!n) { $('add-num').classList.add('invalid'); toast('Type the system number'); return; }
         if (SYSTEMS.some(s => s.customer === S.visit.cust && s.building === S.visit.bldg && s.number === n)) { $('add-num').classList.add('invalid'); toast(`System ${n} already exists in ${S.visit.bldg}`); return; }
         const s = SYS(S.visit.cust, S.visit.bldg, n, type, $('add-heat').value, { suite: $('add-suite').value.trim() }); SYSTEMS.push(s); S.addOpen = false; openCheck(s.id); break; }
-      case 'inspectNew': S.sys = { type: '' }; S.photos = []; S.pendingId = null; S.view = 'inspect'; render(); window.scrollTo(0, 0); break;
+      case 'inspectNew': S.sys = { type: '' }; S.photos = []; S.pendingId = null; S.afterInv = null; S.presetPart = null; S.view = 'inspect'; render(); window.scrollTo(0, 0); break;
+      // a system found during a heat/cooling check: inventory it first, then the check opens
+      case 'addViaInventory': S.sys = { type: '' }; S.photos = []; S.pendingId = null; S.afterInv = { check: S.visit.check }; S.presetPart = null; S.view = 'inspect'; render(); window.scrollTo(0, 0); break;
+      case 'invHalf': {   // finish the other half of a split's inventory from inside the check
+        const part = t.dataset.part, sys = S.sys, check = S.check;
+        const go = () => { $('sheet').innerHTML = ''; S.dirty = false; S.sys = { ...sys }; S.photos = []; S.pendingId = null; S.afterInv = { check, part }; S.presetPart = part; S.view = 'inspect'; render(); window.scrollTo(0, 0); };
+        if (S.dirty) { sheet(`<h3>Inventory the ${part} unit first?</h3><div class="warn">Answers on this check that are not saved yet will be lost. You come back to the check after the inventory.</div>
+          <div class="sheet-actions"><button type="button" class="btn" data-act="closeSheet">Stay</button><button type="button" class="btn primary" data-act="leave">Go to inventory</button></div>`); S.leave = go; }
+        else go(); break; }
       case 'inspectSave': trySaveInspect(false); break;
       case 'inspectForce': $('sheet').innerHTML = ''; trySaveInspect(true); break;
       case 'back': case 'home': {
         if (S.view === 'login') break;
         const inForm = (S.role === 'tech' && S.view !== 'visit') || (S.role === 'admin' && S.admin === 'edit');
-        const go = () => { $('sheet').innerHTML = ''; S.dirty = false; S.editing = null; if (S.role === 'tech') S.view = 'visit'; else S.admin = 'report'; render(); window.scrollTo(0, 0); };
+        const go = () => { $('sheet').innerHTML = ''; S.dirty = false; S.editing = null; S.afterInv = null; if (S.role === 'tech') S.view = 'visit'; else S.admin = 'report'; render(); window.scrollTo(0, 0); };
         if (inForm && S.dirty) { sheet(`<h3>Leave without saving?</h3><div class="warn">Your answers for this system will be lost.</div>
           <div class="sheet-actions"><button type="button" class="btn" data-act="closeSheet">Stay</button><button type="button" class="btn primary" data-act="leave">Leave</button></div>`); S.leave = go; }
         else go(); break; }
