@@ -1118,6 +1118,8 @@ window.FC_LIVE = true;
     const indoor = !!(s.furnace_model || s.furnace_serial || s.ah_model || s.ah_serial || s.evap_model || s.evap_serial), outdoor = !!(s.cond_model || s.cond_serial);
     if (indoor === outdoor) return '';
     const miss = indoor ? 'outdoor' : 'indoor';
+    // a gas, electric or no-heat split's heat check never goes outside: the condenser waits for the AC check
+    if (miss === 'outdoor' && S.check === 'Heating' && s.heat !== 'Heat Pump') return '';
     return `<section class="card inv-banner"><div><b>${miss === 'outdoor' ? 'Outdoor unit' : 'Indoor unit'} not inventoried yet</b><div class="muted">Photos and label for the ${miss === 'outdoor' ? 'condenser' : 'indoor equipment'}.</div></div>
       <button type="button" class="btn sm" data-act="invHalf" data-part="${miss}">Inventory ${miss}</button></section>`;
   }
@@ -1508,7 +1510,7 @@ window.FC_LIVE = true;
   function renderInspect() {
     const s = S.sys, isNew = !s.id, prev = s.id && recFor(s.id, 'Inspection');
     const val = c => (c.alias ? s[c.alias] : s[c.k]);
-    S.part = S.presetPart || 'both'; S.presetPart = null;
+    S.part = S.presetPart || 'both'; S.partTouched = !!S.presetPart; S.presetPart = null;
     const after = S.afterInv, afterLabel = after ? ({ Heating: 'heat check', Cooling: 'AC check', Filters: 'filter change' })[after.check] || 'check' : '';
     $('app').innerHTML = `
       <section class="card check-head">
@@ -2086,7 +2088,12 @@ Rules: copy model and serial character for character and list any field with unr
     if (S.view === 'inspect' && S.role === 'tech') {
       if (t.id === 'i-attn') S.iAttnManual = t.checked;
       if (t.id && $(t.id + '-o')) $(t.id + '-o').hidden = t.value !== '__o';
-      if (t.name === 'i-part') S.part = t.value;
+      if (t.name === 'i-part') { S.part = t.value; S.partTouched = true; }
+      // adding a gas / electric / no-heat split during a heat check: default to the indoor half (the condenser gets inventoried on the AC check)
+      if ((t.id === 'i-type' || t.name === 'i-heat') && S.afterInv && S.afterInv.check === 'Heating' && !S.partTouched) {
+        const h = radio('i-heat'), want = SPLIT($('i-type').value) && h && h !== 'Heat Pump' ? 'indoor' : 'both';
+        if (S.part !== want) { S.part = want; setRadio('i-part', want); }
+      }
       if (t.name === 'i-overallStatus' && t.value === 'Abandoned') setRadio('i-operational', 'Abandoned');   // default; the tech can still change it
       if (t.id === 'i-type' || t.name === 'i-heat' || t.name === 'i-part') inspVis();
       inspAuto(); return; }
