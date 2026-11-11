@@ -322,6 +322,10 @@
   #part-wrap .seg label { flex: 1 1 30%; }
   .reports .hint { font-size: 12.5px; }
   .inv-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-left: 4px solid var(--yellow); }
+  .confirm-box { display: grid; gap: 8px; margin: 10px 0 4px; padding: 12px; border-radius: 12px; background: var(--chip); }
+  .cb-row { display: grid; grid-template-columns: 80px 1fr; gap: 10px; align-items: baseline; font-size: 16px; }
+  .cb-row span { color: var(--muted); font-size: 13px; }
+  .noacc .flagchk { font-size: 15px; }
 </style></head><body>
 <header class="top"><div class="top-in">
   <button type="button" class="home" data-act="home" aria-label="Home: back to visit setup"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5M5.5 9.5V20h4.5v-6h4v6h4.5V9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg></button>
@@ -733,12 +737,14 @@ window.FC_LIVE = true;
   const dropAttn = list => (list.some(x => x.l !== ATTN_L) ? list.filter(x => x.l !== ATTN_L) : list);
   function issuesOf(rec) {
     if (rec.check === 'Inspection') return inspIssues(rec.answers);
+    if (rec.answers.noAccess === 'Yes') return [{ t: 'No access', s: 'yellow', l: 'No Access' }];
     const heat = rec.answers.heatSource, get = id => rec.answers[id], out = [];
     recSections(rec).forEach(s => { if (!visibleSection(s, heat)) return; s.fields.forEach(f => {
       if (!visibleField(f, heat)) return; const v = rec.answers[f.id], sv = evaluate(f, v, get); if (sv) out.push({ t: issueText(f, v, get), s: sv, l: f.l }); }); });
     return dropAttn(out);
   }
   const statusPill = rec => { if (rec.queued) return '<span class="pill-warn">Waiting to upload</span>';
+    if (rec.answers && rec.answers.noAccess === 'Yes') return '<span class="pill-warn">No access</span>';
     if (rec.check !== 'Inspection' && rec.answers._indoor !== rec.answers._outdoor) return `<span class="pill-warn">${rec.answers._indoor ? 'Indoor done · Outdoor pending' : 'Outdoor done · Indoor pending'}</span>`; const n = issuesOf(rec).length; return n ? `<span class="pill-bad">${n} issue${n > 1 ? 's' : ''}</span>` : '<span class="pill-ok">OK</span>'; };
 
 
@@ -786,10 +792,11 @@ window.FC_LIVE = true;
       else put(L, v == null ? '' : v);
     }));
     put('Notes', a.notes || '');
+    put('No Access', a.noAccess || '');
     return { rec, cols };
   }
   function fromCols(sections, r) {
-    const a = { heatSource: r['Heat Source'] || '', notes: r['Notes'] || '' }, g = k => (r[k] == null ? '' : String(r[k]));
+    const a = { heatSource: r['Heat Source'] || '', notes: r['Notes'] || '', noAccess: r['No Access'] || '' }, g = k => (r[k] == null ? '' : String(r[k]));
     sections.forEach(sec => sec.fields.forEach(f => {
       if (f.id === 'heatSource' || f.id === 'notes' || f.t === 'calc') return; const L = f.l;
       if (f.t === 'cap') a[f.id] = { rated: g(L + ' Rated'), reading: g(L + ' Reading'), cond: g(L + ' Condition') };   // cond: kept for imported checks that have no reading
@@ -1013,7 +1020,7 @@ window.FC_LIVE = true;
     const loading = LIVE && needStatus();
     const insp = v.check === 'Inspection';
     const halves = s => { const r = recFor(s.id, 'Inspection'); return r ? { i: !!r.answers._indoor, o: !!r.answers._outdoor } : null; };
-    const doneOf = s => { if (!insp) return !!recFor(s.id, v.check); if (SPLIT(s.type)) { const h = halves(s); return !!(h ? h.i && h.o : s.cond_serial && (s.ah_serial || s.furnace_serial)); } return !!(s.serial || recFor(s.id, 'Inspection')); };
+    const doneOf = s => { if (!insp) return !!recFor(s.id, v.check); if (recFor(s.id, 'Inspection')?.answers.noAccess === 'Yes') return true; if (SPLIT(s.type)) { const h = halves(s); return !!(h ? h.i && h.o : s.cond_serial && (s.ah_serial || s.furnace_serial)); } return !!(s.serial || recFor(s.id, 'Inspection')); };
     const eligible = systems.filter(s => hasList(s.type, v.check));
     const done = eligible.filter(doneOf).length;
     const next = null;   // no "Next" suggestion: techs pick the unit they are actually at
@@ -1022,7 +1029,7 @@ window.FC_LIVE = true;
       let right;
       if (!ok) right = `<span class="pill-off">${esc(whyNot(s.type, v.check))}</span>`;
       else if (insp) { const h = SPLIT(s.type) && halves(s);
-        right = recFor(s.id, 'Inspection')?.queued ? '<span class="pill-warn">Waiting to upload</span>' : doneOf(s) ? '<span class="pill-ok">Inventoried</span>'
+        right = recFor(s.id, 'Inspection')?.queued ? '<span class="pill-warn">Waiting to upload</span>' : recFor(s.id, 'Inspection')?.answers.noAccess === 'Yes' ? '<span class="pill-warn">No access</span>' : doneOf(s) ? '<span class="pill-ok">Inventoried</span>'
           : h && h.i ? '<span class="pill-warn">Indoor done · Outdoor pending</span>' : h && h.o ? '<span class="pill-warn">Outdoor done · Indoor pending</span>' : '<span class="pill-todo">Needs inventory</span>'; }
       else right = rec ? statusPill(rec) : '<span class="pill-todo">Not started</span>';
       const sub = rec ? `Checked ${tm(rec.time)} by ${esc(rec.tech)}${sysSub(s) ? ' · ' + esc(sysSub(s)) : ''}` : esc(sysSub(s) || 'No details yet');
@@ -1069,6 +1076,7 @@ window.FC_LIVE = true;
     if (rec) Object.entries(rec.answers).forEach(([k, v]) => S.fmap[k] && setVal(S.fmap[k], v));
     else if (S.fmap.heatSource) setVal(S.fmap.heatSource, s.heat === 'None' && !S.fmap.heatSource.o.includes('None') ? '' : s.heat);
     S.pendingId = null;
+    el('noaccess').checked = !!(rec && rec.answers.noAccess === 'Yes');
     if (LIVE) ensurePhotos(S.photos).then(n => { if (n) drawPhotos(true); });
     derive();
   }
@@ -1093,7 +1101,7 @@ window.FC_LIVE = true;
       `<label><input type="radio" name="${f.id}" value="${esc(o)}" data-tone="${tone(f, o)}"><span>${esc(o)}</span></label>`).join('')}</div>`;
     else if (f.t === 'list') ctl = selectHTML('f-' + f.id, LISTS[f.list], f.unit, `aria-labelledby="lbl-${f.id}"`) + `<input id="f-${f.id}-o" placeholder="Type ${esc(f.unit || 'value')}" inputmode="decimal" hidden aria-label="${esc(f.l)} other">`;
     else if (f.t === 'qty') ctl = `<div class="row-qty"><select id="f-${f.id}-q" aria-label="${esc(f.l)} quantity"><option value="">Qty</option>${Array.from({ length: 10 }, (_, i) => `<option>${i + 1}</option>`).join('')}</select>
-      <div class="stack" style="gap:8px">${selectHTML(`f-${f.id}-s`, LISTS[f.list], '', `aria-label="${esc(f.l)} size"`, 'Size…')}<input id="f-${f.id}-o" placeholder="Type size, e.g. 20x30x2" hidden aria-label="${esc(f.l)} other size"></div></div>`;
+      <div class="stack" style="gap:8px">${selectHTML(`f-${f.id}-s`, LISTS[f.list], '', `aria-label="${esc(f.l)} size"`, 'Size…')}<input id="f-${f.id}-s-o" placeholder="Type size, e.g. 20x30x2" hidden aria-label="${esc(f.l)} other size"></div></div>`;
     else if (f.t === 'num') ctl = `<div class="row-amp"><div class="unit-in"><input id="f-${f.id}" type="number" inputmode="decimal" step="any" aria-labelledby="lbl-${f.id}"><em>${esc(f.unit)}</em></div>
       ${f.na ? `<label class="chk na-chk"><input type="checkbox" id="f-${f.id}-na"> N/A</label>` : ''}</div>`;
     else if (f.t === 'cap') ctl = capRow(f.id, f.list, f.allowNA, f.l);
@@ -1135,6 +1143,8 @@ window.FC_LIVE = true;
         <div class="muted">${esc(s.customer)} · ${esc(s.building)}${sysSub(s) ? ' · ' + esc(sysSub(s)) : ''}</div>
       </section>
       ${invBanner(s, editing)}
+      <section class="card noacc"><label class="chk flagchk"><input type="checkbox" id="f-noaccess"> <span><b>No access</b>: couldn't get to this system</span></label>
+        <span class="hint">Only Notes are asked: say why (locked, tenant not home, unsafe roof…).</span></section>
       ${note(`<b>${esc(listName)}</b> is built from shared sections. ${S.fmap.heatSource ? 'Heat Source shows only the sections for that heat source; try switching it. ' : ''}${shared ? 'The tag on each section shows which other system types reuse it.' : ''}`)}
       <nav class="jump" id="jump">${S.sections.map((sec, i) => `<button type="button" data-act="jump" data-i="${i}" id="j-${i}"><span class="dot"></span>${esc(sec.title)}</button>`).join('')}</nav>
       ${S.sections.map((sec, i) => {
@@ -1190,10 +1200,12 @@ window.FC_LIVE = true;
   }
   const keyOf = (f, v) => f.t === 'cap' ? (v && v.rated === NA ? NA : v && v.rated) : f.t === 'outcap' ? (v && v.kind) : v;
 
+  const noAcc = () => !!(el('noaccess') && el('noaccess').checked);
   function curHeat() { return S.fmap.heatSource ? getVal(S.fmap.heatSource) : null; }
   function visibleNow() {
     const heat = curHeat(), out = [];
     const part = curPart();
+    if (noAcc()) { const i = S.sections.findIndex(sec => sec.fields.some(f => f.id === 'notes')); return i > -1 ? [{ f: S.fmap.notes, i }] : []; }
     S.sections.forEach((sec, i) => { if (S.fmap.heatSource && sec.hs && !visibleSection(sec, heat)) return; sec.fields.forEach(f => { if (f.hs && !visibleField(f, heat)) return; if (!partShows(part, sec, f)) return; out.push({ f, i }); }); });
     return out;
   }
@@ -1212,13 +1224,15 @@ window.FC_LIVE = true;
         S.cpart = 'both'; setRadio('chk-part', 'both');
       }
     }
-    const part = curPart();
+    const part = curPart(), na = noAcc();
     S.sections.forEach((sec, i) => {
       const offPart = sec.fields.every(f => !partShows(part, sec, f));
-      const hide = offPart || !!(S.fmap.heatSource && sec.hs && (!heat || !visibleSection(sec, heat)));
+      const hide = na ? !sec.fields.some(f => f.id === 'notes') : offPart || !!(S.fmap.heatSource && sec.hs && (!heat || !visibleSection(sec, heat)));
       $('s-' + i).hidden = hide; const j = $('j-' + i); if (j) j.hidden = hide;
-      sec.fields.forEach(f => { $('w-' + f.id).hidden = !partShows(part, sec, f) || (!!f.hs && !!(S.fmap.heatSource && (!heat || !visibleField(f, heat)))); });
+      sec.fields.forEach(f => { $('w-' + f.id).hidden = na ? f.id !== 'notes' : !partShows(part, sec, f) || (!!f.hs && !!(S.fmap.heatSource && (!heat || !visibleField(f, heat)))); });
     });
+    if ($('photos-card')) $('photos-card').hidden = na || (LIVE && !!S.editing);
+    $('f-noaccess').closest('.flagchk').classList.toggle('auto-on', na);
     // other-boxes, N/A boxes, capacitor states
     document.querySelectorAll('#app select[id^="f-"]').forEach(sel => { const o = $(sel.id + '-o'); if (o) o.hidden = sel.value !== '__o'; });
     document.querySelectorAll('#app input[id$="-na"]').forEach(cb => { const inp = $(cb.id.slice(0, -3)); if (inp) inp.disabled = cb.checked; });
@@ -1253,9 +1267,10 @@ window.FC_LIVE = true;
       if (!sv && b) b.remove();
       if (sv) { const n = S.photos.filter(p => p.tag === 'Issue: ' + f.l).length, req = photoRequiredFor(f, v); b.textContent = (req ? '+ Photo required' : '+ Photo of this issue') + (n ? ` (${n} added)` : ''); b.classList.toggle('req-photo', req && !n); }
     });
-    S.issueTags = issues.map(x => 'Issue: ' + x.l);
+    if (noAcc()) issues.push({ t: 'No access', s: 'yellow', l: 'No Access' });
+    S.issueTags = issues.filter(x => x.l !== 'No Access').map(x => 'Issue: ' + x.l);
     $('na-list').innerHTML = issues.length ? issues.map(x => `<li class="${x.s === 'yellow' ? 'y' : ''}">${esc(x.t)}</li>`).join('') : '<li class="none">Nothing flagged yet</li>';
-    if (S.fmap.notes) { $('lbl-notes').innerHTML = 'Notes' + (issues.length ? ' <span class="req">*</span>' : ''); el('notes').placeholder = issues.length ? 'Required: describe what needs attention' : ''; }
+    if (S.fmap.notes) { $('lbl-notes').innerHTML = 'Notes' + (issues.length ? ' <span class="req">*</span>' : ''); el('notes').placeholder = noAcc() ? 'Required: why there was no access' : issues.length ? 'Required: describe what needs attention' : ''; }
     $('count').textContent = `${have} of ${need} answered`;
     S.sections.forEach((sec, i) => { const j = $('j-' + i); if (j) { j.classList.toggle('flag', !!secFlag[i]); j.classList.toggle('done', !secFlag[i] && secDone[i] === true); } });
     drawPhotos();
@@ -1285,10 +1300,10 @@ window.FC_LIVE = true;
     const { vis, issues } = derive();
     document.querySelectorAll('.invalid').forEach(e => e.classList.remove('invalid'));
     const s = S.sys, label = `System ${s.number} · ${s.type} · ${s.building}`;
-    if (S.fmap.heatSource && !curHeat()) { sheet(`<h3>Pick a heat source</h3><div class="stop">The heat source decides which sections apply.</div><div class="sheet-actions"><button type="button" class="btn primary" data-act="closeSheet">OK</button></div>`); return; }
+    if (S.fmap.heatSource && !curHeat() && !noAcc()) { sheet(`<h3>Pick a heat source</h3><div class="stop">The heat source decides which sections apply.</div><div class="sheet-actions"><button type="button" class="btn primary" data-act="closeSheet">OK</button></div>`); return; }
     const notes = S.fmap.notes ? getVal(S.fmap.notes) : '';
     if (issues.length && !notes) {
-      sheet(`<h3>Notes are required</h3><div class="stop">${issues.length} item${issues.length > 1 ? 's need' : ' needs'} attention. Describe ${issues.length > 1 ? 'them' : 'it'} in Notes.</div>
+      sheet(`<h3>Notes are required</h3><div class="stop">${noAcc() ? 'Say why there was no access.' : `${issues.length} item${issues.length > 1 ? 's need' : ' needs'} attention. Describe ${issues.length > 1 ? 'them' : 'it'} in Notes.`}</div>
         <div class="sheet-actions"><button type="button" class="btn primary" data-act="goNotes">Go to Notes</button></div>`); return;
     }
     const mp = LIVE && S.editing ? [] : missingPhotos(vis);
@@ -1321,6 +1336,8 @@ window.FC_LIVE = true;
   async function saveCheck() {
     if (S.busy) return;
     const answers = {}; Object.values(S.fmap).forEach(f => { if (f.t !== 'calc') answers[f.id] = getVal(f); });
+    answers.noAccess = noAcc() ? 'Yes' : '';
+    if (answers.noAccess) Object.values(S.fmap).forEach(f => { if (f.id !== 'notes' && f.id !== 'heatSource' && f.t !== 'calc') answers[f.id] = f.t === 'cap' || f.t === 'outcap' ? {} : ''; });   // nothing was checked
     const s = S.sys;
     if (LIVE) {
       const heat = answers.heatSource || s.heat, split = SPLIT_CHECK(s.type, S.check), part = split && !S.editing ? S.cpart || 'both' : '';
@@ -1328,7 +1345,7 @@ window.FC_LIVE = true;
       const sections = part ? S.sections.map(sec => ({ ...sec, fields: sec.fields.filter(f => partShows(part, sec, f)) })) : S.sections;
       let issues = [];
       sections.forEach(sec => { if (!visibleSection(sec, heat)) return; sec.fields.forEach(f => { if (!visibleField(f, heat)) return; const sv = evaluate(f, answers[f.id], id => answers[id]); if (sv) issues.push({ l: f.l, t: issueText(f, answers[f.id], id => answers[id]), side: sideOf(sec, f) }); }); });
-      issues = dropAttn(issues);
+      issues = answers.noAccess ? [{ l: 'No Access', t: 'No access', side: '' }] : dropAttn(issues);
       const { rec, cols } = toCols(sections, answers, heat);
       Object.assign(rec, { 'Customer': s.customer, 'Building': s.building, 'System ID': s.id, 'System Number': s.number, 'System Type': s.type, 'Heat Source': heat, 'Needs Attention': issues.map(x => x.t).join('; ') });
       const shared = [];
@@ -1340,7 +1357,7 @@ window.FC_LIVE = true;
           rec[`${P(h)} Notes`] = h === mine ? rec['Notes'] : ''; cols.push(`Needs Attention ${P(h)}`, `${P(h)} Notes`); } });
         if (S.editing) { rec['Indoor Notes'] = rec['Notes']; rec['Outdoor Notes'] = ''; rec['Needs Attention Indoor'] = rec['Needs Attention']; rec['Needs Attention Outdoor'] = ''; }
         S.sections.forEach(sec => sec.fields.forEach(f => { if (!sideOf(sec, f)) { const { rec: r1 } = toCols([{ ...sec, fields: [f] }], answers, heat); Object.keys(r1).filter(k => k !== 'Notes').forEach(k => shared.push(k)); } }));
-        shared.push('Heat Source', 'System Number', 'System Type', 'Customer', 'Building', 'System ID');
+        shared.push('Heat Source', 'System Number', 'System Type', 'Customer', 'Building', 'System ID', 'No Access');
         if (part) { delete rec['Notes']; delete rec['Needs Attention']; }
       }
       busy(true, S.editing ? 'Saving…' : 'Sending…');
@@ -1429,10 +1446,12 @@ window.FC_LIVE = true;
     { k: 'attn', l: 'System Needs Attention', t: 'flag' },
     { k: 'notes', l: 'Notes', t: 'textarea' },
   ];
-  const INSP_ALL = [...INSP, ...INSP_COND];
+  const INSP_ACCESS = { k: 'noAccess', l: 'No Access', t: 'flag', text: 'No access: log the system without photos' };
+  const INSP_ALL = [...INSP, ...INSP_COND, INSP_ACCESS];
   const sysMfg = s => s.mfg || s.cond_mfg || s.furnace_mfg || s.ah_mfg || '';
   function inspIssues(a) {
     const out = [];
+    if (a.noAccess === 'Yes') out.push({ t: 'No access', s: 'yellow', l: 'No Access' });
     if (a.attn === 'Yes') out.push({ t: 'Technician flagged: system needs attention', s: 'red', l: ATTN_L });
     INSP_COND.forEach(c => { const v = a[c.k]; if ((c.badV || []).includes(v)) out.push({ t: `${c.l}: ${v}`, s: 'red', l: c.l }); else if ((c.warnV || []).includes(v)) out.push({ t: `${c.l}: ${v}`, s: 'yellow', l: c.l }); });
     return dropAttn(out);
@@ -1449,7 +1468,7 @@ window.FC_LIVE = true;
   const lbl = c => `<span>${esc(c.short || c.l)}${c.req ? ' <span class="req">*</span>' : ''}</span>`;
   function inspField(c, v) {
     const id = 'i-' + c.k, wrap = inner => `<div class="ifield" id="w-${id}" ${c.side ? `data-side="${c.side}"` : ''}>${inner}</div>`;
-    if (c.t === 'flag') return wrap(`<div class="fl"><span>${esc(c.l)}</span><label class="chk flagchk"><input type="checkbox" id="${id}" ${v === 'Yes' ? 'checked' : ''}> Something concerning or wrong</label><span class="hint" id="${id}-hint"></span></div>`);
+    if (c.t === 'flag') return wrap(`<div class="fl">${c.text ? '' : `<span>${esc(c.l)}</span>`}<label class="chk flagchk"><input type="checkbox" id="${id}" ${v === 'Yes' ? 'checked' : ''}> ${c.text ? `<span><b>No access</b>: ${esc(c.text.replace(/^No access: /, ''))}</span>` : 'Something concerning or wrong'}</label><span class="hint" id="${id}-hint"></span></div>`);
     if (c.t === 'seg') { const o = c.o || LISTS[c.list] || [];
       return wrap(`<div class="fl">${lbl(c)}<div class="seg ${o.length > 4 ? 'wrap' : ''}">${o.map(x => `<label><input type="radio" name="${id}" value="${esc(x)}" ${x === v ? 'checked' : ''}
       data-tone="${(c.badV || []).includes(x) ? 'red' : (c.warnV || []).includes(x) ? 'yellow' : x === 'Good' || x === 'New' ? 'green' : 'ink'}"><span>${esc(x)}</span></label>`).join('')}</div></div>`); }
@@ -1485,10 +1504,12 @@ window.FC_LIVE = true;
     const comps = compsFor(type, heat).filter(c => part === 'both' || COMP_SIDE[c] === part);
     const sideOk = c => !c.side || part === 'both' || c.side === part;
     const fields = [...INSP_TOP, ...INSP_INFO, ...INSP_LOC.filter(sideOk), ...(split ? [] : INSP_EQ),
-      ...INSP_COMP.filter(c => comps.includes(c.comp)), ...(comps.includes('cond') ? [COND_REF] : []), ...INSP_COND];
-    return { type, heat, split, part, comps, fields };
+      ...INSP_COMP.filter(c => comps.includes(c.comp)), ...(comps.includes('cond') ? [COND_REF] : []), ...INSP_COND, INSP_ACCESS];
+    const noAccess = !!($('i-noAccess') && $('i-noAccess').checked);
+    return { type, heat, split, part, comps, fields, noAccess };
   }
   function inspRequiredPhotos(st) {
+    if (st.noAccess) return [];   // logged without photos
     if (st.split) return st.comps.flatMap(c => [COMP[c] + ' data plate', COMP[c] + ' unit']);
     return PHOTO_RULES.filter(r => wild(r.checklist, 'Inspection') && r.when.toLowerCase() === 'always').map(r => r.field);
   }
@@ -1524,7 +1545,8 @@ window.FC_LIVE = true;
         <div class="fl" id="part-wrap" hidden><span>Working on</span><div class="seg">${[['both', 'Indoor & Outdoor'], ['indoor', 'Indoor only'], ['outdoor', 'Outdoor only']].map(([v, t]) =>
           `<label><input type="radio" name="i-part" value="${v}" ${v === S.part ? 'checked' : ''} data-tone="ink"><span>${t}</span></label>`).join('')}</div>
           <span class="hint">Pick Indoor or Outdoor when another tech is doing the other half. Both halves save to the same system.</span></div>
-        <div class="muted" id="split-hint" hidden>Pick the heat source to see which components to photograph.</div></section>
+        <div class="muted" id="split-hint" hidden>Pick the heat source to see which components to photograph.</div>
+        ${inspField(INSP_ACCESS, prev ? prev.answers.noAccess : '')}</section>
       <section class="card stack"><div class="sec-head" style="margin:0"><h2>Photos</h2><span class="shared" id="photo-req">Data plate and whole unit are required</span></div>
         ${CAN_READ ? '<div class="muted" style="font-size:13px">Start with the data plate: the fields fill in from the label.</div>' : ''}<div class="photos" id="photos"></div></section>
       <section class="card ocr" id="ocr" hidden></section>
@@ -1536,23 +1558,31 @@ window.FC_LIVE = true;
     $('bot').innerHTML = `<div class="barbot"><div class="barbot-in"><button type="button" class="btn" data-act="back">Cancel</button><button type="button" class="btn primary" data-act="inspectSave">${after ? `Save and start ${esc(afterLabel)}` : 'Save to equipment list'}</button></div></div>`;
     S.tagKey = null; S.dirty = false; S.iAttnManual = undefined; inspAuto(); inspVis();
   }
-  async function trySaveInspect(force) {
+  async function trySaveInspect(force, confirmed) {
     if (S.busy) return;
     document.querySelectorAll('.invalid').forEach(e => e.classList.remove('invalid'));
     const st = inspState(), vals = {};
     st.fields.forEach(c => { vals[c.alias || c.k] = inspGet(c); });
-    const req = INSP_TOP.filter(c => !vals[c.k]);
+    const req = INSP_TOP.filter(c => !vals[c.k] && !(st.noAccess && c.k === 'heat'));
     if (req.length) { req.forEach(c => ($('i-' + c.k) || document.querySelector(`input[name="i-${c.k}"]`).closest('.seg')).classList.add('invalid')); toast('Fill in ' + req.map(c => c.l).join(', ')); return; }
     const dup = SYSTEMS.find(x => x.id !== S.sys.id && x.customer === S.visit.cust && x.building === S.visit.bldg && String(x.number) === String(vals.number));
     if (dup) { $('i-number').classList.add('invalid'); toast(`System ${vals.number} already exists in ${S.visit.bldg}`); return; }
     const needPhotos = inspRequiredPhotos(st).filter(t => !S.photos.some(p => photoMatches(t, p.tag)));
     if (needPhotos.length) { sheet(`<h3>Photo required</h3><div class="stop">Add: ${esc(needPhotos.join(', '))}</div><div class="sheet-actions"><button type="button" class="btn primary" data-act="closeSheet">OK</button></div>`); return; }
-    const warn = st.fields.filter(c => c.warn && !vals[c.alias || c.k]);
+    const warn = st.noAccess ? [] : st.fields.filter(c => c.warn && !vals[c.alias || c.k]);
     if (warn.length && !force) {
       sheet(`<h3>Incomplete inventory</h3><div class="warn">${warn.length} field${warn.length > 1 ? 's are' : ' is'} blank</div><ul>${warn.map(c => `<li>${esc(c.l)}</li>`).join('')}</ul>
         <div class="sheet-actions"><button type="button" class="btn" data-act="closeSheet">Keep editing</button><button type="button" class="btn primary" data-act="inspectForce">Save anyway</button></div>`); return;
     }
     let s = S.sys.id ? sysById(S.sys.id) : null, isNew = !s;
+    if (isNew && !confirmed) {   // adding a system: confirm customer / building / number before it goes on the list
+      S.invForce = force;
+      sheet(`<h3>Add this system?</h3><div class="confirm-box">
+        <div class="cb-row"><span>Customer</span><b>${esc(S.visit.cust)}</b></div><div class="cb-row"><span>Building</span><b>${esc(S.visit.bldg)}</b></div>
+        <div class="cb-row"><span>System</span><b>System ${esc(vals.number)} · ${esc(vals.type)}</b></div>${vals.suite ? `<div class="cb-row"><span>Suite</span><b>${esc(vals.suite)}</b></div>` : ''}</div>
+        <div class="sheet-actions"><button type="button" class="btn" data-act="closeSheet">Go back</button><button type="button" class="btn primary" data-act="inspectConfirm">Yes, add it</button></div>`);
+      return;
+    }
     const partial = st.split && st.part !== 'both';
     const next = { ...(s || SYS(S.visit.cust, S.visit.bldg, vals.number, vals.type, vals.heat)) };
     Object.entries(vals).forEach(([k, v]) => { if (!partial || v !== '') next[k] = v; });
@@ -1630,7 +1660,7 @@ window.FC_LIVE = true;
     const insp = S.role === 'tech' && S.view === 'inspect';
     const ist = insp && $('i-type') ? inspState() : null, req = ist ? inspRequiredPhotos(ist) : [];
     const tags = insp ? (ist && ist.split ? [...req, 'Serial tag', 'Disconnect', 'Other'] : INSPECT_TAGS) : ['Unit', 'Data plate', ...(S.issueTags || []), 'Other'];
-    if (insp && $('photo-req')) $('photo-req').textContent = ist && ist.split ? (ist.comps.length ? 'Data plate and unit photo for each component' : '') : 'Data plate and whole unit are required';
+    if (insp && $('photo-req')) $('photo-req').textContent = ist && ist.noAccess ? 'Optional: no access' : ist && ist.split ? (ist.comps.length ? 'Data plate and unit photo for each component' : '') : 'Data plate and whole unit are required';
     const key = tags.join('|') + '#' + S.photos.map(p => p.tag + (p.url || '').length).join(',') + CAN_READ;
     if (!force && key === S.tagKey) return; S.tagKey = key;
     const slot = (tag, text, req) => `<label class="addph ${req ? 'req' : ''}"><input type="file" accept="image/*" ${tag ? '' : 'multiple'} data-photo data-tag="${esc(tag)}"><b>+</b>${esc(text)}${req ? '<small>Required</small>' : ''}</label>`;
@@ -1913,6 +1943,7 @@ Rules: copy model and serial character for character and list any field with unr
       ['Condition', INSP_COND.filter(c => c.k !== 'notes').map(c => c.t === 'flag' ? [c.l, a[c.k] === 'Yes' ? 'Yes' : 'No', a[c.k] === 'Yes' ? 'red' : ''] : [c.l, a[c.k], (c.badV || []).includes(a[c.k]) ? 'red' : (c.warnV || []).includes(a[c.k]) ? 'yellow' : a[c.k] ? 'green' : 'na'])],
       ['Notes', [['Notes', a.notes, 'notes']]]];
     const heat = a.heatSource, get = id => a[id], out = [];
+    if (a.noAccess === 'Yes') return [['Access', [['No access', 'Yes', 'yellow']]], ['Notes', [['Notes', a.notes, 'notes']]]];
     recSections(rec).forEach(sec => {
       if (sec.hs && !visibleSection(sec, heat)) return;
       const items = sec.fields.filter(f => visibleField(f, heat)).map(f => {
@@ -1998,7 +2029,15 @@ Rules: copy model and serial character for character and list any field with unr
     switch (a) {
       case 'role': S.role = t.dataset.v; S.view = 'visit'; S.editing = null; if (S.role === 'admin') S.admin = 'report'; render(); window.scrollTo(0, 0); break;
       case 'setCheck': S.visit.check = t.dataset.v; S.addOpen = false; render(); break;
-      case 'openSys': { const s = sysById(t.dataset.id);
+      case 'openSys': {   // make sure it's the right customer, building and system before starting
+        const s = sysById(t.dataset.id), extra = [s.suite && 'Suite ' + s.suite, s.area && 'Serves ' + s.area].filter(Boolean).join(' · ');
+        sheet(`<h3>Is this the right system?</h3><div class="confirm-box">
+          <div class="cb-row"><span>Customer</span><b>${esc(s.customer)}</b></div><div class="cb-row"><span>Building</span><b>${esc(s.building)}</b></div>
+          <div class="cb-row"><span>System</span><b>System ${esc(s.number)} · ${esc(s.type)}</b></div>${extra ? `<div class="cb-row"><span></span><b class="muted">${esc(extra)}</b></div>` : ''}
+          <div class="cb-row"><span>Check</span><b>${esc(CHECK_LABEL[S.visit.check])}</b></div></div>
+          <div class="sheet-actions"><button type="button" class="btn" data-act="closeSheet">Not this one</button><button type="button" class="btn primary" data-act="confirmSys" data-id="${esc(s.id)}">Yes, start</button></div>`);
+        break; }
+      case 'confirmSys': { $('sheet').innerHTML = ''; const s = sysById(t.dataset.id);
         if (S.visit.check === 'Inspection') { S.sys = { ...s }; const ir = recFor(s.id, 'Inspection'); S.photos = ir ? ir.photos.slice() : []; S.pendingId = null; S.afterInv = null; S.presetPart = null; S.view = 'inspect'; render(); window.scrollTo(0, 0);
           if (LIVE) ensurePhotos(S.photos).then(n => { if (n) drawPhotos(true); }); }
         else openCheck(s.id); break; }
@@ -2018,6 +2057,7 @@ Rules: copy model and serial character for character and list any field with unr
         else go(); break; }
       case 'inspectSave': trySaveInspect(false); break;
       case 'inspectForce': $('sheet').innerHTML = ''; trySaveInspect(true); break;
+      case 'inspectConfirm': $('sheet').innerHTML = ''; trySaveInspect(S.invForce, true); break;
       case 'back': case 'home': {
         if (S.view === 'login') break;
         const inForm = (S.role === 'tech' && S.view !== 'visit') || (S.role === 'admin' && S.admin === 'edit');
@@ -2095,7 +2135,7 @@ Rules: copy model and serial character for character and list any field with unr
         if (S.part !== want) { S.part = want; setRadio('i-part', want); }
       }
       if (t.name === 'i-overallStatus' && t.value === 'Abandoned') setRadio('i-operational', 'Abandoned');   // default; the tech can still change it
-      if (t.id === 'i-type' || t.name === 'i-heat' || t.name === 'i-part') inspVis();
+      if (t.id === 'i-type' || t.name === 'i-heat' || t.name === 'i-part' || t.id === 'i-noAccess') inspVis();
       inspAuto(); return; }
     if ((S.role === 'tech' && S.view === 'check') || (S.role === 'admin' && S.admin === 'edit')) {
       if (t.id === 'f-attn') S.attnManual = t.checked;
