@@ -676,6 +676,7 @@ window.FC_LIVE = true;
   }
   const ageOf = mfg => { const m = String(mfg || '').match(/(19|20)\d{2}/); return m ? Math.max(0, new Date().getFullYear() - Number(m[0])) : null; };
   const sysLabel = s => `System ${s.number} · ${s.type}`;
+  const suiteArea = (s, sep = ' · ') => [s.suite && 'Suite ' + s.suite, s.area && 'Serves ' + s.area].filter(Boolean).join(sep);
   const sysAge = s => ageOf(s.mfg || s.cond_mfg || s.furnace_mfg || s.ah_mfg);
   const sysSub = s => [s.suite && 'Suite ' + s.suite, s.area && 'Serves ' + s.area, sysAge(s) != null && sysAge(s) + ' yrs', s.refrigerant].filter(Boolean).join(' · ');
 
@@ -1767,10 +1768,10 @@ Rules: copy model and serial character for character and list any field with unr
   }
   function csvDownload(rows, tag) {
     if (!rows.length) { toast('No checks match the report filters'); return; }
-    const lead = ['Date / Time', 'Technician', 'Customer', 'Building', 'System Number', 'System Type', 'Check', 'Heat Source', 'Needs Attention'];
+    const lead = ['Date / Time', 'Technician', 'Customer', 'Building', 'System Number', 'Suite', 'Area Served', 'System Type', 'Check', 'Heat Source', 'Needs Attention'];
     const cols = [...lead], data = rows.map(r => {
       const s = sysById(r.systemId), o = { 'Date / Time': ymd(r.time) + ' ' + r.time.toTimeString().slice(0, 5), 'Technician': r.tech, 'Customer': r.customer, 'Building': r.building,
-        'System Number': s.number, 'System Type': s.type, 'Check': r.check, 'Heat Source': r.answers.heatSource || s.heat, 'Needs Attention': issuesOf(r).map(x => x.t).join('; ') };
+        'System Number': s.number, 'Suite': s.suite || '', 'Area Served': s.area || '', 'System Type': s.type, 'Check': r.check, 'Heat Source': r.answers.heatSource || s.heat, 'Needs Attention': issuesOf(r).map(x => x.t).join('; ') };
       if (r.check === 'Inspection') INSP_ALL.forEach(c => { o[c.l] = r.answers[c.k] || ''; });
       else { const { rec } = toCols(recSections(r), r.answers, r.answers.heatSource); Object.assign(o, rec); }
       Object.keys(o).forEach(k => { if (!cols.includes(k)) cols.push(k); }); return o;
@@ -1879,9 +1880,9 @@ Rules: copy model and serial character for character and list any field with unr
     const sev = new Map();
     doc.autoTable({
       startY: y, margin: { left: M, right: M },
-      head: [[...(multiCust ? ['Customer'] : []), 'Date', 'Bldg', 'System', 'Type', ...(multiCheck ? ['Check'] : []), ...(forCustomer ? [] : ['Technician']), 'Age', 'Needs attention']],
+      head: [[...(multiCust ? ['Customer'] : []), 'Date', 'Bldg', 'System', 'Suite / Area', 'Type', ...(multiCheck ? ['Check'] : []), ...(forCustomer ? [] : ['Technician']), 'Age', 'Needs attention']],
       body: rows.map(r => { const s = sysById(r.systemId), list = iss.get(r); const txt = list.map(x => x.t).join('\n') || 'OK'; sev.set(txt, list);
-        return [...(multiCust ? [r.customer] : []), ymd(r.time), r.building.replace(/^Building\s+/i, ''), s.number + (s.suite ? `\nSuite ${s.suite}` : ''), TYPE_SHORT[s.type] || s.type,
+        return [...(multiCust ? [r.customer] : []), ymd(r.time), r.building.replace(/^Building\s+/i, ''), s.number, [s.suite && 'Suite ' + s.suite, s.area].filter(Boolean).join('\n') || '—', TYPE_SHORT[s.type] || s.type,
           ...(multiCheck ? [r.check] : []), ...(forCustomer ? [] : [r.tech]), sysAge(s) != null ? sysAge(s) + ' yrs' : '—', txt]; }),
       styles: { fontSize: 8, cellPadding: 4, textColor: PC.ink }, headStyles: { fillColor: PC.brand, textColor: 255 }, alternateRowStyles: { fillColor: [249, 250, 251] },
       didParseCell: d => { if (d.section === 'body' && d.column.index === d.table.columns.length - 1) { d.cell.styles.textColor = d.cell.raw === 'OK' ? PC.green : PC.red; d.cell.styles.fontStyle = 'bold'; } },
@@ -1910,7 +1911,7 @@ Rules: copy model and serial character for character and list any field with unr
       });
       doc.autoTable({
         startY: y + 12, margin: { left: M, right: M }, pageBreak: 'avoid', rowPageBreak: 'avoid',
-        head: [[{ content: `${r.customer} — ${r.building}, System ${s.number} · ${s.type}${s.suite ? ' · Suite ' + s.suite : ''}`, colSpan: 2, styles: { halign: 'left' } },
+        head: [[{ content: `${r.customer} — ${r.building}, System ${s.number} · ${s.type}${suiteArea(s) ? ' · ' + suiteArea(s) : ''}`, colSpan: 2, styles: { halign: 'left' } },
           { content: `${CHECK_LABEL[r.check]} · ${forCustomer ? '' : r.tech + ' · '}${ymd(r.time)} ${tm(r.time)}`, colSpan: 2, styles: { halign: 'right', fontStyle: 'normal' } }]],
         body, styles: { fontSize: 8, cellPadding: 3, textColor: PC.ink, lineColor: [222, 226, 230], lineWidth: 0.5 }, headStyles: { fillColor: PC.ink, textColor: 255 },
         columnStyles: { 0: { cellWidth: 150, textColor: PC.muted }, 1: { cellWidth: 116, fontStyle: 'bold' }, 2: { cellWidth: 150, textColor: PC.muted }, 3: { fontStyle: 'bold' } },
@@ -1961,7 +1962,7 @@ Rules: copy model and serial character for character and list any field with unr
       ${Object.keys(groups).sort().map(c => `<section class="card"><div class="cust-h">${esc(c)}</div>${Object.keys(groups[c]).sort().map(b => `<div class="bldg-h">${esc(b)}</div>${groups[c][b]
         .sort((x, y) => Number(sysById(x.systemId).number) - Number(sysById(y.systemId).number)).map(r => { const s = sysById(r.systemId); return `
         <button type="button" class="unit" data-act="openRec" data-id="${r.id}"><span class="name">System ${esc(s.number)} ${typeChip(s.type)}</span>
-          <span class="sub">${CHECK_LABEL[r.check]}${r.answers.heatSource ? ' · ' + esc(r.answers.heatSource) : ''} · ${esc(r.tech)} · ${when(r.time)}${r.photos.length ? ` · ${r.photos.length} photo${r.photos.length > 1 ? 's' : ''}` : ''}</span>
+          <span class="sub">${suiteArea(s) ? esc(suiteArea(s)) + ' · ' : ''}${CHECK_LABEL[r.check]}${r.answers.heatSource ? ' · ' + esc(r.answers.heatSource) : ''} · ${esc(r.tech)} · ${when(r.time)}${r.photos.length ? ` · ${r.photos.length} photo${r.photos.length > 1 ? 's' : ''}` : ''}</span>
           <span class="right">${statusPill(r)}<span class="chev">›</span></span></button>`; }).join('')}`).join('')}</section>`).join('') || '<section class="card muted">No checks match these filters.</section>'}
       ${reportsCard()}`;
     if (loading) loadAdmin();
@@ -2083,6 +2084,7 @@ Rules: copy model and serial character for character and list any field with unr
     Object.values(byB).forEach(b => b.systems.sort((x, y) => byNum(x.r['System Number'], y.r['System Number'])));
     return { total, byB, missing, sizes, buildings: Object.keys(byB).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })) };
   }
+  const sysSA = r => { const x = sysById(r['System ID']); return x ? suiteArea(x) : ''; };   // suite / area served for a filter row
   const qtyTxt = t => (t.unknown ? (t.qty ? `${t.qty} + qty not recorded on ${t.unknown}` : 'qty not recorded') : String(t.qty));
   function renderFilterSum() {
     const F = S.fsum, A = filterAgg(F.latest, F.cust, F.bldg), tbl = (m) => `<table class="ftbl"><thead><tr><th>Size</th><th>Filters</th><th>Systems</th></tr></thead><tbody>${A.sizes(m).map(k => `<tr><td>${esc(k)}</td><td><b>${qtyTxt(m[k])}</b></td><td>${m[k].systems}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">None recorded</td></tr>'}</tbody></table>`;
@@ -2092,9 +2094,9 @@ Rules: copy model and serial character for character and list any field with unr
         <div class="grid2" style="margin-top:8px"><button type="button" class="btn primary" data-act="fsumPdf">Download PDF</button><button type="button" class="btn" data-act="fsumCsv">Download CSV</button></div></section>
       <section class="card"><h2>Total</h2>${tbl(A.total)}</section>
       ${A.buildings.map(b => `<section class="card"><h2>${esc(b)}</h2>${tbl(A.byB[b].sizes)}
-        <div class="fsys">${A.byB[b].systems.map(({ r, fs }) => `<div class="kv"><span class="k">System ${esc(r['System Number'])} · ${esc(TYPE_SHORT[r['System Type']] || r['System Type'])}</span>
+        <div class="fsys">${A.byB[b].systems.map(({ r, fs }) => `<div class="kv"><span class="k">System ${esc(r['System Number'])} · ${esc(TYPE_SHORT[r['System Type']] || r['System Type'])}${sysSA(r) ? `<br><small class="muted">${esc(sysSA(r))}</small>` : ''}</span>
           <span class="v">${fs.map(f => `${f.qty == null ? '?' : f.qty} × ${esc(f.size)}`).join(', ') || '—'} <small class="muted">${esc(String(r['Date / Time']).slice(0, 10))}</small></span></div>`).join('')}</div></section>`).join('')}
-      ${A.missing.length ? `<section class="card"><h2>No filter size on file</h2><div class="muted">${A.missing.map(x => `${esc(x.building)} · System ${esc(x.number)}`).join('<br>')}</div></section>` : ''}`;
+      ${A.missing.length ? `<section class="card"><h2>No filter size on file</h2><div class="muted">${A.missing.map(x => `${esc(x.building)} · System ${esc(x.number)}${suiteArea(x) ? ' · ' + esc(suiteArea(x)) : ''}`).join('<br>')}</div></section>` : ''}`;
   }
   async function runFilterSum(btn) {
     const cust = S.ex.cust; if (!cust) { toast('Pick a customer in the Reports card first'); return; }
@@ -2104,11 +2106,12 @@ Rules: copy model and serial character for character and list any field with unr
   }
   function fsumCsv() {
     const F = S.fsum, A = filterAgg(F.latest, F.cust, F.bldg), q = v => { v = String(v ?? ''); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
-    const lines = [['Section', 'Building', 'System', 'System Type', 'Filter Size', 'Quantity', 'Systems', 'Last Recorded']];
-    A.sizes(A.total).forEach(k => lines.push(['Total', '', '', '', k, A.total[k].qty + (A.total[k].unknown ? ` (+${A.total[k].unknown} unknown)` : ''), A.total[k].systems, '']));
-    A.buildings.forEach(b => { const m = A.byB[b].sizes; A.sizes(m).forEach(k => lines.push(['Building total', b, '', '', k, m[k].qty + (m[k].unknown ? ` (+${m[k].unknown} unknown)` : ''), m[k].systems, '']));
-      A.byB[b].systems.forEach(({ r, fs }) => fs.forEach(f => lines.push(['System', b, r['System Number'], r['System Type'], f.size, f.qty == null ? '?' : f.qty, '', String(r['Date / Time']).slice(0, 10)]))); });
-    A.missing.forEach(x => lines.push(['No filter on file', x.building, x.number, x.type, '', '', '', '']));
+    const lines = [['Section', 'Building', 'System', 'Suite', 'Area Served', 'System Type', 'Filter Size', 'Quantity', 'Systems', 'Last Recorded']];
+    const sx = r => sysById(r['System ID']) || {};
+    A.sizes(A.total).forEach(k => lines.push(['Total', '', '', '', '', '', k, A.total[k].qty + (A.total[k].unknown ? ` (+${A.total[k].unknown} unknown)` : ''), A.total[k].systems, '']));
+    A.buildings.forEach(b => { const m = A.byB[b].sizes; A.sizes(m).forEach(k => lines.push(['Building total', b, '', '', '', '', k, m[k].qty + (m[k].unknown ? ` (+${m[k].unknown} unknown)` : ''), m[k].systems, '']));
+      A.byB[b].systems.forEach(({ r, fs }) => fs.forEach(f => lines.push(['System', b, r['System Number'], sx(r).suite || '', sx(r).area || '', r['System Type'], f.size, f.qty == null ? '?' : f.qty, '', String(r['Date / Time']).slice(0, 10)]))); });
+    A.missing.forEach(x => lines.push(['No filter on file', x.building, x.number, x.suite || '', x.area || '', x.type, '', '', '', '']));
     const csv = lines.map(l => l.map(q).join(',')).join('\r\n');
     showFilePrev(new Blob(['\ufeff' + csv], { type: 'text/csv' }), `filter-summary-${(F.cust + (F.bldg ? '-' + F.bldg : '')).replace(/[^\w-]+/g, '-').toLowerCase()}.csv`, 'Filter summary CSV', F.cust + (F.bldg ? ' · ' + F.bldg : ''));
   }
@@ -2129,12 +2132,12 @@ Rules: copy model and serial character for character and list any field with unr
       y = sizeTable('Total', A.total, y + 14);
       A.buildings.forEach(b => {
         y = sizeTable(b, A.byB[b].sizes, y + 18);
-        doc.autoTable({ startY: y + 2, margin: { left: M, right: M }, head: [['System', 'Type', 'Filters', 'Last recorded']],
-          body: A.byB[b].systems.map(({ r, fs }) => [r['System Number'], TYPE_SHORT[r['System Type']] || r['System Type'], fs.map(f => `${f.qty == null ? '?' : f.qty} × ${f.size}`).join(', '), String(r['Date / Time']).slice(0, 10)]),
-          styles: { fontSize: 8, cellPadding: 3, textColor: PC.ink }, headStyles: { fillColor: PC.band, textColor: PC.ink }, columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 70 }, 2: { cellWidth: 240 } } });
+        doc.autoTable({ startY: y + 2, margin: { left: M, right: M }, head: [['System', 'Type', 'Suite / Area', 'Filters', 'Last recorded']],
+          body: A.byB[b].systems.map(({ r, fs }) => [r['System Number'], TYPE_SHORT[r['System Type']] || r['System Type'], sysSA(r).replace(' · ', '\n') || '—', fs.map(f => `${f.qty == null ? '?' : f.qty} × ${f.size}`).join(', '), String(r['Date / Time']).slice(0, 10)]),
+          styles: { fontSize: 8, cellPadding: 3, textColor: PC.ink }, headStyles: { fillColor: PC.band, textColor: PC.ink }, columnStyles: { 0: { cellWidth: 50 }, 1: { cellWidth: 60 }, 2: { cellWidth: 120 }, 3: { cellWidth: 200 } } });
         y = doc.lastAutoTable.finalY;
       });
-      if (A.missing.length) { doc.autoTable({ startY: y + 18, margin: { left: M, right: M }, head: [['No filter size on file', '']], body: A.missing.map(x => [x.building, 'System ' + x.number + ' · ' + (TYPE_SHORT[x.type] || x.type)]),
+      if (A.missing.length) { doc.autoTable({ startY: y + 18, margin: { left: M, right: M }, head: [['No filter size on file', '']], body: A.missing.map(x => [x.building, 'System ' + x.number + ' · ' + (TYPE_SHORT[x.type] || x.type) + (suiteArea(x) ? ' · ' + suiteArea(x) : '')]),
         styles: { fontSize: 8, cellPadding: 3, textColor: PC.muted }, headStyles: { fillColor: PC.band, textColor: PC.ink } }); }
       const n = doc.getNumberOfPages(), made = new Date().toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
       for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFontSize(8); doc.setTextColor(...PC.muted); doc.text(`Betz Heating & Air · Filter Summary · Generated ${made}`, M, H - 20); doc.text(`Page ${i} of ${n}`, W - M, H - 20, { align: 'right' }); }
