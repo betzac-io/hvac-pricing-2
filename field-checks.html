@@ -326,6 +326,11 @@
   .cb-row { display: grid; grid-template-columns: 80px 1fr; gap: 10px; align-items: baseline; font-size: 16px; }
   .cb-row span { color: var(--muted); font-size: 13px; }
   .noacc .flagchk { font-size: 15px; }
+  .ftbl { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 6px; }
+  .ftbl th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+  .ftbl td { padding: 6px; border-bottom: 1px solid var(--line); }
+  .fsys { margin-top: 10px; }
+  .fsys small { margin-left: 6px; }
 </style></head><body>
 <header class="top"><div class="top-in">
   <button type="button" class="home" data-act="home" aria-label="Home: back to visit setup"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5M5.5 9.5V20h4.5v-6h4v6h4.5V9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg></button>
@@ -1008,7 +1013,7 @@ window.FC_LIVE = true;
     $('bot').innerHTML = ''; $('sheet').innerHTML = '';
     if (S.view === 'login') return renderLogin();
     if (S.role === 'tech') ({ visit: renderVisit, check: renderCheck, inspect: renderInspect, sysedit: renderSysEdit })[S.view]();
-    else ({ report: renderReport, detail: renderDetail, preview: renderPreview, lists: renderLists, settings: renderSettings, edit: renderCheck, systems: renderSystems, sysedit: renderSysEdit })[S.admin]();
+    else ({ filters: renderFilterSum, report: renderReport, detail: renderDetail, preview: renderPreview, lists: renderLists, settings: renderSettings, edit: renderCheck, systems: renderSystems, sysedit: renderSysEdit })[S.admin]();
   }
 
   // ---------------------------------------------------------------- VISIT
@@ -1779,7 +1784,8 @@ Rules: copy model and serial character for character and list any field with unr
       <div class="grid2"><label class="fl">From<input type="date" data-ex="from" value="${e.from}"></label><label class="fl">To<input type="date" data-ex="to" value="${e.to}"></label></div>
       <div class="grid2"><button type="button" class="btn primary" data-act="pdf">Download PDF</button><button type="button" class="btn primary" data-act="custpdf">Customer PDF</button></div>
       <button type="button" class="btn" data-act="csv">Download CSV</button>
-      <div class="hint">PDF: summary plus every system's details and photos. Customer PDF: the same without technician names, with issue photos only. CSV: one row per check for Excel / Google Sheets.</div></section>`;
+      <button type="button" class="btn" data-act="filterSum">Filter summary</button>
+      <div class="hint">Filter summary: how many of each filter size the customer uses, in total and by building (pick a customer; dates don't apply). PDF: summary plus every system's details and photos. Customer PDF: the same without technician names, with issue photos only. CSV: one row per check for Excel / Google Sheets.</div></section>`;
   }
   async function exportRows() {
     const e = S.ex; let recs;
@@ -2019,6 +2025,92 @@ Rules: copy model and serial character for character and list any field with unr
   }
 
 
+
+  // ---------------------------------------------------------------- FILTER SUMMARY
+  // Each system's most recently recorded filter sizes, added up for the customer and per building
+  const parseFilter = v => { const m = /^\((.*?)\)\s*(.*)$/.exec(String(v || '').trim()); if (!m) return null; const size = m[2].trim(); if (!size || size === '?') return null; const q = parseInt(m[1], 10); return { size, qty: isNaN(q) ? null : q }; };
+  async function loadFilterSum(cust) {
+    if (LIVE) { const j = await api('filterSummary', { customer: cust }); (j.systems || []).forEach(r => { const x = sysFromRow(r), cur = sysById(x.id); if (cur) Object.assign(cur, x); else SYSTEMS.push(x); }); return j.latest || []; }
+    const latest = {};
+    RECORDS.filter(r => r.customer === cust && r.check !== 'Inspection' && r.answers.noAccess !== 'Yes' && (r.answers.filter1 || r.answers.filter2)).forEach(r => {
+      const cur = latest[r.systemId]; if (!cur || cur.time < r.time) latest[r.systemId] = r; });
+    return Object.values(latest).map(r => { const s = sysById(r.systemId); return { 'System ID': r.systemId, 'Building': r.building, 'System Number': s.number, 'System Type': s.type, 'Date / Time': ymd(r.time), 'Filter Size 1': r.answers.filter1 || '', 'Filter Size 2': r.answers.filter2 || '' }; });
+  }
+  function filterAgg(latest, cust, bldg) {
+    const rows = latest.filter(r => !bldg || r['Building'] === bldg);
+    const add = (map, f) => { const t = map[f.size] ||= { qty: 0, systems: 0, unknown: 0 }; t.systems++; if (f.qty == null) t.unknown++; else t.qty += f.qty; };
+    const total = {}, byB = {};
+    rows.forEach(r => { const b = byB[r['Building']] ||= { sizes: {}, systems: [] };
+      const fs = [parseFilter(r['Filter Size 1']), parseFilter(r['Filter Size 2'])].filter(Boolean);
+      fs.forEach(f => { add(total, f); add(b.sizes, f); }); b.systems.push({ r, fs }); });
+    const have = new Set(rows.map(r => r['System ID']));
+    const missing = SYSTEMS.filter(x => x.customer === cust && (!bldg || x.building === bldg) && x.status !== 'Replaced' && hasList(x.type, 'Filters') && !have.has(x.id))
+      .sort((a, b) => a.building.localeCompare(b.building, undefined, { numeric: true }) || byNum(a.number, b.number));
+    const sizes = m => Object.keys(m).sort(byDims);
+    Object.values(byB).forEach(b => b.systems.sort((x, y) => byNum(x.r['System Number'], y.r['System Number'])));
+    return { total, byB, missing, sizes, buildings: Object.keys(byB).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })) };
+  }
+  const qtyTxt = t => (t.unknown ? (t.qty ? `${t.qty} + qty not recorded on ${t.unknown}` : 'qty not recorded') : String(t.qty));
+  function renderFilterSum() {
+    const F = S.fsum, A = filterAgg(F.latest, F.cust, F.bldg), tbl = (m) => `<table class="ftbl"><thead><tr><th>Size</th><th>Filters</th><th>Systems</th></tr></thead><tbody>${A.sizes(m).map(k => `<tr><td>${esc(k)}</td><td><b>${qtyTxt(m[k])}</b></td><td>${m[k].systems}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">None recorded</td></tr>'}</tbody></table>`;
+    $('app').innerHTML = `
+      <button type="button" class="linkbtn" data-act="adminTab" data-v="report" style="justify-self:start">‹ Report</button>
+      <section class="card check-head"><h3>Filter summary</h3><div class="muted">${esc(F.cust)}${F.bldg ? ' · ' + esc(F.bldg) : ' · all buildings'} · latest recorded sizes per system</div>
+        <div class="grid2" style="margin-top:8px"><button type="button" class="btn primary" data-act="fsumPdf">Download PDF</button><button type="button" class="btn" data-act="fsumCsv">Download CSV</button></div></section>
+      <section class="card"><h2>Total</h2>${tbl(A.total)}</section>
+      ${A.buildings.map(b => `<section class="card"><h2>${esc(b)}</h2>${tbl(A.byB[b].sizes)}
+        <div class="fsys">${A.byB[b].systems.map(({ r, fs }) => `<div class="kv"><span class="k">System ${esc(r['System Number'])} · ${esc(TYPE_SHORT[r['System Type']] || r['System Type'])}</span>
+          <span class="v">${fs.map(f => `${f.qty == null ? '?' : f.qty} × ${esc(f.size)}`).join(', ') || '—'} <small class="muted">${esc(String(r['Date / Time']).slice(0, 10))}</small></span></div>`).join('')}</div></section>`).join('')}
+      ${A.missing.length ? `<section class="card"><h2>No filter size on file</h2><div class="muted">${A.missing.map(x => `${esc(x.building)} · System ${esc(x.number)}`).join('<br>')}</div></section>` : ''}`;
+  }
+  async function runFilterSum(btn) {
+    const cust = S.ex.cust; if (!cust) { toast('Pick a customer in the Reports card first'); return; }
+    const label = btn.textContent; btn.disabled = true; btn.textContent = 'Loading…';
+    try { S.fsum = { cust, bldg: S.ex.bldg, latest: await loadFilterSum(cust) }; S.admin = 'filters'; render(); window.scrollTo(0, 0); }
+    catch (e) { toast('Could not load filters: ' + e.message, 4500); btn.disabled = false; btn.textContent = label; }
+  }
+  function fsumCsv() {
+    const F = S.fsum, A = filterAgg(F.latest, F.cust, F.bldg), q = v => { v = String(v ?? ''); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+    const lines = [['Section', 'Building', 'System', 'System Type', 'Filter Size', 'Quantity', 'Systems', 'Last Recorded']];
+    A.sizes(A.total).forEach(k => lines.push(['Total', '', '', '', k, A.total[k].qty + (A.total[k].unknown ? ` (+${A.total[k].unknown} unknown)` : ''), A.total[k].systems, '']));
+    A.buildings.forEach(b => { const m = A.byB[b].sizes; A.sizes(m).forEach(k => lines.push(['Building total', b, '', '', k, m[k].qty + (m[k].unknown ? ` (+${m[k].unknown} unknown)` : ''), m[k].systems, '']));
+      A.byB[b].systems.forEach(({ r, fs }) => fs.forEach(f => lines.push(['System', b, r['System Number'], r['System Type'], f.size, f.qty == null ? '?' : f.qty, '', String(r['Date / Time']).slice(0, 10)]))); });
+    A.missing.forEach(x => lines.push(['No filter on file', x.building, x.number, x.type, '', '', '', '']));
+    const csv = lines.map(l => l.map(q).join(',')).join('\r\n');
+    saveBlob(new Blob(['﻿' + csv], { type: 'text/csv' }), `filter-summary-${(F.cust + (F.bldg ? '-' + F.bldg : '')).replace(/[^\w-]+/g, '-').toLowerCase()}.csv`);
+  }
+  async function fsumPdf(btn) {
+    const F = S.fsum, A = filterAgg(F.latest, F.cust, F.bldg), label = btn.textContent; btn.disabled = true; btn.textContent = 'Building…';
+    try {
+      for (const src of PDF_LIBS) await loadScript(src);
+      const doc = new window.jspdf.jsPDF({ unit: 'pt', format: 'letter' }), W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 40;
+      let y = M; const logo = await logoData();
+      if (logo) { const h = 40, w = h * logo.w / logo.h; doc.addImage(logo.url, 'PNG', M, y, w, h); }
+      const tx = logo ? M + 52 : M;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.setTextColor(...PC.ink); doc.text('Filter Summary', tx, y + 16);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(...PC.muted); doc.text('Betz Heating & Air', tx, y + 32);
+      y += 58; doc.setFontSize(11); doc.setTextColor(...PC.ink); doc.text(`${F.cust}${F.bldg ? ' · ' + F.bldg : ' · all buildings'} · latest recorded filter sizes`, M, y);
+      const sizeTable = (title, m, startY) => { doc.autoTable({ startY, margin: { left: M, right: M }, head: [[{ content: title, colSpan: 3, styles: { halign: 'left' } }], ['Size', 'Filters', 'Systems']],
+        body: A.sizes(m).map(k => [k, qtyTxt(m[k]), m[k].systems]), styles: { fontSize: 9, cellPadding: 4, textColor: PC.ink }, headStyles: { fillColor: PC.brand, textColor: 255 },
+        columnStyles: { 0: { cellWidth: 190 }, 1: { cellWidth: 190, fontStyle: 'bold' } }, pageBreak: 'avoid' }); return doc.lastAutoTable.finalY; };
+      y = sizeTable('Total', A.total, y + 14);
+      A.buildings.forEach(b => {
+        y = sizeTable(b, A.byB[b].sizes, y + 18);
+        doc.autoTable({ startY: y + 2, margin: { left: M, right: M }, head: [['System', 'Type', 'Filters', 'Last recorded']],
+          body: A.byB[b].systems.map(({ r, fs }) => [r['System Number'], TYPE_SHORT[r['System Type']] || r['System Type'], fs.map(f => `${f.qty == null ? '?' : f.qty} × ${f.size}`).join(', '), String(r['Date / Time']).slice(0, 10)]),
+          styles: { fontSize: 8, cellPadding: 3, textColor: PC.ink }, headStyles: { fillColor: PC.band, textColor: PC.ink }, columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 70 }, 2: { cellWidth: 240 } } });
+        y = doc.lastAutoTable.finalY;
+      });
+      if (A.missing.length) { doc.autoTable({ startY: y + 18, margin: { left: M, right: M }, head: [['No filter size on file', '']], body: A.missing.map(x => [x.building, 'System ' + x.number + ' · ' + (TYPE_SHORT[x.type] || x.type)]),
+        styles: { fontSize: 8, cellPadding: 3, textColor: PC.muted }, headStyles: { fillColor: PC.band, textColor: PC.ink } }); }
+      const n = doc.getNumberOfPages(), made = new Date().toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+      for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFontSize(8); doc.setTextColor(...PC.muted); doc.text(`Betz Heating & Air · Filter Summary · Generated ${made}`, M, H - 20); doc.text(`Page ${i} of ${n}`, W - M, H - 20, { align: 'right' }); }
+      saveBlob(doc.output('blob'), `filter-summary-${(F.cust + (F.bldg ? '-' + F.bldg : '')).replace(/[^\w-]+/g, '-').toLowerCase()}.pdf`);
+      toast('Filter summary PDF ready');
+    } catch (e) { console.error(e); toast('Could not build the PDF. Check your connection and try again.', 4500); }
+    finally { btn.disabled = false; btn.textContent = label; }
+  }
+
   // ---------------------------------------------------------------- SYSTEMS (admin list) + SYSTEM EDITOR
   // Techs may edit a system until its first heat / AC / filter check; after that only admin (the script enforces it too)
   const canTechEdit = s => S.role === 'tech' && !(s.checks > 0) && !RECORDS.some(r => r.systemId === s.id && r.check !== 'Inspection');
@@ -2200,6 +2292,9 @@ Rules: copy model and serial character for character and list any field with unr
       case 'cancelEdit': S.editing = null; S.admin = 'detail'; render(); window.scrollTo(0, 0); break;
       case 'preview': S.admin = 'preview'; render(); window.scrollTo(0, 0); break;
       case 'csv': runExport(t, 'csv'); break;
+      case 'filterSum': runFilterSum(t); break;
+      case 'fsumCsv': fsumCsv(); break;
+      case 'fsumPdf': fsumPdf(t); break;
       case 'editSys': $('sheet').innerHTML = ''; openSysEdit(t.dataset.id, 'edit'); break;
       case 'sysReplace': openSysEdit(S.sysEdit.id, 'replace'); break;
       case 'sysSave': trySysSave(); break;
