@@ -1817,10 +1817,11 @@ Rules: copy model and serial character for character and list any field with unr
         <label class="fl">Building<select data-ex="bldg" ${e.cust ? '' : 'disabled'}><option value="">All buildings</option>${bldgs.map(b => `<option ${b === e.bldg ? 'selected' : ''}>${esc(b)}</option>`).join('')}</select></label></div>
       <label class="fl">Check type<select data-ex="check"><option value="">All checks</option>${CHECKS.map(c => `<option value="${c}" ${c === e.check ? 'selected' : ''}>${CHECK_LABEL[c]}</option>`).join('')}</select></label>
       <div class="grid2"><label class="fl">From<input type="date" data-ex="from" value="${e.from}"></label><label class="fl">To<input type="date" data-ex="to" value="${e.to}"></label></div>
+      <label class="chk"><input type="checkbox" data-ex="photos" ${e.photos !== false ? 'checked' : ''}> Include photos in PDFs</label>
       <div class="grid2"><button type="button" class="btn primary" data-act="pdf">Download PDF</button><button type="button" class="btn primary" data-act="custpdf">Customer PDF</button></div>
       <button type="button" class="btn" data-act="csv">Download CSV</button>
       <button type="button" class="btn" data-act="filterSum">Filter summary</button>
-      <div class="hint">Filter summary: how many of each filter size the customer uses, in total and by building (pick a customer; dates don't apply). PDF: summary plus every system's details and photos. Customer PDF: the same without technician names, with issue photos only. CSV: one row per check for Excel / Google Sheets.</div></section>`;
+      <div class="hint">Unchecking photos makes smaller PDFs that build faster. Filter summary: how many of each filter size the customer uses, in total and by building (pick a customer; dates don't apply). PDF: summary plus every system's details and photos. Customer PDF: the same without technician names, with issue photos only. CSV: one row per check for Excel / Google Sheets.</div></section>`;
   }
   async function exportRows() {
     const e = S.ex; let recs;
@@ -1852,7 +1853,7 @@ Rules: copy model and serial character for character and list any field with unr
   async function buildPdf(rows, forCustomer, btn) {
     if (!rows.length) { toast('No checks match the report filters'); return; }
     btn.textContent = 'Loading photos…';
-    const photosOf = r => (forCustomer ? r.photos.filter(p => p.tag.startsWith('Issue:')) : r.photos);
+    const photosOf = r => (S.ex.photos === false ? [] : forCustomer ? r.photos.filter(p => p.tag.startsWith('Issue:')) : r.photos);
     if (LIVE) await ensurePhotos(rows.flatMap(photosOf));
     btn.textContent = 'Building PDF…';
     for (const src of PDF_LIBS) await loadScript(src);
@@ -2418,7 +2419,7 @@ Rules: copy model and serial character for character and list any field with unr
     if ((S.view === 'sysedit' || S.admin === 'sysedit') && S.sysEdit) { if (t.id && $(t.id + '-o')) $(t.id + '-o').hidden = t.value !== '__o';
       if (t.id === 'se-cust') { const dl = $('se-bldgs'); if (dl) dl.innerHTML = buildingsOf(t.value).map(b => `<option value="${esc(b)}">`).join(''); }
       if (t.id === 'i-type' || t.name === 'i-heat') inspVis(); return; }
-    if (t.dataset.ex) { S.ex[t.dataset.ex] = t.value; if (t.dataset.ex === 'cust') S.ex.bldg = ''; if (['cust', 'bldg'].includes(t.dataset.ex)) render(); return; }
+    if (t.dataset.ex) { S.ex[t.dataset.ex] = t.type === 'checkbox' ? t.checked : t.value; if (t.dataset.ex === 'cust') S.ex.bldg = ''; if (['cust', 'bldg'].includes(t.dataset.ex)) render(); return; }
     if (t.dataset.af) { S.af[t.dataset.af] = t.value; if (t.dataset.af === 'cust') S.af.bldg = ''; render(); return; }
     if (t.dataset.setting) { SETTINGS[t.dataset.setting].v = Number(t.value); toast('Threshold updated'); return; }
     if (t.id === 'cust-version') { S.custVersion = t.checked; render(); return; }
