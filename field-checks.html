@@ -376,7 +376,8 @@ window.FC_LIVE = true;
   // cap (rated + reading, auto condition), outcap (single/dual outdoor run capacitor), calc (temperature split)
   const F = {
     heat: opts => ({ id: 'heatSource', l: 'Heat Source', t: 'seg', o: opts, hint: 'Pre-selected from the system. Changing it shows the sections for that heat source.' }),
-    filterCond: () => ({ id: 'filterCond', l: 'Filter Condition', t: 'seg', o: ['Changed', 'Clean'] }),
+    // No Filter = the unit has no filter installed but needs one: flagged, and the sizes are still recorded for ordering
+    filterCond: () => ({ id: 'filterCond', l: 'Filter Condition', t: 'seg', o: ['Changed', 'Clean', 'No Filter'], bad: ['No Filter'], hint: 'No Filter: none installed. Still enter the sizes it needs.' }),
     filter: (i, opt) => ({ id: 'filter' + i, l: 'Filter Size ' + i, t: 'qty', list: 'Filter Sizes', opt }),
     hv: () => ({ id: 'hv', l: 'High Voltage Condition', t: 'seg', o: GB, bad: ['Bad'] }),
     lv: () => ({ id: 'lv', l: 'Low Voltage Condition', t: 'seg', o: GB, bad: ['Bad'] }),
@@ -649,6 +650,7 @@ window.FC_LIVE = true;
       return `${f.l}: ${parts.join(', ')}`;
     }
     if (f.t === 'calc') return `${f.l}: ${calcVal(f, get)} °F`;
+    if (f.id === 'filterCond' && v === 'No Filter') { const need = [get('filter1'), get('filter2')].filter(x => x && !/\?\)?\s*\?$/.test(x)).join(' + '); return `No filter installed: needs ${need || 'filters (size not recorded)'}`; }
     if (f.t === 'flag') return 'Technician flagged: system needs attention';
     if (f.t === 'num') return `${f.l}: ${v} ${f.unit}`;
     return `${f.l}: ${v}`;
@@ -694,6 +696,7 @@ window.FC_LIVE = true;
   const hasOutdoor = heat => S.sections.some(sec => (!sec.hs || visibleSection(sec, heat)) && sec.fields.some(f => sideOf(sec, f) === 'outdoor' && (!f.hs || visibleField(f, heat))));
   const curPart = () => (S.sys && SPLIT_CHECK(S.sys.type, S.check) && !S.editing ? S.cpart || 'both' : '');
   // visibility
+  const fieldOff = (f, get) => !!(f.offWhen && get(f.offWhen.f) === f.offWhen.v);
   const visibleSection = (s, heat) => !s.hs || s.hs.includes(heat);
   const visibleField = (f, heat) => !f.hs || f.hs.includes(heat);
 
@@ -800,7 +803,7 @@ window.FC_LIVE = true;
     const rec = {}, cols = [], put = (k, v) => { rec[k] = v == null ? '' : v; cols.push(k); };
     sections.forEach(sec => sec.fields.forEach(f => {
       if (f.id === 'heatSource' || f.id === 'notes') return;
-      const vis = visibleSection(sec, heat) && visibleField(f, heat), v = vis ? a[f.id] : undefined, L = f.l;
+      const vis = visibleSection(sec, heat) && visibleField(f, heat) && !fieldOff(f, id => a[id]), v = vis ? a[f.id] : undefined, L = f.l;
       if (f.t === 'cap') { const c = v || {}, na = capNA(c.rated); put(L + ' Rated', c.rated || ''); put(L + ' Reading', na ? '' : c.reading || ''); put(L + ' Condition', na || !c.rated ? '' : condName(capSev(c.rated, c.reading))); }
       else if (f.t === 'outcap') {
         const c = v || {}, dual = c.kind === 'Dual', [dc, dfn] = parseDual(c.dual);
@@ -1229,7 +1232,7 @@ window.FC_LIVE = true;
     const heat = curHeat(), out = [];
     const part = curPart();
     if (noAcc()) { const i = S.sections.findIndex(sec => sec.fields.some(f => f.id === 'notes')); return i > -1 ? [{ f: S.fmap.notes, i }] : []; }
-    S.sections.forEach((sec, i) => { if (S.fmap.heatSource && sec.hs && !visibleSection(sec, heat)) return; sec.fields.forEach(f => { if (f.hs && !visibleField(f, heat)) return; if (!partShows(part, sec, f)) return; out.push({ f, i }); }); });
+    S.sections.forEach((sec, i) => { if (S.fmap.heatSource && sec.hs && !visibleSection(sec, heat)) return; sec.fields.forEach(f => { if (f.hs && !visibleField(f, heat)) return; if (!partShows(part, sec, f)) return; if (fieldOff(f, id => S.fmap[id] && getVal(S.fmap[id]))) return; out.push({ f, i }); }); });
     return out;
   }
   const capOut = (id, rated, reading) => {
@@ -1252,7 +1255,7 @@ window.FC_LIVE = true;
       const offPart = sec.fields.every(f => !partShows(part, sec, f));
       const hide = na ? !sec.fields.some(f => f.id === 'notes') : offPart || !!(S.fmap.heatSource && sec.hs && (!heat || !visibleSection(sec, heat)));
       $('s-' + i).hidden = hide; const j = $('j-' + i); if (j) j.hidden = hide;
-      sec.fields.forEach(f => { $('w-' + f.id).hidden = na ? f.id !== 'notes' : !partShows(part, sec, f) || (!!f.hs && !!(S.fmap.heatSource && (!heat || !visibleField(f, heat)))); });
+      sec.fields.forEach(f => { $('w-' + f.id).hidden = na ? f.id !== 'notes' : !partShows(part, sec, f) || fieldOff(f, id => S.fmap[id] && getVal(S.fmap[id])) || (!!f.hs && !!(S.fmap.heatSource && (!heat || !visibleField(f, heat)))); });
     });
     if ($('photos-card')) $('photos-card').hidden = na || (LIVE && !!S.editing);
     $('f-noaccess').closest('.flagchk').classList.toggle('auto-on', na);
@@ -1988,7 +1991,7 @@ Rules: copy model and serial character for character and list any field with unr
     if (a.noAccess === 'Yes') return [['Access', [['No access', 'Yes', 'yellow']]], ['Notes', [['Notes', a.notes, 'notes']]]];
     recSections(rec).forEach(sec => {
       if (sec.hs && !visibleSection(sec, heat)) return;
-      const items = sec.fields.filter(f => visibleField(f, heat)).map(f => {
+      const items = sec.fields.filter(f => visibleField(f, heat) && !fieldOff(f, id => a[id])).map(f => {
         const v = a[f.id], sv = evaluate(f, v, get), txt = show(f, v, get);
         let cls = f.id === 'notes' ? 'notes' : sv || (v === 'Green' || v === 'Good' ? 'green' : '');
         if (!sv && (f.t === 'cap' || f.t === 'outcap' || f.t === 'calc') && txt && txt !== NA) cls = 'green';
@@ -2067,9 +2070,9 @@ Rules: copy model and serial character for character and list any field with unr
   async function loadFilterSum(cust) {
     if (LIVE) { const j = await api('filterSummary', { customer: cust }); (j.systems || []).forEach(r => { const x = sysFromRow(r), cur = sysById(x.id); if (cur) Object.assign(cur, x); else SYSTEMS.push(x); }); return j.latest || []; }
     const latest = {};
-    RECORDS.filter(r => r.customer === cust && r.check !== 'Inspection' && r.answers.noAccess !== 'Yes' && (r.answers.filter1 || r.answers.filter2)).forEach(r => {
+    RECORDS.filter(r => r.customer === cust && r.check !== 'Inspection' && r.answers.noAccess !== 'Yes' && (r.answers.filter1 || r.answers.filter2 || r.answers.filterCond === 'No Filter')).forEach(r => {
       const cur = latest[r.systemId]; if (!cur || cur.time < r.time) latest[r.systemId] = r; });
-    return Object.values(latest).map(r => { const s = sysById(r.systemId); return { 'System ID': r.systemId, 'Building': r.building, 'System Number': s.number, 'System Type': s.type, 'Date / Time': ymd(r.time), 'Filter Size 1': r.answers.filter1 || '', 'Filter Size 2': r.answers.filter2 || '' }; });
+    return Object.values(latest).map(r => { const s = sysById(r.systemId); return { 'System ID': r.systemId, 'Building': r.building, 'System Number': s.number, 'System Type': s.type, 'Date / Time': ymd(r.time), 'Filter Size 1': r.answers.filterCond === 'No Filter' ? '' : r.answers.filter1 || '', 'Filter Size 2': r.answers.filterCond === 'No Filter' ? '' : r.answers.filter2 || '', 'Filter Condition': r.answers.filterCond || '' }; });
   }
   function filterAgg(latest, cust, bldg) {
     const rows = latest.filter(r => !bldg || r['Building'] === bldg);
@@ -2086,6 +2089,7 @@ Rules: copy model and serial character for character and list any field with unr
     return { total, byB, missing, sizes, buildings: Object.keys(byB).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })) };
   }
   const sysSA = r => { const x = sysById(r['System ID']); return x ? suiteArea(x) : ''; };   // suite / area served for a filter row
+  const fsTxt = (r, fs) => (fs.length ? fs.map(f => `${f.qty == null ? '?' : f.qty} × ${f.size}`).join(', ') : '—') + (r['Filter Condition'] === 'No Filter' ? ' (none installed yet)' : '');
   const qtyTxt = t => (t.unknown ? (t.qty ? `${t.qty} + qty not recorded on ${t.unknown}` : 'qty not recorded') : String(t.qty));
   function renderFilterSum() {
     const F = S.fsum, A = filterAgg(F.latest, F.cust, F.bldg), tbl = (m) => `<table class="ftbl"><thead><tr><th>Size</th><th>Filters</th><th>Systems</th></tr></thead><tbody>${A.sizes(m).map(k => `<tr><td>${esc(k)}</td><td><b>${qtyTxt(m[k])}</b></td><td>${m[k].systems}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">None recorded</td></tr>'}</tbody></table>`;
@@ -2096,7 +2100,7 @@ Rules: copy model and serial character for character and list any field with unr
       <section class="card"><h2>Total</h2>${tbl(A.total)}</section>
       ${A.buildings.map(b => `<section class="card"><h2>${esc(b)}</h2>${tbl(A.byB[b].sizes)}
         <div class="fsys">${A.byB[b].systems.map(({ r, fs }) => `<div class="kv"><span class="k">System ${esc(r['System Number'])} · ${esc(TYPE_SHORT[r['System Type']] || r['System Type'])}${sysSA(r) ? `<br><small class="muted">${esc(sysSA(r))}</small>` : ''}</span>
-          <span class="v">${fs.map(f => `${f.qty == null ? '?' : f.qty} × ${esc(f.size)}`).join(', ') || '—'} <small class="muted">${esc(String(r['Date / Time']).slice(0, 10))}</small></span></div>`).join('')}</div></section>`).join('')}
+          <span class="v">${esc(fsTxt(r, fs))} <small class="muted">${esc(String(r['Date / Time']).slice(0, 10))}</small></span></div>`).join('')}</div></section>`).join('')}
       ${A.missing.length ? `<section class="card"><h2>No filter size on file</h2><div class="muted">${A.missing.map(x => `${esc(x.building)} · System ${esc(x.number)}${suiteArea(x) ? ' · ' + esc(suiteArea(x)) : ''}`).join('<br>')}</div></section>` : ''}`;
   }
   async function runFilterSum(btn) {
@@ -2111,7 +2115,7 @@ Rules: copy model and serial character for character and list any field with unr
     const sx = r => sysById(r['System ID']) || {};
     A.sizes(A.total).forEach(k => lines.push(['Total', '', '', '', '', '', k, A.total[k].qty + (A.total[k].unknown ? ` (+${A.total[k].unknown} unknown)` : ''), A.total[k].systems, '']));
     A.buildings.forEach(b => { const m = A.byB[b].sizes; A.sizes(m).forEach(k => lines.push(['Building total', b, '', '', '', '', k, m[k].qty + (m[k].unknown ? ` (+${m[k].unknown} unknown)` : ''), m[k].systems, '']));
-      A.byB[b].systems.forEach(({ r, fs }) => fs.forEach(f => lines.push(['System', b, r['System Number'], sx(r).suite || '', sx(r).area || '', r['System Type'], f.size, f.qty == null ? '?' : f.qty, '', String(r['Date / Time']).slice(0, 10)]))); });
+      A.byB[b].systems.forEach(({ r, fs }) => (fs.length ? fs : [{ size: '', qty: '' }]).forEach(f => lines.push(['System', b, r['System Number'], sx(r).suite || '', sx(r).area || '', r['System Type'], f.size + (r['Filter Condition'] === 'No Filter' ? ' (none installed yet)' : ''), f.qty == null ? '?' : f.qty, '', String(r['Date / Time']).slice(0, 10)]))); });
     A.missing.forEach(x => lines.push(['No filter on file', x.building, x.number, x.suite || '', x.area || '', x.type, '', '', '', '']));
     const csv = lines.map(l => l.map(q).join(',')).join('\r\n');
     showFilePrev(new Blob(['\ufeff' + csv], { type: 'text/csv' }), `filter-summary-${(F.cust + (F.bldg ? '-' + F.bldg : '')).replace(/[^\w-]+/g, '-').toLowerCase()}.csv`, 'Filter summary CSV', F.cust + (F.bldg ? ' · ' + F.bldg : ''));
@@ -2134,7 +2138,7 @@ Rules: copy model and serial character for character and list any field with unr
       A.buildings.forEach(b => {
         y = sizeTable(b, A.byB[b].sizes, y + 18);
         doc.autoTable({ startY: y + 2, margin: { left: M, right: M }, head: [['System', 'Type', 'Suite / Area', 'Filters', 'Last recorded']],
-          body: A.byB[b].systems.map(({ r, fs }) => [r['System Number'], TYPE_SHORT[r['System Type']] || r['System Type'], sysSA(r).replace(' · ', '\n') || '—', fs.map(f => `${f.qty == null ? '?' : f.qty} × ${f.size}`).join(', '), String(r['Date / Time']).slice(0, 10)]),
+          body: A.byB[b].systems.map(({ r, fs }) => [r['System Number'], TYPE_SHORT[r['System Type']] || r['System Type'], sysSA(r).replace(' · ', '\n') || '—', fsTxt(r, fs), String(r['Date / Time']).slice(0, 10)]),
           styles: { fontSize: 8, cellPadding: 3, textColor: PC.ink }, headStyles: { fillColor: PC.band, textColor: PC.ink }, columnStyles: { 0: { cellWidth: 50 }, 1: { cellWidth: 60 }, 2: { cellWidth: 120 }, 3: { cellWidth: 200 } } });
         y = doc.lastAutoTable.finalY;
       });
