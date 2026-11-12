@@ -719,7 +719,7 @@ window.FC_LIVE = true;
   //  STATE & UTILITIES
   // =====================================================================
   const S = { role: 'tech', view: LIVE ? 'login' : 'visit', visit: { cust: LIVE ? '' : 'Redstone', bldg: LIVE ? '' : 'Building 1', check: 'Heating' }, extraBldgs: {}, adminRecs: [], sys: null, sections: [], fmap: {}, photos: [], admin: 'report',
-    af: { cust: '', check: '', bldg: '' }, ex: { cust: '', bldg: '', check: '', from: '', to: '' }, rec: null, custVersion: true, addOpen: false, editing: null };
+    af: { cust: '', check: '', bldg: '' }, ex: { cust: '', bldg: '', check: '', from: '', to: '' }, sf: { cust: '', bldg: '', repl: false }, rec: null, custVersion: true, addOpen: false, editing: null };
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const tm = d => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -766,10 +766,11 @@ window.FC_LIVE = true;
   }
   const SYS_COLS = { id: 'System ID', customer: 'Customer', building: 'Building', number: 'System Number', type: 'System Type', heat: 'Heat Source', suite: 'Suite', area: 'Area Served',
     outdoor: 'Outdoor Location', indoor: 'Indoor Location', make: 'Manufacturer', model: 'Model Number', serial: 'Serial Number', size: 'Size', mfg: 'Manufacture Date',
-    refrigerant: 'Refrigerant Type', overallStatus: 'Overall Status', visual: 'Visual Condition', operational: 'Operational Assessment', notes: 'Notes', height: 'Approximate Height of Indoor Unit' };
+    refrigerant: 'Refrigerant Type', overallStatus: 'Overall Status', visual: 'Visual Condition', operational: 'Operational Assessment', notes: 'Notes', height: 'Approximate Height of Indoor Unit',
+    status: 'Status', replacedOn: 'Replaced On', replacedBy: 'Replaced By System' };
   { const C = { furnace: 'Furnace', evap: 'Evaporator', ah: 'Air Handler', cond: 'Condenser' }, F2 = { make: 'Manufacturer', model: 'Model Number', serial: 'Serial Number', size: 'Size', mfg: 'Manufacture Date' };
     Object.entries(C).forEach(([c, cl]) => Object.entries(F2).forEach(([f, fl]) => { SYS_COLS[c + '_' + f] = cl + ' ' + fl; })); }
-  const sysFromRow = r => { const o = {}; Object.entries(SYS_COLS).forEach(([k, c]) => { o[k] = String(r[c] ?? ''); }); return o; };
+  const sysFromRow = r => { const o = {}; Object.entries(SYS_COLS).forEach(([k, c]) => { o[k] = String(r[c] ?? ''); }); if (r._checks != null) o.checks = Number(r._checks) || 0; return o; };
   const sysToRow = s => { const o = {}; Object.entries(SYS_COLS).forEach(([k, c]) => { o[c] = s[k] ?? ''; }); return o; };
   const parseStamp = t => { const d = new Date(String(t || '').replace(' ', 'T')); return isNaN(d) ? new Date() : d; };
   const condName = sv => sv ? sv[0].toUpperCase() + sv.slice(1) : '';
@@ -1006,8 +1007,8 @@ window.FC_LIVE = true;
     $('who').hidden = LIVE && !API.name;
     $('bot').innerHTML = ''; $('sheet').innerHTML = '';
     if (S.view === 'login') return renderLogin();
-    if (S.role === 'tech') ({ visit: renderVisit, check: renderCheck, inspect: renderInspect })[S.view]();
-    else ({ report: renderReport, detail: renderDetail, preview: renderPreview, lists: renderLists, settings: renderSettings, edit: renderCheck })[S.admin]();
+    if (S.role === 'tech') ({ visit: renderVisit, check: renderCheck, inspect: renderInspect, sysedit: renderSysEdit })[S.view]();
+    else ({ report: renderReport, detail: renderDetail, preview: renderPreview, lists: renderLists, settings: renderSettings, edit: renderCheck, systems: renderSystems, sysedit: renderSysEdit })[S.admin]();
   }
 
   // ---------------------------------------------------------------- VISIT
@@ -1016,7 +1017,7 @@ window.FC_LIVE = true;
     if (!custs.includes(v.cust)) v.cust = custs[0] || '';
     let bldgs = buildingsOf(v.cust); if (!bldgs.length) bldgs = ['Building 1'];
     if (!bldgs.includes(v.bldg)) v.bldg = bldgs[0];
-    const systems = SYSTEMS.filter(s => s.customer === v.cust && s.building === v.bldg).sort((a, b) => byNum(a.number, b.number));
+    const systems = SYSTEMS.filter(s => s.customer === v.cust && s.building === v.bldg && s.status !== 'Replaced').sort((a, b) => byNum(a.number, b.number));
     const loading = LIVE && needStatus();
     const insp = v.check === 'Inspection';
     const halves = s => { const r = recFor(s.id, 'Inspection'); return r ? { i: !!r.answers._indoor, o: !!r.answers._outdoor } : null; };
@@ -1565,7 +1566,7 @@ window.FC_LIVE = true;
     st.fields.forEach(c => { vals[c.alias || c.k] = inspGet(c); });
     const req = INSP_TOP.filter(c => !vals[c.k] && !(st.noAccess && c.k === 'heat'));
     if (req.length) { req.forEach(c => ($('i-' + c.k) || document.querySelector(`input[name="i-${c.k}"]`).closest('.seg')).classList.add('invalid')); toast('Fill in ' + req.map(c => c.l).join(', ')); return; }
-    const dup = SYSTEMS.find(x => x.id !== S.sys.id && x.customer === S.visit.cust && x.building === S.visit.bldg && String(x.number) === String(vals.number));
+    const dup = SYSTEMS.find(x => x.id !== S.sys.id && x.status !== 'Replaced' && x.customer === S.visit.cust && x.building === S.visit.bldg && String(x.number) === String(vals.number));
     if (dup) { $('i-number').classList.add('invalid'); toast(`System ${vals.number} already exists in ${S.visit.bldg}`); return; }
     const needPhotos = inspRequiredPhotos(st).filter(t => !S.photos.some(p => photoMatches(t, p.tag)));
     if (needPhotos.length) { sheet(`<h3>Photo required</h3><div class="stop">Add: ${esc(needPhotos.join(', '))}</div><div class="sheet-actions"><button type="button" class="btn primary" data-act="closeSheet">OK</button></div>`); return; }
@@ -1731,7 +1732,7 @@ Rules: copy model and serial character for character and list any field with unr
   }
 
   // ---------------------------------------------------------------- ADMIN
-  const adminTabs = a => `<div class="tabs">${[['report', 'Report'], ['lists', 'Lists'], ['settings', 'Settings']].map(([k, t]) => `<button type="button" data-act="adminTab" data-v="${k}" class="${a === k ? 'on' : ''}">${t}</button>`).join('')}</div>`;
+  const adminTabs = a => `<div class="tabs">${[['report', 'Report'], ['systems', 'Systems'], ['lists', 'Lists'], ['settings', 'Settings']].map(([k, t]) => `<button type="button" data-act="adminTab" data-v="${k}" class="${a === k ? 'on' : ''}">${t}</button>`).join('')}</div>`;
   const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const when = d => ymd(d) === ymd(new Date()) ? tm(d) : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ', ' + tm(d);
   async function loadAdmin() {
@@ -1969,7 +1970,8 @@ Rules: copy model and serial character for character and list any field with unr
       ${answerSections(r).map(([t, items]) => `<section class="card"><h2>${esc(t)}</h2>${items.map(([k, v, c]) => `<div class="kv"><span class="k">${esc(k)}</span><span class="v ${c || ''}">${esc(v || '—')}</span></div>`).join('')}</section>`).join('')}
       ${r.photos.length ? `<section class="card"><h2 style="margin-bottom:10px">Photos</h2><div class="photos">${r.photos.map((p, i) => ` <div class="ph-item"><img src="${p.url || PH_WAIT}" alt="${esc(p.tag)}" data-act="recPhoto" data-i="${i}"><div class="cap">${esc(p.tag)}</div></div>`).join('')}</div></section>` : ''}
       ${inspSections(s, s).filter(([t]) => t !== 'Halves').map(([t, items]) => `<section class="card stack"><h2>${esc(t === 'System information' ? 'System info' : t)}</h2>${items.map(([k, v]) => `<div class="kv"><span class="k">${esc(k)}</span><span class="v">${esc(v || '—')}</span></div>`).join('')}`).join('</section>')}
-        <div class="kv"><span class="k">Age</span><span class="v">${sysAge(s) != null ? sysAge(s) + ' years' : '—'}</span></div></section>`;
+        <div class="kv"><span class="k">Age</span><span class="v">${sysAge(s) != null ? sysAge(s) + ' years' : '—'}</span></div>
+        <button type="button" class="btn sm" data-act="editSys" data-id="${esc(s.id)}" style="justify-self:start;margin-top:8px">Edit system info</button></section>`;
   }
   function renderPreview() {
     const rows = filtered().slice().sort((a, b) => a.customer.localeCompare(b.customer) || a.building.localeCompare(b.building) || Number(sysById(a.systemId).number) - Number(sysById(b.systemId).number));
@@ -2016,6 +2018,117 @@ Rules: copy model and serial character for character and list any field with unr
         <button type="button" class="btn sm" data-act="ruleAdd" style="justify-self:start">Add rule</button></section>`;
   }
 
+
+  // ---------------------------------------------------------------- SYSTEMS (admin list) + SYSTEM EDITOR
+  // Techs may edit a system until its first heat / AC / filter check; after that only admin (the script enforces it too)
+  const canTechEdit = s => S.role === 'tech' && !(s.checks > 0) && !RECORDS.some(r => r.systemId === s.id && r.check !== 'Inspection');
+  function renderSystems() {
+    const f = S.sf, custs = [...new Set(SYSTEMS.map(x => x.customer))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+    if (!f.cust && custs.length) f.cust = custs[0];
+    const bldgs = buildingsOf(f.cust);
+    const list = SYSTEMS.filter(x => x.customer === f.cust && (!f.bldg || x.building === f.bldg) && (f.repl || x.status !== 'Replaced'))
+      .sort((a, b) => a.building.localeCompare(b.building, undefined, { numeric: true }) || byNum(a.number, b.number) || (a.status === 'Replaced') - (b.status === 'Replaced'));
+    const groups = {}; list.forEach(x => (groups[x.building] ||= []).push(x));
+    $('app').innerHTML = `${adminTabs('systems')}
+      ${note('<b>Equipment list.</b> Tap a system to correct its info, fill in details later, or record that it was replaced.')}
+      <section class="card stack"><div class="grid2"><label class="fl">Customer<select data-sf="cust">${custs.map(c => `<option ${c === f.cust ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>
+        <label class="fl">Building<select data-sf="bldg"><option value="">All buildings</option>${bldgs.map(b => `<option ${b === f.bldg ? 'selected' : ''}>${esc(b)}</option>`).join('')}</select></label></div>
+        <label class="chk"><input type="checkbox" data-sf="repl" ${f.repl ? 'checked' : ''}> Show replaced systems</label></section>
+      ${Object.keys(groups).map(b => `<section class="card"><div class="bldg-h">${esc(b)}</div>${groups[b].map(x => `
+        <button type="button" class="unit" data-act="editSys" data-id="${esc(x.id)}"><span class="name">System ${esc(x.number)} ${typeChip(x.type)}${x.status === 'Replaced' ? ' <span class="chip">Replaced</span>' : ''}</span>
+          <span class="sub">${esc([sysSub(x), x.checks ? `${x.checks} check${x.checks > 1 ? 's' : ''}` : 'No checks yet', x.status === 'Replaced' && x.replacedOn ? 'replaced ' + x.replacedOn.slice(0, 10) : ''].filter(Boolean).join(' · '))}</span>
+          <span class="right"><span class="chev">›</span></span></button>`).join('')}</section>`).join('') || '<section class="card muted">No systems for this customer yet.</section>'}`;
+  }
+  function openSysEdit(id, mode) {
+    const s = sysById(id); if (!s) return;
+    const back = S.role === 'tech' ? 'visit' : S.admin === 'detail' ? 'detail' : 'systems';
+    S.sysEdit = { id, mode: mode || 'edit', back: S.sysEdit && mode === 'replace' ? S.sysEdit.back : back };
+    if (S.role === 'tech') S.view = 'sysedit'; else S.admin = 'sysedit';
+    render(); window.scrollTo(0, 0);
+  }
+  function renderSysEdit() {
+    const e = S.sysEdit, orig = sysById(e.id), rep = e.mode === 'replace';
+    // a replacement keeps where the system is; the equipment itself starts blank
+    const keepOnReplace = ['customer', 'building', 'number', 'type', 'heat', 'suite', 'area', 'outdoor', 'indoor', 'height'];
+    const s = rep ? Object.fromEntries(Object.entries(orig).filter(([k]) => keepOnReplace.includes(k))) : orig;
+    const val = c => (c.alias ? s[c.alias] : s[c.k]);
+    S.part = 'both';
+    const custs = [...new Set([...(LISTS['Customers'] || []), orig.customer])].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+    const COND_EDIT = INSP_COND.filter(c => c.k !== 'attn');
+    $('app').innerHTML = `
+      <button type="button" class="linkbtn" data-act="sysEditCancel" style="justify-self:start">‹ Back</button>
+      <section class="card check-head"><h3>${rep ? `Replacement for System ${esc(orig.number)}` : `System ${esc(orig.number)}`}</h3>
+        <div class="chips">${typeChip(orig.type)}<span class="chip">${rep ? 'New equipment' : 'Edit system info'}</span>${orig.status === 'Replaced' ? '<span class="chip">Replaced</span>' : ''}</div>
+        <div class="muted">${esc(orig.customer)} · ${esc(orig.building)}${!rep && orig.checks ? ` · ${orig.checks} check${orig.checks > 1 ? 's' : ''} on file` : ''}</div></section>
+      ${rep ? `<section class="card muted">System ${esc(orig.number)} (${esc([orig.make || orig.cond_make || orig.furnace_make || orig.ah_make, orig.model || orig.cond_model].filter(Boolean).join(' ') || 'old equipment')}) keeps its check history and is marked <b>Replaced</b>. Enter the new equipment below; new checks go to the new system.</section>` : ''}
+      <section class="card stack"><h2>Customer and building</h2>
+        <label class="fl">Customer<select id="se-cust">${custs.map(c => `<option ${c === s.customer ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>
+        <label class="fl">Building<input id="se-bldg" list="se-bldgs" value="${esc(s.building || '')}"><datalist id="se-bldgs">${buildingsOf(s.customer).map(b => `<option value="${esc(b)}">`).join('')}</datalist></label></section>
+      <section class="card stack">${INSP_TOP.map(c => inspField(c, val(c))).join('')}<div id="part-wrap" hidden></div><div id="split-hint" hidden></div></section>
+      <section class="card stack"><h2>System information</h2>${INSP_INFO.map(c => inspField(c, val(c))).join('')}</section>
+      <section class="card stack" id="loc-card"><h2>Location</h2>${INSP_LOC.map(c => inspField(c, val(c))).join('')}</section>
+      <section class="card stack" id="eq-single"><h2>Equipment</h2>${INSP_EQ.map(c => inspField(c, val(c))).join('')}</section>
+      ${Object.keys(COMP).map(c => `<section class="card stack" id="comp-${c}" hidden><h2>${COMP[c]}</h2>${INSP_COMP.filter(x => x.comp === c).map(x => inspField(x, val(x))).join('')}${c === 'cond' ? inspField(COND_REF, val(COND_REF)) : ''}</section>`).join('')}
+      <section class="card stack"><h2>Condition</h2>${COND_EDIT.map(c => inspField(c, val(c))).join('')}</section>
+      ${!rep && S.role === 'admin' && orig.status !== 'Replaced' ? `<section class="card stack"><h2>Equipment replaced?</h2><div class="muted">Keeps this system's history as it was and starts a new system with the same number and location.</div>
+        <button type="button" class="btn" data-act="sysReplace" style="justify-self:start">System was replaced…</button></section>` : ''}`;
+    $('bot').innerHTML = `<div class="barbot"><div class="barbot-in"><button type="button" class="btn" data-act="sysEditCancel">Cancel</button><button type="button" class="btn primary" data-act="sysSave">${rep ? 'Save new system' : 'Save'}</button></div></div>`;
+    inspVis();
+  }
+  function sysEditValues() {
+    const e = S.sysEdit, orig = sysById(e.id), vals = {};
+    [...INSP_TOP, ...INSP_INFO, ...INSP_LOC, ...INSP_EQ, ...INSP_COMP, COND_REF, ...INSP_COND.filter(c => c.k !== 'attn')].forEach(c => { if ($('i-' + c.k) || c.t === 'seg') vals[c.alias || c.k] = inspGet(c); });
+    vals.customer = $('se-cust').value; vals.building = $('se-bldg').value.trim();
+    return { e, orig, vals };
+  }
+  function trySysSave() {
+    if (S.busy) return;
+    const { e, orig, vals } = sysEditValues();
+    const miss = [['number', 'System Number'], ['type', 'System Type'], ['building', 'Building']].filter(([k]) => !vals[k]);
+    if (miss.length) { toast('Fill in ' + miss.map(m => m[1]).join(', ')); return; }
+    const dup = SYSTEMS.find(x => x.id !== orig.id && x.status !== 'Replaced' && !(e.mode === 'replace' && x.id === orig.id) && x.customer === vals.customer && x.building === vals.building && String(x.number) === String(vals.number));
+    if (dup) { toast(`System ${vals.number} already exists in ${vals.building}`); return; }
+    if (e.mode === 'replace') {
+      sheet(`<h3>Record the replacement?</h3><div class="stop">System ${esc(orig.number)}'s old equipment is kept with its history and marked Replaced. The new equipment becomes System ${esc(vals.number)} from now on.</div>
+        <div class="sheet-actions"><button type="button" class="btn" data-act="closeSheet">Go back</button><button type="button" class="btn primary" data-act="sysSaveGo" data-fix="0">Save replacement</button></div>`); return;
+    }
+    const idChanged = ['customer', 'building', 'number', 'type'].some(k => String(vals[k] || '') !== String(orig[k] || ''));
+    const hasHistory = orig.checks > 0 || RECORDS.some(r => r.systemId === orig.id) || (S.adminRecs || []).some(r => r.systemId === orig.id);
+    if (S.role === 'admin' && idChanged && hasHistory) {
+      sheet(`<h3>Fix past checks too?</h3><div class="muted">You changed the ${['customer', 'building', 'number', 'type'].filter(k => String(vals[k] || '') !== String(orig[k] || '')).map(k => ({ number: 'system number', type: 'system type' })[k] || k).join(', ')}.</div>
+        <div class="stack" style="margin-top:12px"><button type="button" class="btn primary" data-act="sysSaveGo" data-fix="1">Yes, it was a mistake: fix past checks too</button>
+        <button type="button" class="btn" data-act="sysSaveGo" data-fix="0">No, only from now on</button><button type="button" class="btn ghost" data-act="closeSheet">Cancel</button></div>`); return;
+    }
+    sysSaveGo(false);
+  }
+  async function sysSaveGo(fix) {
+    const { e, orig, vals } = sysEditValues(), rep = e.mode === 'replace';
+    const next = rep ? { ...SYS(vals.customer, vals.building, vals.number, vals.type, vals.heat) } : { ...orig };
+    Object.assign(next, vals); delete next.checks;
+    if (LIVE) {
+      busy(true);
+      try {
+        if (rep) { const j = await api('adminReplace', { oldId: orig.id, system: sysToRow(next) }); next.id = j.id; }
+        else if (S.role === 'admin') await api('adminSystem', { system: sysToRow(next), fixHistory: !!fix });
+        else await api('techSystem', { system: sysToRow(next) });
+      } catch (err) { busy(false); sheet(`<h3>Not saved</h3><div class="stop">${esc(err.message)}</div><div class="sheet-actions"><button type="button" class="btn primary" data-act="closeSheet">OK</button></div>`); return; }
+      busy(false);
+    }
+    if (rep) { orig.status = 'Replaced'; orig.replacedOn = ymd(new Date()); orig.replacedBy = next.id; next.checks = 0; SYSTEMS.push(next); }
+    else {
+      const was = { customer: orig.customer, building: orig.building };
+      Object.assign(orig, next);
+      if (fix || S.role === 'tech') [...RECORDS, ...(S.adminRecs || [])].forEach(r => { if (r.systemId === orig.id) { r.customer = orig.customer; r.building = orig.building; } });
+      if (S.role === 'tech' && (was.customer !== orig.customer || was.building !== orig.building)) { S.visit.cust = orig.customer; S.visit.bldg = orig.building; }
+    }
+    S.statusKey = null; S.adminKey = null;
+    $('sheet').innerHTML = '';
+    const back = e.back; S.sysEdit = null;
+    if (S.role === 'tech') S.view = 'visit'; else S.admin = back === 'detail' && !rep ? 'detail' : 'systems';
+    render(); window.scrollTo(0, 0);
+    toast(rep ? `Replacement saved. Old System ${orig.number} is kept as Replaced.` : fix ? 'System and its past checks updated' : 'System info saved');
+  }
+
   // ---------------------------------------------------------------- SHEET
   function sheet(html) { $('sheet').innerHTML = `<div class="scrim" data-act="closeSheet"><div class="sheet" role="dialog" aria-modal="true">${html}</div></div>`; }
 
@@ -2035,6 +2148,7 @@ Rules: copy model and serial character for character and list any field with unr
           <div class="cb-row"><span>Customer</span><b>${esc(s.customer)}</b></div><div class="cb-row"><span>Building</span><b>${esc(s.building)}</b></div>
           <div class="cb-row"><span>System</span><b>System ${esc(s.number)} · ${esc(s.type)}</b></div>${extra ? `<div class="cb-row"><span></span><b class="muted">${esc(extra)}</b></div>` : ''}
           <div class="cb-row"><span>Check</span><b>${esc(CHECK_LABEL[S.visit.check])}</b></div></div>
+          ${canTechEdit(s) ? `<button type="button" class="linkbtn" data-act="editSys" data-id="${esc(s.id)}" style="margin-top:6px">Something wrong? Edit system info</button>` : ''}
           <div class="sheet-actions"><button type="button" class="btn" data-act="closeSheet">Not this one</button><button type="button" class="btn primary" data-act="confirmSys" data-id="${esc(s.id)}">Yes, start</button></div>`);
         break; }
       case 'confirmSys': { $('sheet').innerHTML = ''; const s = sysById(t.dataset.id);
@@ -2086,6 +2200,13 @@ Rules: copy model and serial character for character and list any field with unr
       case 'cancelEdit': S.editing = null; S.admin = 'detail'; render(); window.scrollTo(0, 0); break;
       case 'preview': S.admin = 'preview'; render(); window.scrollTo(0, 0); break;
       case 'csv': runExport(t, 'csv'); break;
+      case 'editSys': $('sheet').innerHTML = ''; openSysEdit(t.dataset.id, 'edit'); break;
+      case 'sysReplace': openSysEdit(S.sysEdit.id, 'replace'); break;
+      case 'sysSave': trySysSave(); break;
+      case 'sysSaveGo': sysSaveGo(t.dataset.fix === '1'); break;
+      case 'sysEditCancel': { const back = S.sysEdit ? S.sysEdit.back : 'systems', rep = S.sysEdit && S.sysEdit.mode === 'replace';
+        if (rep) { S.sysEdit.mode = 'edit'; render(); break; }
+        S.sysEdit = null; if (S.role === 'tech') S.view = 'visit'; else S.admin = back; render(); window.scrollTo(0, 0); break; }
       case 'pdf': runExport(t, 'pdf'); break;
       case 'custpdf': runExport(t, 'custpdf'); break;
       case 'queue': qRefresh().then(queueSheet); break;
@@ -2119,6 +2240,10 @@ Rules: copy model and serial character for character and list any field with unr
     if (t.dataset.visit) { if (t.value === '__new') { sheet(`<h3>New building</h3><label class="fl">Building name<input id="new-bldg" placeholder="e.g. Building 3"></label><div class="sheet-actions"><button type="button" class="btn" data-act="closeSheet">Cancel</button><button type="button" class="btn primary" id="new-bldg-go">Add</button></div>`);
         $('new-bldg-go').onclick = () => { const b = $('new-bldg').value.trim(); if (!b) return; (S.extraBldgs[S.visit.cust] ||= []).push(b); S.visit.bldg = b; $('sheet').innerHTML = ''; render(); }; t.value = S.visit.bldg; return; }
       S.visit[t.dataset.visit] = t.value; render(); return; }
+    if (t.dataset.sf) { S.sf[t.dataset.sf] = t.type === 'checkbox' ? t.checked : t.value; if (t.dataset.sf === 'cust') S.sf.bldg = ''; render(); return; }
+    if ((S.view === 'sysedit' || S.admin === 'sysedit') && S.sysEdit) { if (t.id && $(t.id + '-o')) $(t.id + '-o').hidden = t.value !== '__o';
+      if (t.id === 'se-cust') { const dl = $('se-bldgs'); if (dl) dl.innerHTML = buildingsOf(t.value).map(b => `<option value="${esc(b)}">`).join(''); }
+      if (t.id === 'i-type' || t.name === 'i-heat') inspVis(); return; }
     if (t.dataset.ex) { S.ex[t.dataset.ex] = t.value; if (t.dataset.ex === 'cust') S.ex.bldg = ''; if (['cust', 'bldg'].includes(t.dataset.ex)) render(); return; }
     if (t.dataset.af) { S.af[t.dataset.af] = t.value; if (t.dataset.af === 'cust') S.af.bldg = ''; render(); return; }
     if (t.dataset.setting) { SETTINGS[t.dataset.setting].v = Number(t.value); toast('Threshold updated'); return; }
