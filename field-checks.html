@@ -331,6 +331,16 @@
   .ftbl td { padding: 6px; border-bottom: 1px solid var(--line); }
   .fsys { margin-top: 10px; }
   .fsys small { margin-left: 6px; }
+  .unit-row { display: flex; align-items: stretch; border-top: 1px solid var(--line); }
+  .unit-row .unit { border-top: 0; flex: 1; min-width: 0; }
+  .info-btn { flex: none; width: 40px; margin: 10px 0 10px 4px; border: 1px solid var(--line); border-radius: 50%; height: 40px; align-self: center; background: var(--card); color: var(--muted);
+    font: italic 700 17px Georgia, serif; cursor: pointer; }
+  .info-btn:hover { color: var(--brand); border-color: var(--brand); }
+  .orphan { color: var(--red); font-weight: 700; }
+  .row-links { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 6px; }
+  .info-scroll { max-height: 55vh; overflow: auto; margin-top: 10px; }
+  .info-sec { margin-bottom: 10px; } .info-h { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 6px 0 2px; }
+  .orph { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
 </style></head><body>
 <header class="top"><div class="top-in">
   <button type="button" class="home" data-act="home" aria-label="Home: back to visit setup"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5M5.5 9.5V20h4.5v-6h4v6h4.5V9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg></button>
@@ -815,7 +825,7 @@ window.FC_LIVE = true;
   function recFromRow(r) {
     const tab = r._checklist || '', check = tab === 'Inspection' || tab === 'Filters' ? tab : (tab.split(' – ')[1] || '');
     let sys = sysById(r['System ID']);
-    if (!sys) { sys = sysFromRow(r); sys.id = r['System ID']; SYSTEMS.push(sys); }
+    if (!sys) { sys = sysFromRow(r); sys.id = r['System ID']; sys.orphan = true; SYSTEMS.push(sys); }   // its system was removed from the Systems tab
     const fn = CHECKLISTS[sys.type + '|' + check];
     const answers = check === 'Inspection' ? Object.fromEntries(INSP_ALL.map(c => [c.k, String(r[c.l] ?? '')])) : fn ? fromCols(fn(), r) : {};
     answers._indoor = r['Indoor Done'] === 'Yes'; answers._outdoor = r['Outdoor Done'] === 'Yes';
@@ -842,6 +852,7 @@ window.FC_LIVE = true;
     try {
       const j = await api('status', { customer: S.visit.cust, building: S.visit.bldg, checkType: S.visit.check });
       RECORDS.splice(0, RECORDS.length, ...RECORDS.filter(r => !(r.customer === S.visit.cust && r.building === S.visit.bldg && r.check === S.visit.check)));
+      SYSTEMS.splice(0, SYSTEMS.length, ...SYSTEMS.filter(x => !x.orphan));   // stand-ins are rebuilt below only if still unlinked
       (j.systems || []).forEach(r => { const x = sysFromRow(r), cur = sysById(x.id); if (cur) Object.assign(cur, x); else SYSTEMS.push(x); });   // systems another tech just added
       Object.values(j.done || {}).forEach(r => RECORDS.push(recFromRow(r)));
       await qRefresh(); mergeQueued();
@@ -1039,9 +1050,10 @@ window.FC_LIVE = true;
           : h && h.i ? '<span class="pill-warn">Indoor done · Outdoor pending</span>' : h && h.o ? '<span class="pill-warn">Outdoor done · Indoor pending</span>' : '<span class="pill-todo">Needs inventory</span>'; }
       else right = rec ? statusPill(rec) : '<span class="pill-todo">Not started</span>';
       const sub = rec ? `Checked ${tm(rec.time)} by ${esc(rec.tech)}${sysSub(s) ? ' · ' + esc(sysSub(s)) : ''}` : esc(sysSub(s) || 'No details yet');
-      return `<button type="button" class="unit" data-act="openSys" data-id="${s.id}" ${ok ? '' : 'disabled'}>
-        <span class="name">System ${esc(s.number)} ${typeChip(s.type)}</span><span class="sub">${sub}</span>
-        <span class="right">${right}${ok ? '<span class="chev">›</span>' : ''}</span></button>`;
+      return `<div class="unit-row"><button type="button" class="unit" data-act="openSys" data-id="${s.id}" ${ok ? '' : 'disabled'}>
+        <span class="name">System ${esc(s.number)} ${typeChip(s.type)}</span><span class="sub">${s.orphan ? '<b class="orphan">Not on the equipment list: tell the office</b> · ' : ''}${sub}</span>
+        <span class="right">${right}${ok ? '<span class="chev">›</span>' : ''}</span></button>
+        <button type="button" class="info-btn" data-act="sysInfo" data-id="${s.id}" aria-label="System ${esc(s.number)} info">i</button></div>`;
     }).join('');
     $('app').innerHTML = `
       ${note('<b>Visit setup.</b> Pick the customer, building and check type once. Systems are numbered in order for the building, whatever their type. The type decides which checklist opens.')}
@@ -2111,18 +2123,57 @@ Rules: copy model and serial character for character and list any field with unr
     finally { btn.disabled = false; btn.textContent = label; }
   }
 
+
+  // Read-only system info (from the list's ⓘ button or the confirm pop-up)
+  function sysInfoSheet(id) {
+    const s = sysById(id); if (!s) return;
+    const last = RECORDS.filter(r => r.systemId === s.id).sort((a, b) => b.time - a.time)[0];
+    const secs = inspSections(s, s).filter(([t]) => t !== 'Halves').map(([t, items]) => [t, items.filter(([, v]) => v && v !== '—')]).filter(([, items]) => items.length);
+    sheet(`<h3>System ${esc(s.number)} · ${esc(s.type)}</h3><div class="muted">${esc(s.customer)} · ${esc(s.building)}${s.status === 'Replaced' ? ' · Replaced' : ''}</div>
+      ${s.orphan ? '<div class="warn" style="margin-top:8px">This system is missing from the equipment list. Its checks still show, but tell the office so they can link it.</div>' : ''}
+      <div class="info-scroll">${secs.map(([t, items]) => `<div class="info-sec"><div class="info-h">${esc(t)}</div>${items.map(([k, v]) => `<div class="kv"><span class="k">${esc(k)}</span><span class="v">${esc(v)}</span></div>`).join('')}</div>`).join('')}
+        <div class="info-sec"><div class="info-h">History</div><div class="kv"><span class="k">Age</span><span class="v">${sysAge(s) != null ? sysAge(s) + ' years' : '—'}</span></div>
+          ${s.checks != null ? `<div class="kv"><span class="k">Checks on file</span><span class="v">${s.checks}</span></div>` : ''}
+          ${last ? `<div class="kv"><span class="k">Last check here</span><span class="v">${esc(CHECK_LABEL[last.check])} · ${when(last.time)} · ${esc(last.tech)}</span></div>` : ''}</div></div>
+      <div class="sheet-actions">${canTechEdit(s) ? `<button type="button" class="btn" data-act="editSys" data-id="${esc(s.id)}">Edit</button>` : ''}<button type="button" class="btn primary" data-act="closeSheet">Close</button></div>`);
+  }
+
   // ---------------------------------------------------------------- SYSTEMS (admin list) + SYSTEM EDITOR
   // Techs may edit a system until its first heat / AC / filter check; after that only admin (the script enforces it too)
   const canTechEdit = s => S.role === 'tech' && !(s.checks > 0) && !RECORDS.some(r => r.systemId === s.id && r.check !== 'Inspection');
+  // Checks whose system was removed from the Systems tab (e.g. a row deleted by hand): link them to the right system
+  async function loadOrphans() {
+    if (!LIVE || S.orphLoading) return; S.orphLoading = true;
+    try { const j = await api('orphans'); S.orphans = j.rows || []; } catch { S.orphans = []; }
+    S.orphLoading = false; if (S.role === 'admin' && S.admin === 'systems') render();
+  }
+  function orphanCard() {
+    const list = (S.orphans || []).filter(o => !S.sf.cust || o['Customer'] === S.sf.cust);
+    if (!list.length) return '';
+    return `<section class="card stack orphans"><h2>Checks without a system</h2><div class="muted">These checks point to a system that is no longer on the Systems tab, so techs see a duplicate. Link each one to the right system.</div>
+      ${list.map(o => { const match = SYSTEMS.find(x => x.status !== 'Replaced' && !x.orphan && x.customer === o['Customer'] && x.building === o['Building'] && String(x.number) === String(o['System Number']));
+        return `<div class="orph"><div><b>${esc(o['Customer'])} · ${esc(o['Building'])} · System ${esc(o['System Number'])}</b><div class="muted">${esc(o._checklist)} · ${esc(String(o['Date / Time']).slice(0, 16))} · ${esc(o['Technician'] || '')}</div></div>
+          ${match ? `<button type="button" class="btn sm" data-act="relink" data-tab="${esc(o._checklist)}" data-rid="${esc(o['Record ID'])}" data-sys="${esc(match.id)}">Link to System ${esc(match.number)}</button>` : '<span class="muted">No matching system: add it, then link</span>'}</div>`; }).join('')}</section>`;
+  }
+  async function relinkCheck(btn) {
+    btn.disabled = true; btn.textContent = 'Linking…';
+    try { await api('relinkCheck', { checklist: btn.dataset.tab, id: btn.dataset.rid, systemId: btn.dataset.sys });
+      S.orphans = (S.orphans || []).filter(o => o['Record ID'] !== btn.dataset.rid);
+      const r = [...RECORDS, ...(S.adminRecs || [])].find(x => x.id === btn.dataset.rid); if (r) r.systemId = btn.dataset.sys;
+      S.statusKey = null; S.adminKey = null; render(); toast('Check linked'); }
+    catch (e) { btn.disabled = false; btn.textContent = 'Link'; toast(e.message, 4500); }
+  }
   function renderSystems() {
+    if (LIVE && S.orphans === undefined) loadOrphans();
     const f = S.sf, custs = [...new Set(SYSTEMS.map(x => x.customer))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
     if (!f.cust && custs.length) f.cust = custs[0];
     const bldgs = buildingsOf(f.cust);
-    const list = SYSTEMS.filter(x => x.customer === f.cust && (!f.bldg || x.building === f.bldg) && (f.repl || x.status !== 'Replaced'))
+    const list = SYSTEMS.filter(x => !x.orphan && x.customer === f.cust && (!f.bldg || x.building === f.bldg) && (f.repl || x.status !== 'Replaced'))
       .sort((a, b) => a.building.localeCompare(b.building, undefined, { numeric: true }) || byNum(a.number, b.number) || (a.status === 'Replaced') - (b.status === 'Replaced'));
     const groups = {}; list.forEach(x => (groups[x.building] ||= []).push(x));
     $('app').innerHTML = `${adminTabs('systems')}
       ${note('<b>Equipment list.</b> Tap a system to correct its info, fill in details later, or record that it was replaced.')}
+      ${orphanCard()}
       <section class="card stack"><div class="grid2"><label class="fl">Customer<select data-sf="cust">${custs.map(c => `<option ${c === f.cust ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>
         <label class="fl">Building<select data-sf="bldg"><option value="">All buildings</option>${bldgs.map(b => `<option ${b === f.bldg ? 'selected' : ''}>${esc(b)}</option>`).join('')}</select></label></div>
         <label class="chk"><input type="checkbox" data-sf="repl" ${f.repl ? 'checked' : ''}> Show replaced systems</label></section>
@@ -2240,7 +2291,8 @@ Rules: copy model and serial character for character and list any field with unr
           <div class="cb-row"><span>Customer</span><b>${esc(s.customer)}</b></div><div class="cb-row"><span>Building</span><b>${esc(s.building)}</b></div>
           <div class="cb-row"><span>System</span><b>System ${esc(s.number)} · ${esc(s.type)}</b></div>${extra ? `<div class="cb-row"><span></span><b class="muted">${esc(extra)}</b></div>` : ''}
           <div class="cb-row"><span>Check</span><b>${esc(CHECK_LABEL[S.visit.check])}</b></div></div>
-          ${canTechEdit(s) ? `<button type="button" class="linkbtn" data-act="editSys" data-id="${esc(s.id)}" style="margin-top:6px">Something wrong? Edit system info</button>` : ''}
+          <div class="row-links"><button type="button" class="linkbtn" data-act="sysInfo" data-id="${esc(s.id)}">View system info</button>
+          ${canTechEdit(s) ? `<button type="button" class="linkbtn" data-act="editSys" data-id="${esc(s.id)}">Something wrong? Edit system info</button>` : ''}</div>
           <div class="sheet-actions"><button type="button" class="btn" data-act="closeSheet">Not this one</button><button type="button" class="btn primary" data-act="confirmSys" data-id="${esc(s.id)}">Yes, start</button></div>`);
         break; }
       case 'confirmSys': { $('sheet').innerHTML = ''; const s = sysById(t.dataset.id);
@@ -2296,6 +2348,8 @@ Rules: copy model and serial character for character and list any field with unr
       case 'fsumCsv': fsumCsv(); break;
       case 'fsumPdf': fsumPdf(t); break;
       case 'editSys': $('sheet').innerHTML = ''; openSysEdit(t.dataset.id, 'edit'); break;
+      case 'sysInfo': sysInfoSheet(t.dataset.id); break;
+      case 'relink': relinkCheck(t); break;
       case 'sysReplace': openSysEdit(S.sysEdit.id, 'replace'); break;
       case 'sysSave': trySysSave(); break;
       case 'sysSaveGo': sysSaveGo(t.dataset.fix === '1'); break;
