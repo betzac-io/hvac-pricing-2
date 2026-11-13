@@ -390,7 +390,8 @@ window.FC_LIVE = true;
 
   const SEC = {
     heat: (opts) => ({ key: 'heat', title: 'Heat Source', always: true, fields: [F.heat(opts)] }),
-    filters: () => ({ key: 'filters', title: 'Filters', fields: [F.filterCond(), F.filter(1), F.filter(2, true)] }),
+    // the evaporator coil is checked with the filters on every RTU / split check (heat, cooling, filter change)
+    filters: () => ({ key: 'filters', title: 'Filters', fields: [F.filterCond(), F.filter(1), F.filter(2, true), { id: 'evapClean', l: 'Is Evaporator Coil Clean?', t: 'seg', o: GYR }] }),
     electrical: hs => ({ key: 'electrical', title: 'Electrical', hs, fields: [F.hv(), F.lv()] }),
     beltBlower: hs => ({ key: 'belt-blower', title: 'Belt & Blower', hs, fields: [
       { id: 'beltCond', l: 'Belt Condition', t: 'seg', o: ['Green', 'Red', 'Direct Drive'],
@@ -428,7 +429,6 @@ window.FC_LIVE = true;
       { id: 'elimit', l: 'High Limit Switch Condition', t: 'seg', o: GB, bad: ['Bad'] }] }),
     hpHeat: ({ circuits, comps, temps, suction }, hs) => {
       const f = [
-        { id: 'evapClean', l: 'Is Evaporator Coil Clean?', t: 'seg', o: GYR },
         { id: 'rv', l: 'Reversing Valve', t: 'seg', o: GB, bad: ['Bad'] },
         { id: 'defrost', l: 'Defrost Cycle', t: 'seg', o: GB, bad: ['Bad'] },
         { id: 'odCoil', l: 'Outdoor Coil', t: 'seg', o: GYR },
@@ -467,7 +467,6 @@ window.FC_LIVE = true;
       return { key: 'circuit', title: 'Refrigeration Circuit', fields: f };
     },
     coils: pan => ({ key: 'coils', title: 'Coils & Drain', fields: [
-      { id: 'evapCoil', l: 'Evaporator Coil Condition', t: 'seg', o: GYR },
       { id: 'condCoil', l: 'Condenser Coil Condition', t: 'seg', o: GYR },
       { id: 'condCleaned', l: 'Condenser Coil Cleaned', t: 'seg', o: ['Yes', 'No'] },
       { id: 'drain', l: 'Condensate Drain', t: 'seg', o: ['Clear', 'Slow', 'Clogged'], warn: ['Slow'], bad: ['Clogged'] },
