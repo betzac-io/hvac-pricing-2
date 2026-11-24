@@ -369,7 +369,7 @@ window.FC_LIVE = true;
   // =====================================================================
   const NA = 'Not Applicable';
   const GYR = ['Green', 'Yellow', 'Red'], GB = ['Good', 'Bad'];
-  const HEATED = ['Gas', 'Electric', 'Heat Pump', 'Unknown'];
+  const HEATED = ['Gas', 'Electric', 'Heat Pump', 'TBD'];
   const n_ = (n, i) => (n > 1 ? ' ' + i : '');
 
   // Field types: seg, list (dropdown + other, from a list), qty, num (number, optional N/A), text, textarea,
@@ -491,18 +491,18 @@ window.FC_LIVE = true;
   }
 
   const CHECKLISTS = {
-    'RTU|Heating': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None', 'Unknown']), SEC.filters(), SEC.electrical(HEATED), SEC.beltBlower(HEATED), SEC.inducer(2, ['Gas']),
+    'RTU|Heating': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None', 'TBD']), SEC.filters(), SEC.electrical(HEATED), SEC.beltBlower(HEATED), SEC.inducer(2, ['Gas']),
       SEC.gas(2, 'Spark Ignitor', ['Gas']), SEC.elecHeat('Electric / Auxiliary Heat', ['Electric', 'Heat Pump']), SEC.hpHeat({ circuits: 2, comps: 4, temps: true }, ['Heat Pump']), SEC.tstat(HEATED)],
-    'Residential Split System|Heating': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None', 'Unknown']), SEC.filters(), SEC.electrical(HEATED), SEC.blower(HEATED), SEC.inducer(1, ['Gas']),
+    'Residential Split System|Heating': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None', 'TBD']), SEC.filters(), SEC.electrical(HEATED), SEC.blower(HEATED), SEC.inducer(1, ['Gas']),
       SEC.gas(1, 'Hot Surface Ignitor', ['Gas']), SEC.venting(['Gas']), SEC.elecHeat('Electric / Auxiliary Heat', ['Electric', 'Heat Pump']), SEC.hpHeat({ circuits: 1, comps: 1, suction: true }, ['Heat Pump']),
       SEC.duct(HEATED), SEC.tstat(HEATED)],
-    'Commercial Split System|Heating': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None', 'Unknown']), SEC.filters(), SEC.electrical(HEATED), SEC.beltBlower(HEATED), SEC.inducer(2, ['Gas']),
+    'Commercial Split System|Heating': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None', 'TBD']), SEC.filters(), SEC.electrical(HEATED), SEC.beltBlower(HEATED), SEC.inducer(2, ['Gas']),
       SEC.gas(2, 'Spark Ignitor', ['Gas']), SEC.elecHeat('Electric / Auxiliary Heat', ['Electric', 'Heat Pump']), SEC.hpHeat({ circuits: 2, comps: 2, temps: true, suction: true }, ['Heat Pump']), SEC.tstat(HEATED)],
-    'Unit Heater|Heating': () => [SEC.heat(['Gas', 'Electric', 'Unknown']), SEC.electrical(), SEC.beltBlower(), SEC.inducer(1, ['Gas'], true), SEC.gas(1, 'Ignitor', ['Gas']), SEC.venting(['Gas']),
+    'Unit Heater|Heating': () => [SEC.heat(['Gas', 'Electric', 'TBD']), SEC.electrical(), SEC.beltBlower(), SEC.inducer(1, ['Gas'], true), SEC.gas(1, 'Ignitor', ['Gas']), SEC.venting(['Gas']),
       SEC.elecHeat('Electric Heat', ['Electric']), SEC.tstat()],
-    'RTU|Cooling': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None', 'Unknown']), SEC.filters(), SEC.electrical(), SEC.beltBlower(), SEC.circuit(2), SEC.coils(false), SEC.airflow(), SEC.hpCool(), SEC.tstat()],
-    'Residential Split System|Cooling': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None', 'Unknown']), SEC.filters(), SEC.electrical(), SEC.blower(), SEC.circuit(1), SEC.coils(true), SEC.airflow(), SEC.hpCool(), SEC.duct(), SEC.tstat()],
-    'Commercial Split System|Cooling': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None', 'Unknown']), SEC.filters(), SEC.electrical(), SEC.beltBlower(), SEC.circuit(2), SEC.coils(true), SEC.airflow(), SEC.hpCool(), SEC.duct(), SEC.tstat()],
+    'RTU|Cooling': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None', 'TBD']), SEC.filters(), SEC.electrical(), SEC.beltBlower(), SEC.circuit(2), SEC.coils(false), SEC.airflow(), SEC.hpCool(), SEC.tstat()],
+    'Residential Split System|Cooling': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None', 'TBD']), SEC.filters(), SEC.electrical(), SEC.blower(), SEC.circuit(1), SEC.coils(true), SEC.airflow(), SEC.hpCool(), SEC.duct(), SEC.tstat()],
+    'Commercial Split System|Cooling': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None', 'TBD']), SEC.filters(), SEC.electrical(), SEC.beltBlower(), SEC.circuit(2), SEC.coils(true), SEC.airflow(), SEC.hpCool(), SEC.duct(), SEC.tstat()],
     'RTU|Filters': () => [SEC.filters(), { key: 'notes', title: 'Notes', fields: [F.attn(), { id: 'notes', l: 'Notes', t: 'textarea', opt: true }] }],
     'Residential Split System|Filters': () => CHECKLISTS['RTU|Filters'](),
     'Commercial Split System|Filters': () => CHECKLISTS['RTU|Filters'](),
@@ -1442,7 +1442,7 @@ window.FC_LIVE = true;
   const INSP_TOP = [
     { k: 'number', l: 'System Number', t: 'text', req: true, ph: 'Typed by the tech (letters or numbers)' },
     { k: 'type', l: 'System Type', t: 'list', list: 'System Types', req: true, noOther: true },
-    { k: 'heat', l: 'Heat Source', t: 'seg', o: ['Gas', 'Electric', 'Heat Pump', 'None', 'Unknown'], req: true },
+    { k: 'heat', l: 'Heat Source', t: 'seg', o: ['Gas', 'Electric', 'Heat Pump', 'None', 'TBD'], req: true },
   ];
   const INSP_INFO = [
     { k: 'suite', l: 'Suite', t: 'text', ph: 'e.g. 100A (blank = N/A)' },
@@ -1747,7 +1747,7 @@ Rules: copy model and serial character for character and list any field with unr
       if (hit) { sel.value = hit; if (o) o.hidden = true; } else if (o) { sel.value = '__o'; o.hidden = false; o.value = v; o.classList.add('auto'); } else return; mark(c, sel, key); };
     putList(tgt('make'), r.manufacturer, 'manufacturer'); putText('model', r.model, 'model'); putText('serial', r.serial, 'serial');
     if (!comp && r.systemType && !$('i-type').value) { putList(INSP.find(c => c.k === 'type'), r.systemType, 'systemtype'); inspVis(); }
-    if (!comp && r.heatSource && !radio('i-heat') && ['Gas', 'Electric', 'Heat Pump', 'None', 'Unknown'].includes(r.heatSource)) { setRadio('i-heat', r.heatSource); filled.push('Heat Source'); inspVis(); }
+    if (!comp && r.heatSource && !radio('i-heat') && ['Gas', 'Electric', 'Heat Pump', 'None', 'TBD'].includes(r.heatSource)) { setRadio('i-heat', r.heatSource); filled.push('Heat Source'); inspVis(); }
     putText('size', r.size, 'size'); putText('mfg', r.manufactureDate, 'manufacturedate'); putList(tgt('refrigerant'), r.refrigerant, 'refrigerant');
     box.className = 'card ocr';
     box.innerHTML = `<div class="row"><b>${filled.length ? `${comp ? esc(COMP[comp]) + ': f' : 'F'}illed in from the label: ${esc(filled.join(', '))}` : 'Nothing readable on the label'}</b><button type="button" class="btn sm" data-act="undoLabel">Undo</button></div>
