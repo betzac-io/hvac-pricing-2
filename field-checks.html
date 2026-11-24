@@ -369,7 +369,7 @@ window.FC_LIVE = true;
   // =====================================================================
   const NA = 'Not Applicable';
   const GYR = ['Green', 'Yellow', 'Red'], GB = ['Good', 'Bad'];
-  const HEATED = ['Gas', 'Electric', 'Heat Pump'];
+  const HEATED = ['Gas', 'Electric', 'Heat Pump', 'Unknown'];
   const n_ = (n, i) => (n > 1 ? ' ' + i : '');
 
   // Field types: seg, list (dropdown + other, from a list), qty, num (number, optional N/A), text, textarea,
@@ -386,7 +386,7 @@ window.FC_LIVE = true;
     attn: () => ({ id: 'attn', l: 'System Needs Attention', t: 'flag', text: 'Something concerning or wrong', opt: true }),
     amps: () => ({ id: 'blowerAmps', l: 'Blower Motor Amp Draw', t: 'num', unit: 'A' }),
   };
-  const blowerFields = () => [F.blowerCap(), F.wheel(), F.amps()];
+  const blowerFields = () => [F.wheel(), F.blowerCap(), F.amps()];
 
   const SEC = {
     heat: (opts) => ({ key: 'heat', title: 'Heat Source', always: true, fields: [F.heat(opts)] }),
@@ -400,22 +400,22 @@ window.FC_LIVE = true;
     blower: hs => ({ key: 'blower', title: 'Blower', hs, fields: blowerFields() }),
     inducer: (n, hs, naFirst) => ({ key: 'inducer', title: 'Inducer', hs, fields: Array.from({ length: n }, (_, k) => {
       const i = k + 1, set = {}, allowNA = i > 1 || naFirst || n > 1;
-      set['indAmps' + i] = NA;
-      for (let j = i + 1; j <= n; j++) { set['ind' + j] = { rated: NA }; set['indAmps' + j] = NA; }
+      for (let j = i + 1; j <= n; j++) set['ind' + j] = { rated: NA };
       return [{ id: 'ind' + i, l: 'Inducer Fan Motor' + n_(n, i) + ' Run Capacitor', t: 'cap', list: 'Inducer Cap Sizes', allowNA,
-        fills: allowNA ? { when: NA, set } : null },
+        fills: allowNA && i < n ? { when: NA, set } : null },
         { id: 'indAmps' + i, l: 'Inducer Fan Motor' + n_(n, i) + ' Amp Draw', t: 'num', unit: 'A', na: allowNA }];
     }).flat() }),
     gas: (n, ign, hs) => {
       const stage2 = { hx2: NA, ps2: NA, ig2: NA, gv2: NA }, f = [];
       const two = i => i > 1;
       for (let i = 1; i <= n; i++) f.push({ id: 'hx' + i, l: 'Heat Exchanger' + n_(n, i) + ' Condition', t: 'seg', o: two(i) ? [...GYR, NA] : GYR, fills: i === 2 ? { when: NA, set: { ps2: NA, ig2: NA, gv2: NA } } : null });
-      f.push({ id: 'gasLeak', l: 'Gas Leaks Detected', t: 'seg', o: ['No', 'Yes'], bad: ['Yes'] });
+      f.push({ id: 'gasLeak', l: 'Gas Leaks Detected', t: 'seg', o: ['No', 'Yes', 'No Gas Service'], bad: ['Yes'], warn: ['No Gas Service'],
+        fills: { when: 'No Gas Service', set: Object.fromEntries([...Array.from({ length: n }, (_, k) => 'gv' + (k + 1)), 'limit', 'safeties'].map(k => [k, 'TBD'])) } });
       f.push({ id: 'flame', l: 'Flame Sensor Condition', t: 'seg', o: ['Sanded', 'Good', 'Bad'], bad: ['Bad'], hint: 'Good = working but not easily accessible' });
       for (let i = 1; i <= n; i++) f.push({ id: 'ps' + i, l: 'Pressure Switch' + n_(n, i), t: 'seg', o: [...GB, NA], bad: ['Bad'] });
       for (let i = 1; i <= n; i++) f.push({ id: 'ig' + i, l: ign + n_(n, i) + ' Condition', t: 'seg', o: two(i) ? [...GB, NA] : GB, bad: ['Bad'] });
-      for (let i = 1; i <= n; i++) f.push({ id: 'gv' + i, l: 'Gas Valve' + n_(n, i), t: 'seg', o: two(i) ? [...GB, NA] : GB, bad: ['Bad'], fills: i === 2 ? { when: NA, set: { hx2: NA, ps2: NA, ig2: NA } } : null });
-      f.push({ id: 'limit', l: 'High Limit Condition', t: 'seg', o: GB, bad: ['Bad'] }, { id: 'safeties', l: 'Safeties Condition', t: 'seg', o: GB, bad: ['Bad'] });
+      for (let i = 1; i <= n; i++) f.push({ id: 'gv' + i, l: 'Gas Valve' + n_(n, i), t: 'seg', o: two(i) ? [...GB, NA, 'TBD'] : [...GB, 'TBD'], bad: ['Bad'], fills: i === 2 ? { when: NA, set: { hx2: NA, ps2: NA, ig2: NA } } : null });
+      f.push({ id: 'limit', l: 'High Limit Condition', t: 'seg', o: [...GB, 'TBD'], bad: ['Bad'] }, { id: 'safeties', l: 'Safeties Condition', t: 'seg', o: [...GB, 'TBD'], bad: ['Bad'] });
       return { key: 'gas', title: 'Gas & Safeties', hs, fields: f };
     },
     venting: hs => ({ key: 'venting', title: 'Combustion & Venting', hs, fields: [
@@ -491,18 +491,18 @@ window.FC_LIVE = true;
   }
 
   const CHECKLISTS = {
-    'RTU|Heating': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None']), SEC.filters(), SEC.electrical(HEATED), SEC.beltBlower(HEATED), SEC.inducer(2, ['Gas']),
+    'RTU|Heating': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None', 'Unknown']), SEC.filters(), SEC.electrical(HEATED), SEC.beltBlower(HEATED), SEC.inducer(2, ['Gas']),
       SEC.gas(2, 'Spark Ignitor', ['Gas']), SEC.elecHeat('Electric / Auxiliary Heat', ['Electric', 'Heat Pump']), SEC.hpHeat({ circuits: 2, comps: 4, temps: true }, ['Heat Pump']), SEC.tstat(HEATED)],
-    'Residential Split System|Heating': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None']), SEC.filters(), SEC.electrical(HEATED), SEC.blower(HEATED), SEC.inducer(1, ['Gas']),
+    'Residential Split System|Heating': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None', 'Unknown']), SEC.filters(), SEC.electrical(HEATED), SEC.blower(HEATED), SEC.inducer(1, ['Gas']),
       SEC.gas(1, 'Hot Surface Ignitor', ['Gas']), SEC.venting(['Gas']), SEC.elecHeat('Electric / Auxiliary Heat', ['Electric', 'Heat Pump']), SEC.hpHeat({ circuits: 1, comps: 1, suction: true }, ['Heat Pump']),
       SEC.duct(HEATED), SEC.tstat(HEATED)],
-    'Commercial Split System|Heating': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None']), SEC.filters(), SEC.electrical(HEATED), SEC.beltBlower(HEATED), SEC.inducer(2, ['Gas']),
+    'Commercial Split System|Heating': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None', 'Unknown']), SEC.filters(), SEC.electrical(HEATED), SEC.beltBlower(HEATED), SEC.inducer(2, ['Gas']),
       SEC.gas(2, 'Spark Ignitor', ['Gas']), SEC.elecHeat('Electric / Auxiliary Heat', ['Electric', 'Heat Pump']), SEC.hpHeat({ circuits: 2, comps: 2, temps: true, suction: true }, ['Heat Pump']), SEC.tstat(HEATED)],
-    'Unit Heater|Heating': () => [SEC.heat(['Gas', 'Electric']), SEC.electrical(), SEC.beltBlower(), SEC.inducer(1, ['Gas'], true), SEC.gas(1, 'Ignitor', ['Gas']), SEC.venting(['Gas']),
+    'Unit Heater|Heating': () => [SEC.heat(['Gas', 'Electric', 'Unknown']), SEC.electrical(), SEC.beltBlower(), SEC.inducer(1, ['Gas'], true), SEC.gas(1, 'Ignitor', ['Gas']), SEC.venting(['Gas']),
       SEC.elecHeat('Electric Heat', ['Electric']), SEC.tstat()],
-    'RTU|Cooling': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None']), SEC.filters(), SEC.electrical(), SEC.beltBlower(), SEC.circuit(2), SEC.coils(false), SEC.airflow(), SEC.hpCool(), SEC.tstat()],
-    'Residential Split System|Cooling': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None']), SEC.filters(), SEC.electrical(), SEC.blower(), SEC.circuit(1), SEC.coils(true), SEC.airflow(), SEC.hpCool(), SEC.duct(), SEC.tstat()],
-    'Commercial Split System|Cooling': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None']), SEC.filters(), SEC.electrical(), SEC.beltBlower(), SEC.circuit(2), SEC.coils(true), SEC.airflow(), SEC.hpCool(), SEC.duct(), SEC.tstat()],
+    'RTU|Cooling': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None', 'Unknown']), SEC.filters(), SEC.electrical(), SEC.beltBlower(), SEC.circuit(2), SEC.coils(false), SEC.airflow(), SEC.hpCool(), SEC.tstat()],
+    'Residential Split System|Cooling': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None', 'Unknown']), SEC.filters(), SEC.electrical(), SEC.blower(), SEC.circuit(1), SEC.coils(true), SEC.airflow(), SEC.hpCool(), SEC.duct(), SEC.tstat()],
+    'Commercial Split System|Cooling': () => [SEC.heat(['Gas', 'Electric', 'Heat Pump', 'None', 'Unknown']), SEC.filters(), SEC.electrical(), SEC.beltBlower(), SEC.circuit(2), SEC.coils(true), SEC.airflow(), SEC.hpCool(), SEC.duct(), SEC.tstat()],
     'RTU|Filters': () => [SEC.filters(), { key: 'notes', title: 'Notes', fields: [F.attn(), { id: 'notes', l: 'Notes', t: 'textarea', opt: true }] }],
     'Residential Split System|Filters': () => CHECKLISTS['RTU|Filters'](),
     'Commercial Split System|Filters': () => CHECKLISTS['RTU|Filters'](),
@@ -750,7 +750,7 @@ window.FC_LIVE = true;
   const sharedOn = () => !LIVE && $('opt-shared').checked;
   const note = html => showNotes() ? `<div class="note">${html}</div>` : '';
   function toast(m, ms = 2800) { const t = $('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), ms); }
-  const byNum = (a, b) => (parseFloat(a) || 0) - (parseFloat(b) || 0) || String(a).localeCompare(String(b));
+  const byNum = (a, b) => String(a ?? '').localeCompare(String(b ?? ''), undefined, { numeric: true, sensitivity: 'base' });
   const buildingsOf = c => [...new Set([...SYSTEMS.filter(s => s.customer === c).map(s => s.building), ...(S.extraBldgs[c] || [])])].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   const recFor = (sysId, check) => RECORDS.find(r => r.systemId === sysId && r.check === check);
   function recSections(rec) { const s = sysById(rec.systemId); const fn = s && CHECKLISTS[s.type + '|' + rec.check]; return rec.check === 'Inspection' || !fn ? [] : fn(); }
@@ -1440,9 +1440,9 @@ window.FC_LIVE = true;
     { f: 'mfg', l: 'Manufacture Date', t: 'text', ph: 'e.g. Mar 2017' },
   ];
   const INSP_TOP = [
-    { k: 'number', l: 'System Number', t: 'text', req: true, ph: 'Typed by the tech', im: 'numeric' },
+    { k: 'number', l: 'System Number', t: 'text', req: true, ph: 'Typed by the tech (letters or numbers)' },
     { k: 'type', l: 'System Type', t: 'list', list: 'System Types', req: true, noOther: true },
-    { k: 'heat', l: 'Heat Source', t: 'seg', o: ['Gas', 'Electric', 'Heat Pump', 'None'], req: true },
+    { k: 'heat', l: 'Heat Source', t: 'seg', o: ['Gas', 'Electric', 'Heat Pump', 'None', 'Unknown'], req: true },
   ];
   const INSP_INFO = [
     { k: 'suite', l: 'Suite', t: 'text', ph: 'e.g. 100A (blank = N/A)' },
@@ -1747,7 +1747,7 @@ Rules: copy model and serial character for character and list any field with unr
       if (hit) { sel.value = hit; if (o) o.hidden = true; } else if (o) { sel.value = '__o'; o.hidden = false; o.value = v; o.classList.add('auto'); } else return; mark(c, sel, key); };
     putList(tgt('make'), r.manufacturer, 'manufacturer'); putText('model', r.model, 'model'); putText('serial', r.serial, 'serial');
     if (!comp && r.systemType && !$('i-type').value) { putList(INSP.find(c => c.k === 'type'), r.systemType, 'systemtype'); inspVis(); }
-    if (!comp && r.heatSource && !radio('i-heat') && ['Gas', 'Electric', 'Heat Pump', 'None'].includes(r.heatSource)) { setRadio('i-heat', r.heatSource); filled.push('Heat Source'); inspVis(); }
+    if (!comp && r.heatSource && !radio('i-heat') && ['Gas', 'Electric', 'Heat Pump', 'None', 'Unknown'].includes(r.heatSource)) { setRadio('i-heat', r.heatSource); filled.push('Heat Source'); inspVis(); }
     putText('size', r.size, 'size'); putText('mfg', r.manufactureDate, 'manufacturedate'); putList(tgt('refrigerant'), r.refrigerant, 'refrigerant');
     box.className = 'card ocr';
     box.innerHTML = `<div class="row"><b>${filled.length ? `${comp ? esc(COMP[comp]) + ': f' : 'F'}illed in from the label: ${esc(filled.join(', '))}` : 'Nothing readable on the label'}</b><button type="button" class="btn sm" data-act="undoLabel">Undo</button></div>
@@ -2455,7 +2455,7 @@ Rules: copy model and serial character for character and list any field with unr
   document.addEventListener('input', e => {
     if (e.target.closest && e.target.closest('#app') && ((S.role === 'tech' && S.view !== 'visit') || S.admin === 'edit')) S.dirty = true;
     if (e.target.classList && e.target.classList.contains('auto')) e.target.classList.remove('auto', 'unsure');
-    if ((S.role === 'tech' && S.view === 'check') || (S.role === 'admin' && S.admin === 'edit')) { if (e.target.matches('input, textarea')) { e.target.closest('.invalid')?.classList.remove('invalid'); e.target.classList.remove('invalid'); derive(); } }
+    if ((S.role === 'tech' && S.view === 'check') || (S.role === 'admin' && S.admin === 'edit')) { if (e.target.matches('input:not([type=radio]):not([type=checkbox]), textarea')) { e.target.closest('.invalid')?.classList.remove('invalid'); e.target.classList.remove('invalid'); derive(); } }
   });
 
   document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'pin') document.querySelector('[data-act=signin]').click(); });
